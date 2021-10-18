@@ -230,3 +230,15 @@ if __name__ == "__main__":
         check=True,
         capture_output=True,
     )
+    subprocess.run(
+        [
+            "python",
+            *common_args,
+            "-P",
+            "Django>=4.0a1,<4.1",
+            "-o",
+            "py310-django40.txt",
+        ],
+        check=True,
+        capture_output=True,
+    )
