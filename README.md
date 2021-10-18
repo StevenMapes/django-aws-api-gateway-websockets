@@ -40,6 +40,14 @@ Feature requests can be raised by creating an issue within the [project issue pa
 # Documentation
 TBA
 
+# Compiling Requirements
+Run ```pip install pip-tools``` then run compile.py to generate the various requirements files
+Also require ```pytest-django``` for testing
+
+# Testing
+# pip-tools
+# tox
+
 # Contributing
 - [Check for open issues](https://github.com/StevenMapes/django-aws-api-gateway-websockets/issues) at the project issue page or open a new issue to start a discussion about a feature or bug.
 - Fork the [repository on GitHub](https://github.com/StevenMapes/django-aws-api-gateway-websockets) to start making changes.

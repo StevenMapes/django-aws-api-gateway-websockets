@@ -1,0 +1,1 @@
+Please report security issues directly over email to steve@jigsawtech.co.uk
