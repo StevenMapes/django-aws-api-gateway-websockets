@@ -20,7 +20,7 @@ jobs:
         - 3.8
         - 3.9
         - '3.10'
-    env:
+#    env:
 
     steps:
     - uses: actions/checkout@v2
