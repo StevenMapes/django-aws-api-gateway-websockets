@@ -1,6 +1,5 @@
 import json
 import logging
-from typing import Union
 
 from django.conf import settings
 from django.contrib.auth.models import User
@@ -134,8 +133,11 @@ class WebSocketView(View):
             handler = self.missing_headers
         return handler(request, *args, **kwargs)
 
-    def connect(self, request, *args, **kwargs) -> Union[JsonResponse, HttpResponseBadRequest]:
-        """Handle the connection route in a standard way that ensures the User to Connectionid mapping persists"""
+    def connect(self, request, *args, **kwargs):
+        """Handle the connection route in a standard way that ensures the User to Connectionid mapping persists
+
+        :return Union[JsonResponse, HttpResponseBadRequest]
+        """
         if not self._expected_connection_headers(request, *args, **kwargs):
             msg = f'Missing headers; Expected {self.required_connection_headers}, Received {request.headers}'
             return self._return_bad_request(request, msg)
