@@ -22,9 +22,17 @@ project_root = os.path.dirname(cwd)
 # version is used.
 sys.path.insert(0, os.path.join(project_root, "src"))
 
+
+import os
+import sys
+import django
+sys.path.insert(0, os.path.abspath('..'))
+os.environ['DJANGO_SETTINGS_MODULE'] = 'tests.settings'
+django.setup()
+
 from django.conf import settings  # noqa
 
-settings.configure()
+# settings.configure()
 
 import django_aws_api_gateway_websockets  # noqa
 
