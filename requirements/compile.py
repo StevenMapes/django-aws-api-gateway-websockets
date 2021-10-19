@@ -263,3 +263,5 @@ if __name__ == "__main__":
     # Use SED to remove the --extra-index-url lines from every file
     sed_args = ["sed", "-i", "-e", 's/--extra-index-url .*$//g']
     [subprocess.run([*sed_args, x.name]) for x in Path('.').iterdir() if not x.is_dir() and '.txt' in x.name]
+
+    print("Don't forget to manually remove backports.zoneinfo from py310 as I am running this on a Python 3.8 machine")
