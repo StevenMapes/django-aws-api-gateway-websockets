@@ -14,6 +14,7 @@ if __name__ == "__main__":
         "--generate-hashes",
         "--allow-unsafe",
     ] + sys.argv[1:]
+
     subprocess.run(
         [
             "python",
@@ -242,3 +243,7 @@ if __name__ == "__main__":
         check=True,
         capture_output=True,
     )
+
+    # Use SED to remove the --extra-index-url lines from every file
+    sed_args = ["sed", "-i", "-e", 's/--extra-index-url .*$//g']
+    [subprocess.run([*sed_args, x.name]) for x in Path('.').iterdir() if not x.is_dir() and '.txt' in x.name]

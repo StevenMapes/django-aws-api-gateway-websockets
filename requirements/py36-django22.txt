@@ -4,7 +4,7 @@
 #
 #    requirements/compile.py
 #
---extra-index-url https://pypi.springbourne-tech.com
+
 
 boto3==1.18.64 \
     --hash=sha256:9223b433b0d3b74f2b9574fb3c384048998343ccd6b608044318a7f9b904f661 \
