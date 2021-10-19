@@ -48,14 +48,3 @@ jobs:
       run: |
         coverage combine
         codecov
-#        coverage run tests combine
-#        coverage xml
-#
-#    - name: Upload coverage to Codecov
-#      uses: codecov/codecov-action@v2
-#      with:
-#        token: ${{ secrets.CODECOV_TOKEN }}
-#        flags: unittests # optional
-#        name: codecov-umbrella # optional
-#        fail_ci_if_error: true # optional (default = false)
-#        verbose: true # optional (default = false)
