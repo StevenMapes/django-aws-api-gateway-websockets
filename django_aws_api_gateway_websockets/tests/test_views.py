@@ -47,5 +47,5 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
         res = obj._return_bad_request(request, msg)
 
         logger.warning.assert_called_with(msg, extra={'status_code': 400, 'request': request})
-        self.assertIsInstance(obj, HttpResponseBadRequest)
+        self.assertIsInstance(res, HttpResponseBadRequest)
         self.assertEqual(400, res.status_code)
