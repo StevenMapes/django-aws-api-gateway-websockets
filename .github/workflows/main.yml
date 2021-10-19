@@ -46,7 +46,7 @@ jobs:
 
     - name: Upload coverage
       run: |
-        coverage run tests
+        coverage run tests combine
         codecov
 #        coverage xml
 #
