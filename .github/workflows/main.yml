@@ -46,7 +46,7 @@ jobs:
 
     - name: Upload coverage
       run: |
-        coverage run -m unittest django_aws_api_gateway_websockets combine
+        coverage combine
         codecov
 #        coverage run tests combine
 #        coverage xml
