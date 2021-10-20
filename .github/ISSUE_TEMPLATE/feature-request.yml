@@ -6,7 +6,6 @@ body:
   attributes:
     label: Is your proposal related to a problem/issue?
     description: Please reference any issues linked to this request
-    placeholder: No
   validations:
     required: false
 - type: textarea
