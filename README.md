@@ -17,7 +17,6 @@ Please refer to the installation notes and Getting Start Guides
 
 # Python and Django Support
 This project officially supports Python 3.8+ and Django 3.1+ though it will should also work on Python 3.6+.
-It will not work on Django < 3.1 as it requires support for the PositiveBigInt data type
 
 
 # Installation
