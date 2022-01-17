@@ -2,7 +2,7 @@ import json
 from typing import Union
 
 from django.conf import settings
-from django.http import JsonResponse, HttpResponseBadRequest
+from django.http import HttpResponseBadRequest, JsonResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
@@ -178,7 +178,7 @@ class WebSocketView(View):
 
         WebSocketSession.objects.create(
             connection_id=request.headers["Connectionid"],
-            chennel=request.GET.get("channel", ""),
+            channel=request.GET.get("channel", ""),
             user=request.user,
         )
 
