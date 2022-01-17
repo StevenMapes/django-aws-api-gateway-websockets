@@ -1,3 +1,6 @@
+# 0.0.3 - 17th Jan 2022
+HOTFIX - Fixing toc.ini 
+
 # 0.0.2 - 17th Jan 2022
 HOTFIX - Dropped support for Django < 3.1 due to use of PositiveBigInt and also taking the design choice to drop 
 support of Python <3.8 
