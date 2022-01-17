@@ -179,7 +179,7 @@ class WebSocketView(View):
         WebSocketSession.objects.create(
             connection_id=request.headers["Connectionid"],
             channel=request.GET.get("channel", ""),
-            user=request.user,
+            user=request.user if request.user_id > 0 else None,
         )
 
         return JsonResponse({})
