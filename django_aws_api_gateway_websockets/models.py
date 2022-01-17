@@ -17,7 +17,7 @@ class WebSocketSession(models.Model):
         default="",
         help_text="Used to group connections together",
     )
-    author = models.ForeignKey(
+    user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         blank=True,
         null=True,
