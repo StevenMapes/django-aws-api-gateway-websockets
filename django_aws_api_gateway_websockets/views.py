@@ -118,7 +118,8 @@ class WebSocketView(View):
         wss = WebSocketSession.objects.get(
             connection_id=request.headers["Connectionid"]
         )
-        request.user = wss.user
+        if wss.user:
+            request.user = wss.user
         wss.request_count += 1
         wss.save()
 
