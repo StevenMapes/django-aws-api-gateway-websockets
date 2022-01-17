@@ -57,6 +57,12 @@ Run ```pip install pip-tools``` then run compile.py to generate the various requ
 Also require ```pytest-django``` for testing
 
 # Testing
+1. Clone the repository
+2. Install requirements from one of the requirement files depending on the versions of Python and Django you wish to use.
+3. Initialise pre-commit by running ```pre-commit install```
+
+
+
 # pip-tools
 # tox
 
