@@ -53,21 +53,21 @@ Feature requests can be raised by creating an issue within the [project issue pa
 TBA
 
 # Compiling Requirements
-Run ```pip install pip-tools``` then run compile.py to generate the various requirements files
+Run ```pip install pip-tools``` then run ```python requirements/compile.py``` to generate the various requirements files
 Also require ```pytest-django``` for testing
 
 # Testing
-1. Clone the repository
-2. Install requirements from one of the requirement files depending on the versions of Python and Django you wish to use.
-3. Initialise pre-commit by running ```pre-commit install```
-
-
 
 # pip-tools
+
 # tox
 
 # Contributing
 - [Check for open issues](https://github.com/StevenMapes/django-aws-api-gateway-websockets/issues) at the project issue page or open a new issue to start a discussion about a feature or bug.
 - Fork the [repository on GitHub](https://github.com/StevenMapes/django-aws-api-gateway-websockets) to start making changes.
+- Clone the repository
+- Initialise pre-commit by running ```pre-commit install```
+- Install requirements from one of the requirement files depending on the versions of Python and Django you wish to use.
 - Add a test case to show that the bug is fixed or the feature is implemented correctly.
+- Test using ```python -W error::DeprecationWarning -W error::PendingDeprecationWarning -m coverage run --parallel -m pytest --ds tests.settings```
 - Create a pull request, tagging the issue, bug me until I can merge your pull request. Also, don't forget to add yourself to AUTHORS.
