@@ -17,7 +17,15 @@ Please refer to the installation notes and Getting Start Guides
 
 
 # Installation
-TBA
+## Django
+You can install this package from pip using
+```pip install django-aws-api-gateway-websockets```
+
+### Updating settings.py
+Add ```django_aws_api_gateway_websockets``` into ```INSTALLED_APPS``` 
+
+## AWS Setup
+Create the new **Amazon API Gateway** as a WebSocket API...
 
 # Getting Started
 TBA - This 
