@@ -179,7 +179,7 @@ class WebSocketView(View):
 
         WebSocketSession.objects.create(
             connection_id=request.headers["Connectionid"],
-            channel=request.GET.get("channel", ""),
+            channel_name=request.GET.get("channel", ""),
             user=request.user if request.user.is_authenticated else None,
         )
 
