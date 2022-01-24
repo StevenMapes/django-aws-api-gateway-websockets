@@ -27,6 +27,15 @@ You can install this package from pip using
 ### Updating settings.py
 Add ```django_aws_api_gateway_websockets``` into ```INSTALLED_APPS``` 
 
+Because the API Gateway will run from a subdomain you need to make sure your cookies are setup to allow subdomains.
+Assuming your site runs from www.example.com and you wanted to use ws.www.example.com for websockets you would need to 
+set the below
+```
+SESSION_COOKIE_SAMESITE='Lax'
+SESSION_COOKIE_DOMAIN='.www.example.com'
+CSRF_COOKIE_DOMAIN='.www.example.com'
+```
+
 ## AWS Setup
 Create the new **Amazon API Gateway** as a WebSocket API...
 
