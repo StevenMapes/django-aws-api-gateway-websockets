@@ -16,8 +16,7 @@ The project will keep track of which users created which WebSockets, which ones 
 Please refer to the installation notes and Getting Start Guides
 
 # Python and Django Support
-This project officially supports Python 3.8+ and Django 3.1+ though it will should also work on Python 3.6+.
-
+This project officially supports Python 3.8+ and Django 3.1+.
 
 # Installation
 ## Django
@@ -39,6 +38,15 @@ CSRF_COOKIE_DOMAIN='.www.example.com'
 ## AWS Setup
 Create the new **Amazon API Gateway** as a WebSocket API...
 
+### IAM Permissions
+In order to publish messages to the API Gateway endpoint you will need to grant permissions to the IAM Role, or user, 
+you wish to use.
+
+I'm still reviewing the minimum required permissions but this project has been tested with the following being granted:
+
+1. GET, POST, PATCH and PUT permissions to the API Gateway restricted to the API ID of the API Gateway you created above.
+2. __execute-api__ which is used to send messages again restricted.
+
 # Getting Started
 TBA - This 
 
@@ -48,9 +56,56 @@ This section will guide you through two common ways of connecting to and using t
 ### Basic Integration
 TBA
 
-
 ### Reconnecting WebSockets
+This example is using a 3rd party library
+
 TBA
+
+## Example of sending a message from the server to the client
+The below example assumes that you are running an EC2 instance with an IAM role associated to that instance with the 
+correct permissions. It also assumes you have set a varialbe within settings.py called AWS_REGION_NAME with the 
+region your API Gateway API is in.
+
+The connection ids will be stored within the model ```WebSocketSession```
+
+```python
+import boto3
+import json
+from django.conf import settings
+
+api_id = "PUT-YOUR-API-GATEWAY-ID-HERE"
+stage = "production"  # Change this to wahtever stage your API is at
+region = settings.AWS_REGION_NAME
+
+# This example assumes you wish to send the same mesaage to multiple connections
+connection_ids = ["WebSocket-Connection-ID-1", "WebSocket-Connection-ID-2"]
+
+# Build the payload to sent
+data = json.dumps(dict(msg="This is a server sent message", message="would not be set"))
+
+# Establish the connection
+client = boto3.client(
+    "apigatewaymanagementapi",
+    endpoint_url=f"https://{api_id}.execute-api.{region}.amazonaws.com/{stage}",
+    region_name=settings.AWS_REGION_NAME,
+)
+
+# Iterate and send
+for connection_id in connection_ids:
+    res = client.post_to_connection(Data=data, ConnectionId=connection_id)
+```
+
+If you are using anything other than a instance with an IAM role assigned then you'll need to pass the AWS Acess Key and
+AWS Secret Key within the boto3.client setup. E.G.
+```
+client = boto3.client(
+    'apigatewaymanagementapi', 
+    endpoint_url=f'https://{api_id}.execute-api.{region}.amazonaws.com/{stage}', 
+    aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+    aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+    region_name=settings.AWS_REGION_NAME
+)
+```
 
 # Extending The View
 TBA
