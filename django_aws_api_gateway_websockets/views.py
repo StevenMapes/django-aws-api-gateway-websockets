@@ -74,13 +74,25 @@ class WebSocketView(View):
         request_headers = request.headers.keys()
         return all(h in request_headers for h in self.required_headers)
 
+    def _allowed_apigateway(self, request, *args, **kwargs) -> bool:
+        if self._expected_apigateway_id:
+            return self._expected_apigateway_id(request, *args, **kwargs)
+        else:
+            return self._check_platform_registered_api_gateways(
+                request, *args, **kwargs
+            )
+
     def _expected_apigateway_id(self, request, *args, **kwargs) -> bool:
-        """Ensure expected AWS Gateway ID if one is set, if expected value not set then allow all"""
+        """Ensure AWS Gateway ID in head is expected or that instance allows all I.E is not set"""
         return (
             self.aws_api_gateway_id
             and request.headers["X-Amzn-Apigateway-Api-Id"]
             is not self.aws_api_gateway_id
         )
+
+    def _check_platform_registered_api_gateways(self, request, *args, **kwargs) -> bool:
+        """todo - Implement Check the cache/database for allowed API Gateways"""
+        raise NotImplementedError("This menthod needs to be implemented")
 
     def _expected_useragent(self, request, *args, **kwargs) -> bool:
         """Validated that the useragent is the expected one for all calls except the connect method"""
@@ -199,5 +211,5 @@ class WebSocketView(View):
         return JsonResponse({})
 
     def default(self, request, *args, **kwargs) -> JsonResponse:
-        """OVerload this method if you want to have a default message handler"""
+        """Overload this method if you want to have a default message handler"""
         raise NotImplementedError("This logic needs to be defined within the subclass")
