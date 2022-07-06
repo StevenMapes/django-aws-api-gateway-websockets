@@ -1,3 +1,6 @@
+# 0.1.6 - 6th June 2022
+Added the missing ```__str__``` method into the class as well as removing the imoprt that is no longer used
+
 # 0.1.5 - 6th June 2022
 Added the missing ```self.custom_domain_created = True``` into the ```create_custom_domain``` method
 

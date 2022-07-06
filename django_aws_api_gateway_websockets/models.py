@@ -1,5 +1,3 @@
-import json
-
 import boto3
 from botocore.exceptions import ClientError
 from django.conf import settings
@@ -93,6 +91,9 @@ class ApiGateway(models.Model):
     custom_domain_created = models.BooleanField(default=False, editable=False)
     created_on = models.DateTimeField(auto_now_add=True)
     updated_on = models.DateTimeField(auto_now=True)
+
+    def __str__(self) -> str:
+        return self.api_name
 
     @staticmethod
     def _boto3_client():
