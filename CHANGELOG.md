@@ -1,11 +1,14 @@
-# 0.1.3 - 6th June 2022
+# 0.1.4 - 6th June 2022
+Fixed a bug where formatting had converted the hosted zone id into a tuple 
+
+# 0.1.3 - 6th June 2022 - **broken remove**
 Fixed a bug around the boto3 client setup as the checks for the AWS_ACCESS_KEY were not tight enough so I've swapped 
 the order 
 
-# 0.1.2 - 6th June 2022
+# 0.1.2 - 6th June 2022 - **broken remove**
 Fixed a bug where method name was typed wrong
 
-# 0.1.1 - 6th June 2022
+# 0.1.1 - 6th June 2022 - **broken remove**
 Fixed a bug where the wrong admin view had the custom actions
 
 # 0.1.0 - 6th June 2022

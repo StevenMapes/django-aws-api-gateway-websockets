@@ -224,7 +224,7 @@ class ApiGateway(models.Model):
             "SecurityPolicy": "TLS_1_2",
         }
         if self.hosted_zone_id:
-            conf["HostedZoneId"] = (self.hosted_zone_id,)
+            conf["HostedZoneId"] = self.hosted_zone_id
 
         return client.create_domain_name(
             DomainName=self.domain_name, DomainNameConfigurations=[conf]
