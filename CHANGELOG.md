@@ -1,3 +1,6 @@
+# 0.1.2 - 6th June 2022
+Fixed a bug where method name was typed wrong
+
 # 0.1.1 - 6th June 2022
 Fixed a bug where the wrong admin view had the custom actions
 

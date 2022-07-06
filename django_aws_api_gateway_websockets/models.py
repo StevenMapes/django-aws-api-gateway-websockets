@@ -123,7 +123,7 @@ class ApiGateway(models.Model):
 
         return client
 
-    def create_create_gateway(self):
+    def create_gateway(self):
         """Creates the actual API gateway record"""
         if self.api_created:
             return
