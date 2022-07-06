@@ -1,3 +1,6 @@
+# 0.1.1 - 6th June 2022
+Fixed a bug where the wrong admin view had the custom actions
+
 # 0.1.0 - 6th June 2022
 - Added the model ```ApiGateway```
 - Updated ```WebSocketView``` to include validation of the ```aws_api_gateway_id``` property to allow views to be

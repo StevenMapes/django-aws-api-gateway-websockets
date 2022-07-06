@@ -40,7 +40,6 @@ class WebSocketSessionAdmin(ModelAdmin):
     ]
     list_filter = ["connected", "channel_name"]
     date_hierarchy = "created_on"
-    actions = [create_api_gateway, create_custom_domain]
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related("user", "api_gateway")
@@ -62,4 +61,5 @@ class ApiGatewayAdmin(ModelAdmin):
         "updated_on",
     ]
     list_filter = ["api_created", "custom_domain_created"]
+    actions = [create_api_gateway, create_custom_domain]
     date_hierarchy = "created_on"
