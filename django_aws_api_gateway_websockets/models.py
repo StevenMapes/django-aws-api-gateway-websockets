@@ -101,25 +101,25 @@ class ApiGateway(models.Model):
         If you are using an IAM Role then you just need to set AWS_REGION_NAME within settings.py otherwise you need to
         set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY as well with the correct values
         """
-        if not hasattr(settings, "AWS_ACCESS_KEY_ID") or not hasattr(
-            settings, "AWS_SECRET_ACCESS_KEY"
+        if (
+            hasattr(settings, "AWS_ACCESS_KEY_ID")
+            and settings.AWS_ACCESS_KEY_ID
+            and hasattr(settings, "AWS_SECRET_ACCESS_KEY")
+            and settings.AWS_SECRET_ACCESS_KEY
         ):
             if not hasattr(settings, "AWS_REGION_NAME") or not settings.AWS_REGION_NAME:
                 raise RuntimeError("AWS_REGION_NAME must be set within settings.py")
-            client = boto3.client("apigatewayv2", region_name=settings.AWS_REGION_NAME)
-        else:
-            if not settings.AWS_ACCESS_KEY_ID or not settings.AWS_SECRET_ACCESS_KEY:
-                raise RuntimeError(
-                    "AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY must be set within settings.py"
-                )
-            if not hasattr(settings, "AWS_REGION_NAME") or not settings.AWS_REGION_NAME:
-                raise RuntimeError("AWS_REGION_NAME must be set within settings.py")
+
             client = boto3.client(
                 "apigatewayv2",
                 aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
                 aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
                 region_name=settings.AWS_REGION_NAME,
             )
+        else:
+            if not hasattr(settings, "AWS_REGION_NAME") or not settings.AWS_REGION_NAME:
+                raise RuntimeError("AWS_REGION_NAME must be set within settings.py")
+            client = boto3.client("apigatewayv2", region_name=settings.AWS_REGION_NAME)
 
         return client
 

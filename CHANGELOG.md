@@ -1,3 +1,7 @@
+# 0.1.3 - 6th June 2022
+Fixed a bug around the boto3 client setup as the checks for the AWS_ACCESS_KEY were not tight enough so I've swapped 
+the order 
+
 # 0.1.2 - 6th June 2022
 Fixed a bug where method name was typed wrong
 
