@@ -160,6 +160,7 @@ class ApiGateway(models.Model):
         except ClientError as ce:
             raise ce
         finally:
+            self.custom_domain_created = True
             self.save()
 
     def _create_api(self, client):

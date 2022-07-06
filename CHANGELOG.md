@@ -1,3 +1,6 @@
+# 0.1.5 - 6th June 2022
+Added the missing ```self.custom_domain_created = True``` into the ```create_custom_domain``` method
+
 # 0.1.4 - 6th June 2022
 Fixed a bug where formatting had converted the hosted zone id into a tuple 
 
