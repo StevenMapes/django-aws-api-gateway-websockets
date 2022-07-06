@@ -47,6 +47,23 @@ I'm still reviewing the minimum required permissions but this project has been t
 1. GET, POST, PATCH and PUT permissions to the API Gateway restricted to the API ID of the API Gateway you created above.
 2. __execute-api__ which is used to send messages again restricted.
 
+The IAM role requires both the POST permission to ```apigateway``` and ```apigateway2```, you may want to grant GET 
+as well so you can use the client.get_domain_names() method.
+```
+{
+    "Sid": "VisualEditor7",
+    "Effect": "Allow",
+    "Action": [
+        "apigateway:GET",
+        "apigateway:POST"
+    ],
+    "Resource": "arn:aws:apigateway:REGION_NAME_HERE::/domainnames"
+}
+```
+Ensure the action ```"execute-api:*"``` is granted to the resource of
+```"arn:aws:execute-api:REGION_NAME:YOUR_AWS_ACCOUNT_ID_HERE:*/*/*/*"``` where the REGION_NAME is the region you expect
+or * and YOUR_AWS_ACCOUNT_ID_HERE is your account id
+
 # Getting Started
 TBA - This 
 
@@ -54,7 +71,21 @@ TBA - This
 This section will guide you through two common ways of connecting to and using this project from a webpage.
 
 ### Basic Integration
-TBA
+Below is a very basic integration using the WebSockets API built into browsers. It does not handle reconnecting dropped
+websockets, see the next section for that.
+
+The below example assumes you created the API Gateway to work on the custom domain name ws.example.com
+```javascript
+let wss_url = 'wss://ws.example.com';
+let regDeskWSocket = new WebSocket(wss_url);
+regDeskWSocket.onmessage = function(event) {
+    // Take your action here to handle messages being received
+    console.log(event);
+    let msg = JSON.parse(event.data);
+    console.log(msg);
+};
+```
+
 
 ### Reconnecting WebSockets
 This example is using a 3rd party library
@@ -95,7 +126,7 @@ for connection_id in connection_ids:
     res = client.post_to_connection(Data=data, ConnectionId=connection_id)
 ```
 
-If you are using anything other than a instance with an IAM role assigned then you'll need to pass the AWS Acess Key and
+If you are using anything other than a instance with an IAM role assigned then you'll need to pass the AWS Access Key and
 AWS Secret Key within the boto3.client setup. E.G.
 ```
 client = boto3.client(

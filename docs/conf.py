@@ -25,22 +25,25 @@ sys.path.insert(0, os.path.join(project_root, "src"))
 
 import os
 import sys
+
 import django
-sys.path.insert(0, os.path.abspath('..'))
-os.environ['DJANGO_SETTINGS_MODULE'] = 'tests.settings'
+
+sys.path.insert(0, os.path.abspath(".."))
+os.environ["DJANGO_SETTINGS_MODULE"] = "tests.settings"
 django.setup()
 
 from django.conf import settings  # noqa
 
+import django_aws_api_gateway_websockets  # noqa
+
 # settings.configure()
 
-import django_aws_api_gateway_websockets  # noqa
 
 # -- Project information -----------------------------------------------------
 
-project = 'Django-AWS-API-Gateway-Websockets'
-copyright = '2021, Steven Mapes'
-author = 'Steven Mapes'
+project = "Django-AWS-API-Gateway-Websockets"
+copyright = "2021, Steven Mapes"
+author = "Steven Mapes"
 
 # The version info for the project you're documenting, acts as replacement
 # for |version| and |release|, also used in various other places throughout
@@ -68,14 +71,10 @@ release = version
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = [
-    "sphinx.ext.autodoc",
-    "sphinx.ext.viewcode",
-    "sphinx.ext.intersphinx"
-]
+extensions = ["sphinx.ext.autodoc", "sphinx.ext.viewcode", "sphinx.ext.intersphinx"]
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
+templates_path = ["_templates"]
 
 source_suffix = ".rst"
 
@@ -85,7 +84,7 @@ master_doc = "index"
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'venv']
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "venv"]
 
 
 # If true, the current module name will be prepended to all description
@@ -101,7 +100,7 @@ pygments_style = "sphinx"
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'furo'
+html_theme = "furo"
 
 # Theme options are theme-specific and customize the look and feel of a
 # theme further.  For a list of options available for each theme, see the
@@ -181,15 +180,17 @@ html_static_path = ["_static"]
 htmlhelp_basename = "django-aws-api-gateway-websockets"
 
 
-
 # -- Options for manual page output ------------------------------------
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
     (
-        "index", "django-aws-api-gateway-websockets", "Django AWS APIGateway Websockets Documentation",
-        ["Steven Mapes"], 1
+        "index",
+        "django-aws-api-gateway-websockets",
+        "Django AWS APIGateway Websockets Documentation",
+        ["Steven Mapes"],
+        1,
     ),
 ]
 

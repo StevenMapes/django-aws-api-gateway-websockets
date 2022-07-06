@@ -7,7 +7,7 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
 
-from django_aws_api_gateway_websockets.models import WebSocketSession
+from django_aws_api_gateway_websockets.models import ApiGateway, WebSocketSession
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -18,6 +18,7 @@ class WebSocketView(View):
     model = None
     body = {}
     aws_api_gateway_id = None  # Set to None to allow all
+    api_gateway = None
     required_headers = [
         "Host",
         "X-Real-Ip",
@@ -39,6 +40,10 @@ class WebSocketView(View):
         "Sec-Websocket-Version",
     ]
     expected_useragent_prefix = "AmazonAPIGateway_"
+
+    def __init(self, **kwargs):
+        self.api_gateway = None
+        super().__init(**kwargs)
 
     def setup(self, request, *args, **kwargs):
         """Converts the request.body string back into a dictionary and assign to the objets body property for ease"""
@@ -75,12 +80,10 @@ class WebSocketView(View):
         return all(h in request_headers for h in self.required_headers)
 
     def _allowed_apigateway(self, request, *args, **kwargs) -> bool:
-        if self._expected_apigateway_id:
-            return self._expected_apigateway_id(request, *args, **kwargs)
-        else:
-            return self._check_platform_registered_api_gateways(
-                request, *args, **kwargs
-            )
+        res = self._check_platform_registered_api_gateways(request)
+        if self.aws_api_gateway_id:
+            res = self._expected_apigateway_id(request, *args, **kwargs)
+        return res
 
     def _expected_apigateway_id(self, request, *args, **kwargs) -> bool:
         """Ensure AWS Gateway ID in head is expected or that instance allows all I.E is not set"""
@@ -90,9 +93,12 @@ class WebSocketView(View):
             is not self.aws_api_gateway_id
         )
 
-    def _check_platform_registered_api_gateways(self, request, *args, **kwargs) -> bool:
-        """todo - Implement Check the cache/database for allowed API Gateways"""
-        raise NotImplementedError("This menthod needs to be implemented")
+    def _check_platform_registered_api_gateways(self, request):
+        """Checks to ensure that the API Gateway calling the view is one the user has registered"""
+        self.api_gateway = ApiGateway.objects.filter(
+            api_id=request.headers["X-Amzn-Apigateway-Api-Id"]
+        ).first()
+        return bool(len(self.api_gateway))
 
     def _expected_useragent(self, request, *args, **kwargs) -> bool:
         """Validated that the useragent is the expected one for all calls except the connect method"""
@@ -143,7 +149,7 @@ class WebSocketView(View):
         If the Route Selection Key is missing defer to the route selection error handler.
         If the request method isn't on the approved list then defer to the normal error handler .
         """
-        if self._expected_headers(request):
+        if self._expected_headers(request) and self._allowed_apigateway(request):
             if request.method.lower() in self.http_method_names:
                 if "connect" == self.kwargs["slug"]:
                     handler = self.connect
@@ -193,6 +199,7 @@ class WebSocketView(View):
             connection_id=request.headers["Connectionid"],
             channel_name=request.GET.get("channel", ""),
             user=request.user if request.user.is_authenticated else None,
+            api_gateway=self.api_gateway,
         )
 
         return JsonResponse({})
