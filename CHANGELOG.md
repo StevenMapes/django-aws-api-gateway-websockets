@@ -1,29 +1,16 @@
-# 0.1.8 - 7th June 2022
-The channel set against the ```WebSocketSession``` is now determine by a new method.
+# 0.1.0 - 7th June 2022
+- The channel set against the ```WebSocketSession``` is now determine by a new method.
 The method looks at the QueryString first of all and if that it empty it then uses the default_channel_name set against
 the ```APIGateway``` record that was found 
-
-# 0.1.7 - 7th June 2022
-Fixed a bug with _check_platform_registered_api_gateways to fix the NoneType issue
-
-# 0.1.6 - 6th June 2022
-Added the missing ```__str__``` method into the class as well as removing the imoprt that is no longer used
-
-# 0.1.5 - 6th June 2022
-Added the missing ```self.custom_domain_created = True``` into the ```create_custom_domain``` method
-
-# 0.1.4 - 6th June 2022
-Fixed a bug where formatting had converted the hosted zone id into a tuple 
-
-# 0.1.3 - 6th June 2022 - **broken remove**
-Fixed a bug around the boto3 client setup as the checks for the AWS_ACCESS_KEY were not tight enough so I've swapped 
+- Fixed a bug with _check_platform_registered_api_gateways to fix the NoneType issue
+- Added the missing ```__str__``` method into the class as well as removing the imoprt that is no longer used
+- Added the missing ```self.custom_domain_created = True``` into the ```create_custom_domain``` method
+- Fixed a bug where formatting had converted the hosted zone id into a tuple 
+- Fixed a bug around the boto3 client setup as the checks for the AWS_ACCESS_KEY were not tight enough so I've swapped 
 the order 
+- Fixed a bug where method name was typed wrong
+- Fixed a bug where the wrong admin view had the custom actions
 
-# 0.1.2 - 6th June 2022 - **broken remove**
-Fixed a bug where method name was typed wrong
-
-# 0.1.1 - 6th June 2022 - **broken remove**
-Fixed a bug where the wrong admin view had the custom actions
 
 # 0.1.0 - 6th June 2022
 - Added the model ```ApiGateway```

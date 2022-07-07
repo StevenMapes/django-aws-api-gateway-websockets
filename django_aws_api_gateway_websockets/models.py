@@ -16,6 +16,9 @@ class ApiGateway(models.Model):
             models.Index(fields=["created_on"]),
         ]
 
+    def __str__(self) -> str:
+        return self.api_name
+
     api_name = models.CharField(max_length=255, unique=True)
     api_description = models.CharField(max_length=255, blank=True, default="")
     default_channel_name = models.CharField(
@@ -91,9 +94,6 @@ class ApiGateway(models.Model):
     custom_domain_created = models.BooleanField(default=False, editable=False)
     created_on = models.DateTimeField(auto_now_add=True)
     updated_on = models.DateTimeField(auto_now=True)
-
-    def __str__(self) -> str:
-        return self.api_name
 
     @staticmethod
     def _boto3_client():
@@ -246,6 +246,9 @@ class WebSocketSession(models.Model):
             models.Index(fields=["channel_name", "connection_id"]),
             models.Index(fields=["channel_name", "connected"]),
         ]
+
+    def __str__(self) -> str:
+        return self.connection_id
 
     connection_id = models.CharField(max_length=255, unique=True)
     channel_name = models.CharField(
