@@ -141,6 +141,23 @@ class WebSocketView(View):
         wss.request_count += 1
         wss.save()
 
+    def _get_channel_name(self, request) -> str:
+        """Returns the name of the channel to use
+
+        The "channel" can be optionally be set as a querystring parameter during the connection. If it is not but the
+        api_gateway that was selected has a default_channel_name set then that will be used instead. Otherwise an empty
+        string is returned
+        """
+        channel_name = request.GET.get("channel", "")
+        if (
+            not channel_name
+            and self.api_gateway
+            and self.api_gateway.default_channel_name
+        ):
+            channel_name = self.api_gateway.default_channel_name
+
+        return channel_name
+
     def dispatch(self, request, *args, **kwargs):
         """Determine the correct method to call. The method will map to the route_selection_key or default.
 
@@ -197,7 +214,7 @@ class WebSocketView(View):
 
         WebSocketSession.objects.create(
             connection_id=request.headers["Connectionid"],
-            channel_name=request.GET.get("channel", ""),
+            channel_name=self._get_channel_name(request),
             user=request.user if request.user.is_authenticated else None,
             api_gateway=self.api_gateway,
         )

@@ -1,3 +1,8 @@
+# 0.1.8 - 7th June 2022
+The channel set against the ```WebSocketSession``` is now determine by a new method.
+The method looks at the QueryString first of all and if that it empty it then uses the default_channel_name set against
+the ```APIGateway``` record that was found 
+
 # 0.1.7 - 7th June 2022
 Fixed a bug with _check_platform_registered_api_gateways to fix the NoneType issue
 

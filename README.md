@@ -86,6 +86,19 @@ regDeskWSocket.onmessage = function(event) {
 };
 ```
 
+You can set the channel by using the **channel** querystring parameter during the connection 
+
+```javascript
+let wss_url = 'wss://ws.example.com?channel=my+example+channel';
+let regDeskWSocket = new WebSocket(wss_url);
+regDeskWSocket.onmessage = function(event) {
+    // Take your action here to handle messages being received
+    console.log(event);
+    let msg = JSON.parse(event.data);
+    console.log(msg);
+};
+```
+
 
 ### Reconnecting WebSockets
 This example is using a 3rd party library
