@@ -1,3 +1,6 @@
+# 0.1.7 - 7th June 2022
+Fixed a bug with _check_platform_registered_api_gateways to fix the NoneType issue
+
 # 0.1.6 - 6th June 2022
 Added the missing ```__str__``` method into the class as well as removing the imoprt that is no longer used
 

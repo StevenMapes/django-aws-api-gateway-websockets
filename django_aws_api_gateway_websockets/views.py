@@ -93,12 +93,12 @@ class WebSocketView(View):
             is not self.aws_api_gateway_id
         )
 
-    def _check_platform_registered_api_gateways(self, request):
+    def _check_platform_registered_api_gateways(self, request) -> bool:
         """Checks to ensure that the API Gateway calling the view is one the user has registered"""
         self.api_gateway = ApiGateway.objects.filter(
             api_id=request.headers["X-Amzn-Apigateway-Api-Id"]
         ).first()
-        return bool(len(self.api_gateway))
+        return bool(self.api_gateway)
 
     def _expected_useragent(self, request, *args, **kwargs) -> bool:
         """Validated that the useragent is the expected one for all calls except the connect method"""
