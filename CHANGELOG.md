@@ -15,9 +15,6 @@ for all non connect or disconnect requests
 - Added ```send_message``` method to the WebSocketSession class in order to send a message to the connection
 - Added a new custom queryset class called ```WebSocketSessionQuerySet``` that implements a method to send a message
 to every object within the current filter whilst ensuring it only sends to connections that are active
-
-
-# 0.1.0 - 6th June 2022
 - Added the model ```ApiGateway```
 - Updated ```WebSocketView``` to include validation of the ```aws_api_gateway_id``` property to allow views to be
 created that only allow specific API Gateway endpoints to call them.
