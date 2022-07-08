@@ -311,3 +311,11 @@ Also require ```pytest-django``` for testing
 - Add a test case to show that the bug is fixed or the feature is implemented correctly.
 - Test using ```python -W error::DeprecationWarning -W error::PendingDeprecationWarning -m coverage run --parallel -m pytest --ds tests.settings```
 - Create a pull request, tagging the issue, bug me until I can merge your pull request. Also, don't forget to add yourself to AUTHORS.
+
+# TODO
+1. Clean-up script for purging old sessions
+2. Management command for triggering the cleanup.
+3. Example of a "chat" implementation I.E a view that receives a message and published the same message to all sessions 
+within the same channel
+4. Example of setting the channel within the default handler
+5. Example of creating a custom route
