@@ -54,7 +54,7 @@ class Migration(migrations.Migration):
                     models.URLField(
                         blank=True,
                         default=None,
-                        help_text="The URL on your website where the API Gateway routes will point, including the trailing /, but excluding the final slug portion of the URL. E.G. If your default route will point to https://www.example.com/ws/default then enter https://www.example.com/ws/",
+                        help_text="The URL on your website where the API Gateway routes will point, including the trailing /, but excluding the final route/slug portion of the URL. E.G. If your default route will point to https://www.example.com/ws/default then enter https://www.example.com/ws/",
                         null=True,
                     ),
                 ),

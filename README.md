@@ -35,6 +35,37 @@ SESSION_COOKIE_DOMAIN='.www.example.com'
 CSRF_COOKIE_DOMAIN='.www.example.com'
 ```
 
+### URLS.py
+Edit your urls.py file and add an entry for the URL you wish API Gateway to call. **IMPORTANT** The slug parameter 
+must be called "route". This willbe populated by API Gateway with the route it uses E.G $connect, $default or 
+$disconnect
+
+E.G ```path("ws/<slug:route>", ExampleWebSocketView.as_view(), name="example_websocket")```
+
+### SubClass the view
+Subclass the WebSocketView and implement method where the name of the method is the name of the route AWS API Gateway
+uses with the $ (dollar sign) remove.
+
+You can then take whatever action you wish to take when a message is received by the server.
+
+
+```
+from django_aws_api_gateway_websockets.views import WebSocketView
+
+class ExampleWebSocketView(WebSocketView):
+    """Custom Websocket view."""
+
+    def default(self, request, *args, **kwargs) -> JsonResponse:
+        """Add the logic you wish to make here when you receive a message.
+         create your JSON response that you will handle within the Javascript
+         """
+        
+        logger.debug(f"body {self.body}")
+        
+        return JsonResponse({})
+```
+
+
 ## AWS Setup
 Create the new **Amazon API Gateway** as a WebSocket API...
 

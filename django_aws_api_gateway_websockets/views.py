@@ -12,13 +12,16 @@ from django_aws_api_gateway_websockets.models import ApiGateway, WebSocketSessio
 
 @method_decorator(csrf_exempt, name="dispatch")
 class WebSocketView(View):
-    """The base WebSocket View for handling messages sent from the client via AWS API Gateway"""
+    """The base WebSocket View for handling messages sent from the client via AWS API Gateway.
+    Expects a URL slug parameter called route
+    """
 
     route_selection_key = "action"
     model = None
     body = {}
     aws_api_gateway_id = None  # Set to None to allow all
     api_gateway = None
+    websocket_session = None
     required_headers = [
         "Host",
         "X-Real-Ip",
@@ -43,6 +46,7 @@ class WebSocketView(View):
 
     def __init(self, **kwargs):
         self.api_gateway = None
+        self.websocket_session = None
         super().__init(**kwargs)
 
     def setup(self, request, *args, **kwargs):
@@ -158,6 +162,11 @@ class WebSocketView(View):
 
         return channel_name
 
+    def _load_session(self, request):
+        self.websocket_session = WebSocketSession.objects.get(
+            connection_id=request.headers["Connectionid"]
+        )
+
     def dispatch(self, request, *args, **kwargs):
         """Determine the correct method to call. The method will map to the route_selection_key or default.
 
@@ -168,15 +177,17 @@ class WebSocketView(View):
         """
         if self._expected_headers(request) and self._allowed_apigateway(request):
             if request.method.lower() in self.http_method_names:
-                if "connect" == self.kwargs["slug"]:
+                if "connect" == self.kwargs["route"]:
                     handler = self.connect
-                elif "disconnect" == self.kwargs["slug"]:
+                elif "disconnect" == self.kwargs["route"]:
                     if not self._expected_useragent(request, *args, **kwargs):
                         handler = self.invalid_useragent
                     else:
                         handler = self.disconnect
                         self._add_user_to_request(request)
                 elif self.route_selection_key in self.body:
+                    self._load_session(request)
+
                     handler = getattr(
                         self, self.body[self.route_selection_key], self.default
                     )

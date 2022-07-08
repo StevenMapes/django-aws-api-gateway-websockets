@@ -1,7 +1,38 @@
+import json
+
 import boto3
 from botocore.exceptions import ClientError
 from django.conf import settings
 from django.db import models
+
+
+def get_boto3_client():
+    """Returns the boto3 client to use.
+
+    If you are using an IAM Role then you just need to set AWS_REGION_NAME within settings.py otherwise you need to
+    set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY as well with the correct values
+    """
+    if (
+        hasattr(settings, "AWS_ACCESS_KEY_ID")
+        and settings.AWS_ACCESS_KEY_ID
+        and hasattr(settings, "AWS_SECRET_ACCESS_KEY")
+        and settings.AWS_SECRET_ACCESS_KEY
+    ):
+        if not hasattr(settings, "AWS_REGION_NAME") or not settings.AWS_REGION_NAME:
+            raise RuntimeError("AWS_REGION_NAME must be set within settings.py")
+
+        client = boto3.client(
+            "apigatewayv2",
+            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+            region_name=settings.AWS_REGION_NAME,
+        )
+    else:
+        if not hasattr(settings, "AWS_REGION_NAME") or not settings.AWS_REGION_NAME:
+            raise RuntimeError("AWS_REGION_NAME must be set within settings.py")
+        client = boto3.client("apigatewayv2", region_name=settings.AWS_REGION_NAME)
+
+    return client
 
 
 class ApiGateway(models.Model):
@@ -39,7 +70,7 @@ class ApiGateway(models.Model):
         default=None,
         help_text=(
             "The URL on your website where the API Gateway routes will point, including the trailing /, but excluding "
-            "the final slug portion of the URL."
+            "the final route/slug portion of the URL."
             " E.G. If your default route will point to https://www.example.com/ws/default then enter "
             "https://www.example.com/ws/"
         ),
@@ -95,41 +126,12 @@ class ApiGateway(models.Model):
     created_on = models.DateTimeField(auto_now_add=True)
     updated_on = models.DateTimeField(auto_now=True)
 
-    @staticmethod
-    def _boto3_client():
-        """Returns the boto3 client to use.
-
-        If you are using an IAM Role then you just need to set AWS_REGION_NAME within settings.py otherwise you need to
-        set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY as well with the correct values
-        """
-        if (
-            hasattr(settings, "AWS_ACCESS_KEY_ID")
-            and settings.AWS_ACCESS_KEY_ID
-            and hasattr(settings, "AWS_SECRET_ACCESS_KEY")
-            and settings.AWS_SECRET_ACCESS_KEY
-        ):
-            if not hasattr(settings, "AWS_REGION_NAME") or not settings.AWS_REGION_NAME:
-                raise RuntimeError("AWS_REGION_NAME must be set within settings.py")
-
-            client = boto3.client(
-                "apigatewayv2",
-                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-                region_name=settings.AWS_REGION_NAME,
-            )
-        else:
-            if not hasattr(settings, "AWS_REGION_NAME") or not settings.AWS_REGION_NAME:
-                raise RuntimeError("AWS_REGION_NAME must be set within settings.py")
-            client = boto3.client("apigatewayv2", region_name=settings.AWS_REGION_NAME)
-
-        return client
-
     def create_gateway(self):
         """Creates the actual API gateway record"""
         if self.api_created:
             return
 
-        client = self._boto3_client()
+        client = get_boto3_client()
         self._create_api(client)
         try:
             self._create_routes(client)
@@ -151,7 +153,7 @@ class ApiGateway(models.Model):
         if not self.certificate_arn:
             raise ValueError("A Certificate ARN is required")
 
-        client = self._boto3_client()
+        client = get_boto3_client()
         domain_res = self._create_domain_name(client)
         try:
             self.api_gateway_domain_name = domain_res["DomainNameConfigurations"][0][
@@ -239,6 +241,32 @@ class ApiGateway(models.Model):
         return mapping_res["ApiMappingId"]
 
 
+class WebSocketSessionQuerySet(models.QuerySet):
+    def send_message(self, data: dict):
+        """Sends the same message to all WebSocketSessions included within the current filter
+
+        Example use:
+
+        Send a message to all active connections to the "Shared Channel Name" channel
+
+        WebSocketSession.objects.filter(
+            channel="Shared Channel Name"
+        ).send_message(
+            {
+                "msg": "this is a server sent message"
+            }
+        )
+        """
+        client = get_boto3_client()
+        msg = json.dumps(data)
+        res = []
+        for obj in self.filter(connected=True):
+            res.append(
+                client.post_to_connection(Data=msg, ConnectionId=obj.connection_id)
+            )
+        return res
+
+
 class WebSocketSession(models.Model):
     class Meta:
         indexes = [
@@ -249,6 +277,15 @@ class WebSocketSession(models.Model):
 
     def __str__(self) -> str:
         return self.connection_id
+
+    def send_message(self, data: dict):
+        """Sends a message containing the given data to connection"""
+        client = get_boto3_client()
+        return client.post_to_connection(
+            Data=json.dumps(data), ConnectionId=self.connection_id
+        )
+
+    objects = models.Manager.from_queryset(WebSocketSessionQuerySet())
 
     connection_id = models.CharField(max_length=255, unique=True)
     channel_name = models.CharField(

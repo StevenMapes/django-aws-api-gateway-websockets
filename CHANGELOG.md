@@ -1,4 +1,4 @@
-# 0.1.0 - 7th June 2022
+# 0.1.0 - 8th June 2022
 - The channel set against the ```WebSocketSession``` is now determine by a new method.
 The method looks at the QueryString first of all and if that it empty it then uses the default_channel_name set against
 the ```APIGateway``` record that was found 
@@ -10,6 +10,11 @@ the ```APIGateway``` record that was found
 the order 
 - Fixed a bug where method name was typed wrong
 - Fixed a bug where the wrong admin view had the custom actions
+- Added new property to the base View called ```websocket_session``` which stores the websocket session for the request
+for all non connect or disconnect requests 
+- Added ```send_message``` method to the WebSocketSession class in order to send a message to the connection
+- Added a new custom queryset class called ```WebSocketSessionQuerySet``` that implements a method to send a message
+to every object within the current filter whilst ensuring it only sends to connections that are active
 
 
 # 0.1.0 - 6th June 2022
