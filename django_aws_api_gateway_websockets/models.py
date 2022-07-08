@@ -6,7 +6,7 @@ from django.conf import settings
 from django.db import models
 
 
-def get_boto3_client(service: str = "apigatewayv2"):
+def get_boto3_client(service: str = "apigatewayv2", **kwargs):
     """Returns the boto3 client to use.
 
     :param str servivce: apigatewayv2 | apigatewaymanagementapi
@@ -28,11 +28,12 @@ def get_boto3_client(service: str = "apigatewayv2"):
             aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
             aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
             region_name=settings.AWS_REGION_NAME,
+            **kwargs,
         )
     else:
         if not hasattr(settings, "AWS_REGION_NAME") or not settings.AWS_REGION_NAME:
             raise RuntimeError("AWS_REGION_NAME must be set within settings.py")
-        client = boto3.client(service, region_name=settings.AWS_REGION_NAME)
+        client = boto3.client(service, region_name=settings.AWS_REGION_NAME, **kwargs)
 
     return client
 
@@ -259,10 +260,18 @@ class WebSocketSessionQuerySet(models.QuerySet):
             }
         )
         """
-        client = get_boto3_client("apigatewaymanagementapi")
+        client = None
         msg = json.dumps(data)
         res = []
         for obj in self.filter(connected=True):
+            if not client:
+                client = get_boto3_client(
+                    "apigatewaymanagementapi",
+                    endpoint_url=(
+                        f"https://{obj.api_gateway.api_id}.execute-api."
+                        f"{settings.AWS_REGION_NAME}.amazonaws.com/{obj.api_gateway.stage_name}"
+                    ),
+                )
             res.append(
                 client.post_to_connection(Data=msg, ConnectionId=obj.connection_id)
             )
@@ -282,7 +291,14 @@ class WebSocketSession(models.Model):
 
     def send_message(self, data: dict):
         """Sends a message containing the given data to connection"""
-        client = get_boto3_client("apigatewaymanagementapi")
+        client = get_boto3_client(
+            "apigatewaymanagementapi",
+            endpoint_url=(
+                f"https://{self.api_gateway.api_id}.execute-api."
+                f"{settings.AWS_REGION_NAME}.amazonaws.com/{self.api_gateway.stage_name}"
+            ),
+        )
+
         return client.post_to_connection(
             Data=json.dumps(data), ConnectionId=self.connection_id
         )
