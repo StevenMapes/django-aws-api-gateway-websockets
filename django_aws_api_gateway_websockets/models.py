@@ -6,8 +6,10 @@ from django.conf import settings
 from django.db import models
 
 
-def get_boto3_client():
+def get_boto3_client(service: str = "apigatewayv2"):
     """Returns the boto3 client to use.
+
+    :param str servivce: apigatewayv2 | apigatewaymanagementapi
 
     If you are using an IAM Role then you just need to set AWS_REGION_NAME within settings.py otherwise you need to
     set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY as well with the correct values
@@ -22,7 +24,7 @@ def get_boto3_client():
             raise RuntimeError("AWS_REGION_NAME must be set within settings.py")
 
         client = boto3.client(
-            "apigatewayv2",
+            "",
             aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
             aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
             region_name=settings.AWS_REGION_NAME,
@@ -257,7 +259,7 @@ class WebSocketSessionQuerySet(models.QuerySet):
             }
         )
         """
-        client = get_boto3_client()
+        client = get_boto3_client("apigatewaymanagementapi")
         msg = json.dumps(data)
         res = []
         for obj in self.filter(connected=True):
@@ -280,7 +282,7 @@ class WebSocketSession(models.Model):
 
     def send_message(self, data: dict):
         """Sends a message containing the given data to connection"""
-        client = get_boto3_client()
+        client = get_boto3_client("apigatewaymanagementapi")
         return client.post_to_connection(
             Data=json.dumps(data), ConnectionId=self.connection_id
         )
