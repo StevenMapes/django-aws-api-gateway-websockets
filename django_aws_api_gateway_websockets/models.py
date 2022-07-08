@@ -285,7 +285,7 @@ class WebSocketSession(models.Model):
             Data=json.dumps(data), ConnectionId=self.connection_id
         )
 
-    active = WebSocketSessionQuerySet.as_manager()
+    objects = WebSocketSessionQuerySet.as_manager()
 
     connection_id = models.CharField(max_length=255, unique=True)
     channel_name = models.CharField(
