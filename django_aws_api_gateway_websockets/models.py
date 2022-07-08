@@ -24,7 +24,7 @@ def get_boto3_client(service: str = "apigatewayv2"):
             raise RuntimeError("AWS_REGION_NAME must be set within settings.py")
 
         client = boto3.client(
-            "",
+            service,
             aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
             aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
             region_name=settings.AWS_REGION_NAME,
@@ -32,7 +32,7 @@ def get_boto3_client(service: str = "apigatewayv2"):
     else:
         if not hasattr(settings, "AWS_REGION_NAME") or not settings.AWS_REGION_NAME:
             raise RuntimeError("AWS_REGION_NAME must be set within settings.py")
-        client = boto3.client("apigatewayv2", region_name=settings.AWS_REGION_NAME)
+        client = boto3.client(service, region_name=settings.AWS_REGION_NAME)
 
     return client
 
