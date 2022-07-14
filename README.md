@@ -16,7 +16,7 @@ The project will keep track of which users created which WebSockets, which ones 
 Please refer to the installation notes and Getting Start Guides
 
 # Python and Django Support
-This project officially supports Python 3.8+ and Django 3.1+.
+This project officially supports Python 3.8+ and Django 3.2+.
 
 # AWS Setup
 In order for this package to create the API Gateway, it's routes, integration, custom domain and to publish messages
@@ -84,7 +84,7 @@ manager has been extended to include a method to send messages to all records in
 ## Django
 ### URLS.py
 Edit your urls.py file and add an entry for the URL you wish API Gateway to call. **IMPORTANT** The slug parameter 
-must be called "route". This willbe populated by API Gateway with the route it uses E.G $connect, $default or 
+must be called "route". This will be populated by API Gateway with the route it uses E.G. $connect, $default or 
 $disconnect
 
 E.G. 
@@ -95,7 +95,7 @@ path("ws/<slug:route>", ExampleWebSocketView.as_view(), name="example_websocket"
 ### Creating the Views
 Subclass the ```WebSocketView``` and implement methods where the name of the method is the name of the route the 
 API Gateway has been setup to use. There are already methods for $connect and $disconnect you just need to implement
-a method for ```default``` along with any other custom routes you have created.  The methods are selectedd dynamically
+a method for ```default``` along with any other custom routes you have created.  The methods are selected dynamically
 via the ```dispatch``` method with any leading dollar sign being remove.
 
 The methods take the ```request``` parameter and must return a ```JSONResponse``` but otherwise you are free to take
@@ -237,7 +237,7 @@ exampleWS.onmessage = function(event) {
 Websockets can disconnect due top a variety of reasons to work around this here are some links to libraries of proposed
 solutions
 
-1. [Stack Overflow- WebSocket: How to automatically reconnect aftre it dies](https://stackoverflow.com/questions/22431751/websocket-how-to-automatically-reconnect-after-it-dies)
+1. [Stack Overflow- WebSocket: How to automatically reconnect after it dies](https://stackoverflow.com/questions/22431751/websocket-how-to-automatically-reconnect-after-it-dies)
 2. [JS library - reconnecting-websocket](https://github.com/joewalnes/reconnecting-websocket)
 
 The below example is using the JS library. Note you just include the lib and then use the 
@@ -312,10 +312,10 @@ Also require ```pytest-django``` for testing
 - Test using ```python -W error::DeprecationWarning -W error::PendingDeprecationWarning -m coverage run --parallel -m pytest --ds tests.settings```
 - Create a pull request, tagging the issue, bug me until I can merge your pull request. Also, don't forget to add yourself to AUTHORS.
 
-# TODO
+# TO DO
 1. Clean-up script for purging old sessions
-2. Management command for triggering the cleanup.
-3. Example of a "chat" implementation I.E a view that receives a message and published the same message to all sessions 
+2. Management command for triggering the clean-up.
+3. Example of a "chat" implementation I.E. a view that receives a message and published the same message to all sessions 
 within the same channel
 4. Example of setting the channel within the default handler
 5. Example of creating a custom route
