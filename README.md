@@ -127,9 +127,6 @@ from django_aws_api_gateway_websockets.models import WebSocketSession
 
 obj = WebSocketSession.objects.get(pk=1)
 obj.send_message({"type": "example", "msg": "This is a message"})
-WebSocketSession.objects.filter(channel_name="reg-desk").send_message(
-    {"msg": "This is a message"}
-)
 ```
 
 ### Sending a message to ALL active connections associated with the same channel 
