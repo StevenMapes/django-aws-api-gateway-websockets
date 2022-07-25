@@ -16,6 +16,8 @@ class WebSocketView(View):
     Expects a URL slug parameter called route
     """
 
+    debug = False
+    debug_log = None
     route_selection_key = "action"
     model = None
     body = {}
@@ -44,18 +46,27 @@ class WebSocketView(View):
     ]
     expected_useragent_prefix = "AmazonAPIGateway_"
 
-    def __init(self, **kwargs):
-        self.api_gateway = None
-        self.websocket_session = None
-        super().__init(**kwargs)
+    def __init__(self, **kwargs):
+        self.api_gateway = kwargs.get("api_gateway", False)
+        self.websocket_session = kwargs.get("websocket_session", False)
+        self.debug = kwargs.get("debug", False)
+        self.debug_log = []
+        super().__init__(**kwargs)
+
+    def _debug(self, msg: str):
+        if self.debug:
+            self.debug_log.append(msg)
 
     def setup(self, request, *args, **kwargs):
         """Converts the request.body string back into a dictionary and assign to the objets body property for ease"""
         super().setup(request, *args, **kwargs)
+        self._debug("Within setup")
         self.body = json.loads(request.body) if request.body else {}
+        self._debug("Setup completed")
 
     def _return_bad_request(self, msg):
         """Common method for logging and returning the HTTP400 response"""
+        self._debug(f"_return_bad_request passed {msg}")
         return HttpResponseBadRequest(msg)
 
     def route_selection_key_missing(
@@ -81,37 +92,49 @@ class WebSocketView(View):
     def _expected_headers(self, request, *args, **kwargs) -> bool:
         """Ensure that all required headers exist within the request header"""
         request_headers = request.headers.keys()
-        return all(h in request_headers for h in self.required_headers)
+        res = all(h in request_headers for h in self.required_headers)
+        self._debug(f"_expected_headers() returned {res}")
+        return res
 
     def _allowed_apigateway(self, request, *args, **kwargs) -> bool:
         res = self._check_platform_registered_api_gateways(request)
         if self.aws_api_gateway_id:
             res = self._expected_apigateway_id(request, *args, **kwargs)
+        self._debug(f"_allowed_apigateway() returned {res}")
         return res
 
     def _expected_apigateway_id(self, request, *args, **kwargs) -> bool:
         """Ensure AWS Gateway ID in head is expected or that instance allows all I.E is not set"""
-        return (
+        res = (
             self.aws_api_gateway_id
             and request.headers["X-Amzn-Apigateway-Api-Id"]
             is not self.aws_api_gateway_id
         )
+        self._debug(f"_expected_apigateway_id() returned {res}")
+        return res
 
     def _check_platform_registered_api_gateways(self, request) -> bool:
         """Checks to ensure that the API Gateway calling the view is one the user has registered"""
         self.api_gateway = ApiGateway.objects.filter(
             api_id=request.headers["X-Amzn-Apigateway-Api-Id"]
         ).first()
+        self._debug(
+            f"_check_platform_registered_api_gateways() returned {bool(self.api_gateway)}"
+        )
         return bool(self.api_gateway)
 
     def _expected_useragent(self, request, *args, **kwargs) -> bool:
         """Validated that the useragent is the expected one for all calls except the connect method"""
         if self.aws_api_gateway_id:
-            return (
+            res = (
                 request.headers["User-Agent"]
                 is not f"{self.expected_useragent_prefix}{self.aws_api_gateway_id}"
             )
-        return self.expected_useragent_prefix in request.headers["User-Agent"]
+        else:
+            res = self.expected_useragent_prefix in request.headers["User-Agent"]
+        self._debug(f"_expected_useragent() returned {res}")
+
+        return res
 
     @staticmethod
     def _check_allowed_hosts(request) -> bool:

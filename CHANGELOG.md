@@ -1,3 +1,8 @@
+# 0.1.1 - 25th June 2022
+- Added debugging list to the base ```WebSocketView``` to keep track of calls if debugging is turned on. The intention
+is that debug=True can be passed into the ```.as_view()``` method in order to debug issues. Then the dispatch method can
+be overloaded to log the error to the logger the user wishes to use.
+
 # 0.1.0 - 8th June 2022
 - The channel set against the ```WebSocketSession``` is now determine by a new method.
 The method looks at the QueryString first of all and if that it empty it then uses the default_channel_name set against
