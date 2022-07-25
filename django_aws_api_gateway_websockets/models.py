@@ -276,9 +276,12 @@ class WebSocketSessionQuerySet(models.QuerySet):
                 res.append(
                     client.post_to_connection(Data=msg, ConnectionId=obj.connection_id)
                 )
-            except client.meta.client.exceptions.GoneException:
-                obj.connected = False
-                obj.save()
+            except ClientError as error:
+                if error.response["Error"]["Code"] == "GoneException":
+                    obj.connected = False
+                    obj.save()
+                else:
+                    raise error
 
         return res
 
