@@ -16,10 +16,18 @@ The project will keep track of which users created which WebSockets, which ones 
 Please refer to the installation notes and Getting Start Guides.
 
 # Security Concerns
-**IMPORTANT:**: In order to work the dispatch method requires the ```csrf_exempt``` decorator to be added.
+**IMPORTANT:**: In order to work the dispatch method requires the ```csrf_exempt``` decorator to be added. This has
+already been added as a class decorator on the base view but if you overload the dispatch method you will need to add
+it back to avoid receiving CSRF Token failures.
 
 # Python and Django Support
 This project officially supports Python 3.8+ and Django 3.2+.
+
+| **Django/Python** | **3.2** | **4.0 | **4.1** | **4.2** |
+|-------------------|---------|-------|---------|---------|
+| 3.8               | Y       | Y     | Y       | N/A     |
+| 3.9               | Y       | Y     | Y       | N/A     |
+| 3.10              | Y       | Y     | Y       | N/A     |
 
 # AWS Setup
 In order for this package to create the API Gateway, it's routes, integration, custom domain and to publish messages
