@@ -13,7 +13,10 @@ This project introduced a new [Class-Based-View](https://docs.djangoproject.com/
 
 The project will keep track of which users created which WebSockets, which ones are active and will allow you to send messages back down the socket to the client via Boto3.
 
-Please refer to the installation notes and Getting Start Guides
+Please refer to the installation notes and Getting Start Guides.
+
+# Security Concerns
+**IMPORTANT:**: In order to work the dispatch method requires the ```csrf_exempt``` decorator to be added.
 
 # Python and Django Support
 This project officially supports Python 3.8+ and Django 3.2+.
