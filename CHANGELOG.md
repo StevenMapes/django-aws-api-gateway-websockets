@@ -2,6 +2,8 @@
 - Added debugging list to the base ```WebSocketView``` to keep track of calls if debugging is turned on. The intention
 is that debug=True can be passed into the ```.as_view()``` method in order to debug issues. Then the dispatch method can
 be overloaded to log the error to the logger the user wishes to use.
+- Fixed a bug with the custom QuerySet so that if a ```GoneException``` is raised by boto3 then the websocket session
+entry is updated to be flagged as no longer connected
 
 # 0.1.0 - 8th June 2022
 - The channel set against the ```WebSocketSession``` is now determine by a new method.

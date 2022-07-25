@@ -272,9 +272,14 @@ class WebSocketSessionQuerySet(models.QuerySet):
                         f"{settings.AWS_REGION_NAME}.amazonaws.com/{obj.api_gateway.stage_name}"
                     ),
                 )
-            res.append(
-                client.post_to_connection(Data=msg, ConnectionId=obj.connection_id)
-            )
+            try:
+                res.append(
+                    client.post_to_connection(Data=msg, ConnectionId=obj.connection_id)
+                )
+            except client.meta.client.exceptions.GoneException:
+                obj.connected = False
+                obj.save()
+
         return res
 
 
