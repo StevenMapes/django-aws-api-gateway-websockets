@@ -43,6 +43,18 @@ if __name__ == "__main__":
             "python",
             *common_args,
             "-P",
+            "Django>=4.1rc1,<4.2",
+            "-o",
+            "py38-django41.txt",
+        ],
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        [
+            "python",
+            *common_args,
+            "-P",
             "Django>=3.2a1,<3.3",
             "-o",
             "py39-django32.txt",
@@ -67,9 +79,33 @@ if __name__ == "__main__":
             "python",
             *common_args,
             "-P",
+            "Django>=4.1rc1,<4.2",
+            "-o",
+            "py39-django41.txt",
+        ],
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        [
+            "python",
+            *common_args,
+            "-P",
             "Django>=4.0cr1,<4.1",
             "-o",
             "py310-django40.txt",
+        ],
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        [
+            "python",
+            *common_args,
+            "-P",
+            "Django>=4.1rc1,<4.2",
+            "-o",
+            "py310-django41.txt",
         ],
         check=True,
         capture_output=True,
