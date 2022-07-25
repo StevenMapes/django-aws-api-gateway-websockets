@@ -120,6 +120,22 @@ class ExampleWebSocketView(WebSocketView):
         return JsonResponse({})
 ```
 
+### Debugging the View
+Sometimes you the view may return a HTTP400 that you wish to debug further. In order to help with this you can pass
+```debug=True``` into the ```as_view()``` method. The class will then call the private method ```_debug(msg)``` passing
+in a string. By default this method will update a list property called ```debug_log``` with the message string but 
+you may wish to simply overload the method and call your logger.
+
+E.G.
+```
+def _debug(self, msg: str):
+    if self.debug:
+        logger.debug(msg)
+```
+
+This can help track the issue which may be as simply as sending a message from the client that is missing the 
+```route_select_key```.
+
 ## Example of sending a message from the server to the client
 To send a message to a specific connection simple load its ```WebSocketSession``` record and then call the 
 ```send_message``` method passing in a JSON compatible dictionary of the payload you wish to send to the client.
