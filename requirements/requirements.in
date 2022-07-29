@@ -6,3 +6,6 @@ pytest-django
 pip
 black
 pre-commit
+
+# Sphinx
+# sphinx-rtd-theme
