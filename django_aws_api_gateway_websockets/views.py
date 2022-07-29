@@ -224,7 +224,8 @@ class WebSocketView(View):
                 handler = self.http_method_not_allowed
         else:
             handler = self.missing_headers
-        return handler(request, *args, **kwargs)
+        res = handler(request, *args, **kwargs)
+        return res if res else JsonResponse({})
 
     def connect(
         self, request, *args, **kwargs
@@ -259,14 +260,13 @@ class WebSocketView(View):
         """Could add in additional steps for certificates, APIGateway Authorizers etc"""
         return True, ""
 
-    def disconnect(self, request, *args, **kwargs) -> JsonResponse:
+    def disconnect(self, request, *args, **kwargs):
         """Using connectionId update websocket table to show as disconnected"""
         wss = WebSocketSession.objects.get(
             connection_id=request.headers["Connectionid"]
         )
         wss.connected = False
         wss.save()
-        return JsonResponse({})
 
     def default(self, request, *args, **kwargs) -> JsonResponse:
         """Overload this method if you want to have a default message handler"""

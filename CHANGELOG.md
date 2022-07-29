@@ -1,3 +1,12 @@
+# 0.1.2 - 29th June 2022
+- Updated the dispatch method of WebSocketView to add in the default positive response if the handling method that was
+called does not return a response. This means that unless you are returning a negative response the handling methods no
+longer need to return anything.
+- Updated the README with examples of writing individual methods to handle different types of requests where the type
+of request is determined by the value of the ```route_selection_key```.
+- Updated the README with examples of how to send a reply to the websocket that made the request as well as how to send
+a Multicast to all connections using the same "channel".
+- 
 # 0.1.1 - 25th June 2022
 - Added debugging list to the base ```WebSocketView``` to keep track of calls if debugging is turned on. The intention
 is that debug=True can be passed into the ```.as_view()``` method in order to debug issues. Then the dispatch method can

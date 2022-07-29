@@ -43,7 +43,7 @@ following:
 2. __execute-api__ which is used to send messages again restricted.
 
 The IAM role requires both the POST permission to ```apigateway``` and ```apigateway2```, you may want to grant GET 
-as well so you can use the client.get_domain_names() method.
+as well so that you can use the client.get_domain_names() method.
 ```
 {
     "Sid": "VisualEditor7",
@@ -109,8 +109,8 @@ API Gateway has been setup to use. There are already methods for $connect and $d
 a method for ```default``` along with any other custom routes you have created.  The methods are selected dynamically
 via the ```dispatch``` method with any leading dollar sign being remove.
 
-The methods take the ```request``` parameter and must return a ```JSONResponse``` but otherwise you are free to take
-whatever action you require.
+The methods take the ```request``` parameter and only needs to return a response if you wish to return a negative HTTP
+response such as a HttpResponseBadRequest otherwise there is no need to return anything.
 
 ```
 from django_aws_api_gateway_websockets.views import WebSocketView
@@ -122,11 +122,81 @@ class ExampleWebSocketView(WebSocketView):
         """Add the logic you wish to make here when you receive a message.
          create your JSON response that you will handle within the Javascript
          """
-        
         logger.debug(f"body {self.body}")
-        
-        return JsonResponse({})
+
 ```
+
+If you want to send a response to the websocket that made the request then you need to call the ```send_message()``` on
+the WebSocketSession that is being used. See the example below
+
+```
+from django_aws_api_gateway_websockets.views import WebSocketView
+
+class ExampleWebSocketView(WebSocketView):
+    """Custom Websocket view."""
+
+    def default(self, request, *args, **kwargs) -> JsonResponse:
+        # Do stuff 
+        ...        
+        
+        # Send a message back to the client - i.e unicast
+        self.websocket_session.send_message({"key1": "value1", "key2": "value2"})
+
+```
+
+If you are using the "channels" to group WebSocket connections together for multicasting, that is one-to-many 
+communication then you can use the following example
+
+```
+from django_aws_api_gateway_websockets.models import WebSocketSession
+from django_aws_api_gateway_websockets.views import WebSocketView
+
+
+class ExampleWebSocketView(WebSocketView):
+    """Custom Websocket view."""
+
+    def default(self, request, *args, **kwargs) -> JsonResponse:
+        # Do stuff 
+        ...        
+        
+        # Multicast a message to ALL CONNECTED clients on the same "channel"
+        WebSocketSession.objects.filter(
+            channel_name=self.websocket_session.channel_name, connected=True
+        ).send_message({"key": "value})
+
+```
+
+#### Using the Route Selection Key value to call specific methods
+API Gateway works by routing messages based on the "Route Selection Key". This project sets you up with a default route
+so that you have a catch-all route but the Route Selection Key is preserved and is used by the dispatch method when 
+selecting the method to use to handle the request.  This means that you can write individual methods to handle each 
+route individually for cleaner, more testable code.
+
+In the example that follows the default Route Selection Key of **action** is being used. 
+Assume that two series of sends are made to the WebSocket. The first with the payload: 
+```{"action": "test", "value": "hello world"}``` and the second ```{"action": "help", "value": "Help Me"}```. You can
+either handle these within the catch-all ```default``` method or you can write individual methods for each action
+
+```
+from django_aws_api_gateway_websockets.models import WebSocketSession
+from django_aws_api_gateway_websockets.views import WebSocketView
+
+
+class ExampleWebSocketView(WebSocketView):
+    """Custom Websocket view."""
+
+    def test(self, request, *args, **kwargs) -> JsonResponse:
+        print(self.body.get("value")
+        # Prints "hello world" 
+
+    def help(self, request, *args, **kwargs) -> JsonResponse:
+        print(self.body.get("value")
+        # Prints "Help Me" 
+```
+
+**Remember**: The "action" key is the default ```route_selection_key```, if you chose to use a different one when 
+setting uip the websocket make sure to update the ```route_selection_key``` class property to use the same value
+
 
 ### Debugging the View
 Sometimes you the view may return a HTTP400 that you wish to debug further. In order to help with this you can pass
@@ -201,7 +271,7 @@ If you leave it blank it will default to "production"
 here is the value to which you should your DNS CNAME entry should point. 
 16. **API Mapping ID** - This will be populated when the API is created.
 
-Once you have create the record within the database simply select it from the Django Admin list view, choose 
+Once you have created the record within the database simply select it from the Django Admin list view, choose 
 **Create API Gateway** action from the actions list and click Go.  The API Gateway record will be created within your
 account. When it's ready the "API Created" column will show as True.
 
@@ -266,8 +336,6 @@ solutions
 
 The below example is using the JS library. Note you just include the lib and then use the 
 ```ReconnectingWebSocket``` class rather than ```WebSocket```:
-
-
 
 ```html
 <script src="https://cdnjs.cloudflare.com/ajax/libs/reconnecting-websocket/1.0.0/reconnecting-websocket.min.js" integrity="sha512-B4skI5FiLurS86aioJx9VfozI1wjqrn6aTdJH+YQUmCZum/ZibPBTX55k5d9XM6EsKePDInkLVrN7vPmJxc1qA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
