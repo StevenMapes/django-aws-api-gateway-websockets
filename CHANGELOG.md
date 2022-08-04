@@ -1,3 +1,9 @@
+# 0.1.3 - 4th August 2022
+- License is now MIT
+- Now considered as in Beta
+- Supports Django 3.2, 4.0 and 4.1
+- Supports Python 3.8 through 3.10
+
 # 0.1.2 - 29th June 2022
 - Updated the dispatch method of WebSocketView to add in the default positive response if the handling method that was
 called does not return a response. This means that unless you are returning a negative response the handling methods no
