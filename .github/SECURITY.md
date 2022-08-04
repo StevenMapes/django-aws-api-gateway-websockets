@@ -1,1 +1,1 @@
-Please report security issues directly over email to steve@jigsawtech.co.uk
+Please report security issues directly over email to steve@mapestech.co.uk
