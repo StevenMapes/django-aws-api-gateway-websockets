@@ -19,7 +19,7 @@ entry is updated to be flagged as no longer connected
 The method looks at the QueryString first of all and if that it empty it then uses the default_channel_name set against
 the ```APIGateway``` record that was found 
 - Fixed a bug with _check_platform_registered_api_gateways to fix the NoneType issue
-- Added the missing ```__str__``` method into the class as well as removing the imoprt that is no longer used
+- Added the missing ```__str__``` method into the class as well as removing the import that is no longer used
 - Added the missing ```self.custom_domain_created = True``` into the ```create_custom_domain``` method
 - Fixed a bug where formatting had converted the hosted zone id into a tuple 
 - Fixed a bug around the boto3 client setup as the checks for the AWS_ACCESS_KEY were not tight enough so I've swapped 
