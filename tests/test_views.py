@@ -19,10 +19,8 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
         self.assertEqual(
             [
                 "Host",
-                "X-Real-Ip",
                 "X-Forwarded-For",
                 "X-Forwarded-Proto",
-                "Connection",
                 "Content-Length",
                 "X-Forwarded-Port",
                 "X-Amzn-Trace-Id",
@@ -31,6 +29,15 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
                 "X-Amzn-Apigateway-Api-Id",
             ],
             views.WebSocketView.required_headers,
+        )
+
+    def test_additional_required_headers(self):
+        self.assertEqual(
+            [
+                "Connection",
+                "X-Real-Ip",
+            ],
+            views.WebSocketView.additional_required_headers,
         )
 
     def test_default_required_connection_headers(self):

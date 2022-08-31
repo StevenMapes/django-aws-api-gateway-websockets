@@ -80,7 +80,7 @@ class WebSocketView(View):
 
     def missing_headers(self, request, *args, **kwargs) -> HttpResponseBadRequest:
         """Method for handling missing headers"""
-        msg = f"Some of the required headers are missing; Expected {self.required_headers}, Received {request.headers}"
+        msg = f"Some of the required headers are missing; Expected {self.required_headers}, Received {request.headers.keys()}"
         return self._return_bad_request(msg)
 
     def invalid_useragent(self, request, *args, **kwargs) -> HttpResponseBadRequest:
