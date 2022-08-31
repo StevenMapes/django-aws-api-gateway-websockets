@@ -358,7 +358,8 @@ set-up with two lists of expected headers. ```required_headers``` and ```additio
 deploying to an EC2 server then you shouldn't have to change these but if you are deploying else where or are testing
 locally you may find that you need to change some of these. During development of this library I was using an
 [NGROK](https://ngrok.com/) network edge tunnel and found that the "X-Real-Ip" and "Connection" headers were being lost
-during which is why they were moved to the additional_required_headers.
+during which is why they were moved to the additional_required_headers. If you find this is the case for you then simply
+overload the class property and set it to an empty list.
 
 
 # Client Side Integration (Javascript)
