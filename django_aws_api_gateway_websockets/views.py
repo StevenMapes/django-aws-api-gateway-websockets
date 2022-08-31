@@ -26,16 +26,18 @@ class WebSocketView(View):
     websocket_session = None
     required_headers = [
         "Host",
-        "X-Real-Ip",
         "X-Forwarded-For",
         "X-Forwarded-Proto",
-        "Connection",
         "Content-Length",
         "X-Forwarded-Port",
         "X-Amzn-Trace-Id",
         "Connectionid",
         "User-Agent",
         "X-Amzn-Apigateway-Api-Id",
+    ]
+    additional_required_headers = [
+        "X-Real-Ip",
+        "Connection",
     ]
     required_connection_headers = [
         "Cookie",
@@ -93,6 +95,10 @@ class WebSocketView(View):
         """Ensure that all required headers exist within the request header"""
         request_headers = request.headers.keys()
         res = all(h in request_headers for h in self.required_headers)
+
+        if res and self.additional_required_headers:
+            res = all(h in request_headers for h in self.additional_required_headers)
+
         self._debug(f"_expected_headers() returned {res}")
         return res
 
