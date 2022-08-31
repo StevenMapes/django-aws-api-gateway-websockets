@@ -61,6 +61,11 @@ SESSION_COOKIE_DOMAIN='.www.example.com'
 ### Flushing Sessions
 Because you are changing the session cookie you will also need to flush any cached sessions using ```python manage.py clearsessions```.
 
+## Clearing Stale Websocket connections
+The websocket connections will become stale over time and some housekeeping is required.  To help there is a management
+command clearWebSocketSessions that can be run to delete the closed connections from the database.  Simply run
+```python manage.py clearWebSocketSessions```. I recommend setting this as a scheduled task.
+
 # AWS Setup
 In order for this package to create the API Gateway, it's routes, integration, custom domain and to publish messages
 you will need to assign the correct permission to the IAM User/Role following best practices of restrictive permission.
