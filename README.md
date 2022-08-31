@@ -67,35 +67,73 @@ you will need to assign the correct permission to the IAM User/Role following be
 
 If you are using a EC2/ECS then you should be using an IAM Role otherwise use a user.
 
-## IAM Permissions
-You'll need to grant the IAM permission to create the API Gateway
+## IAM Policy
+You'll need to grant the IAM permission to allow this project to create the API Gateway, create the domain mappings and
+to execute the API to send messages from the server to the client(s).
 
-**IMPORTANT**: I'm still reviewing the "minimum required permissions" but this project has been tested with the 
-following:
+I'm still reviewing the "minimum required permissions" but this project has been tested with the 
+following IAM policy:
 
-1. GET, POST, PATCH and PUT permissions to API Gateway restricted to the ```API ID``` of the API Gateway you will create.
-2. __execute-api__. Used to send messages, this should be restricted to the APIs you wish to allow.
-
-The IAM role requires both the POST permission to ```apigateway``` and ```apigateway2```, you may want to grant GET 
-as well so that you can use the client.get_domain_names() method.
 ```
 {
-    "Sid": "VisualEditor7",
-    "Effect": "Allow",
-    "Action": [
-        "apigateway:GET",
-        "apigateway:POST"
-    ],
-    "Resource": "arn:aws:apigateway:REGION_NAME_HERE::/domainnames"
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "DjangoApiGatewayPolicy01",
+            "Effect": "Allow",
+            "Action": [
+                "apigateway:GET",
+                "apigateway:PATCH",
+                "apigateway:POST",
+                "apigateway:PUT",
+                "execute-api:*"
+            ],
+            "Resource": [
+                "arn:aws:apigateway:*::/apis",
+                "arn:aws:apigateway:*::/apis/*",
+                "arn:aws:apigateway:*::/apis/*/authorizers",
+                "arn:aws:apigateway:*::/apis/*/authorizers/*",
+                "arn:aws:apigateway:*::/apis/*/cors",
+                "arn:aws:apigateway:*::/apis/*/deployments",
+                "arn:aws:apigateway:*::/apis/*/deployments/*",
+                "arn:aws:apigateway:*::/apis/*/exports/*",
+                "arn:aws:apigateway:*::/apis/*/integrations",
+                "arn:aws:apigateway:*::/apis/*/integrations/*",
+                "arn:aws:apigateway:*::/apis/*/integrations/*/integrationresponses",
+                "arn:aws:apigateway:*::/apis/*/integrations/*/integrationresponses/*",
+                "arn:aws:apigateway:*::/apis/*/models",
+                "arn:aws:apigateway:*::/apis/*/models/*",
+                "arn:aws:apigateway:*::/apis/*/models/*/template",
+                "arn:aws:apigateway:*::/apis/*/routes",
+                "arn:aws:apigateway:*::/apis/*/routes/*",
+                "arn:aws:apigateway:*::/apis/*/routes/*/requestparameters/*",
+                "arn:aws:apigateway:*::/apis/*/routes/*/routeresponses",
+                "arn:aws:apigateway:*::/apis/*/routes/*/routeresponses/*",
+                "arn:aws:apigateway:*::/apis/*/stages",
+                "arn:aws:apigateway:*::/apis/*/stages/*",
+                "arn:aws:apigateway:*::/apis/*/stages/*/accesslogsettings",
+                "arn:aws:apigateway:*::/apis/*/stages/*/cache/authorizers",
+                "arn:aws:apigateway:*::/apis/*/stages/*/routesettings/*",
+                "arn:aws:apigateway:eu-west-1::/domainnames",
+                "arn:aws:apigateway:*::/domainnames/*/apimappings",
+                "arn:aws:apigateway:*::/domainnames/*/apimappings/*",
+                "arn:aws:execute-api:{AWS-REGION-NAME}:{AWS-ACCOUNT-NUMBER}:*/*/*/*"
+            ]
+        }
+    ]
 }
 ```
-Ensure the action ```"execute-api:*"``` is granted to the resource of
-```
-"arn:aws:execute-api:REGION_NAME:YOUR_AWS_ACCOUNT_ID_HERE:*/*/*/*"
-``` 
-where the REGION_NAME is the region you expect or * and YOUR_AWS_ACCOUNT_ID_HERE is your account id. This will grant the
-user/role permission to execute ALL API Gateways within one region or ALL regions. You should restrict this further to 
-only the specific API(s) you are using for the project 
+
+You will need to edit the last permission, the ```execute-api``` permissions, and will need to replace 
+```{AWS-REGION-NANE}``` with the correct AWS region you are using, E.G ```eu-west-1``` as well as replacing
+```{AWS-ACCOUNT-NUMBER}``` with your account number E.G: 123456789101 
+
+This policy grants permissions to ensure the API Gateway(s) will be created, the custom domain name mapped to the 
+gateway and that you can send messages from the server to clients.
+
+Once you have created your API Gateway(s) you may wish to follow AWS best practice and restrict of revoke the 
+permissions to the API Gateway(s) you have created.  Because I do not know what you will name your gateway, the 
+permissions above will allow you to add/edit and API gateway on your account.
 
 # Getting Started
 
