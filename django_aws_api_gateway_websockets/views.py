@@ -29,15 +29,15 @@ class WebSocketView(View):
         "X-Forwarded-For",
         "X-Forwarded-Proto",
         "Content-Length",
-        "X-Forwarded-Port",
-        "X-Amzn-Trace-Id",
         "Connectionid",
         "User-Agent",
         "X-Amzn-Apigateway-Api-Id",
     ]
     additional_required_headers = [
-        "X-Real-Ip",
         "Connection",
+        "X-Amzn-Trace-Id",
+        "X-Forwarded-Port",
+        "X-Real-Ip",
     ]
     required_connection_headers = [
         "Cookie",

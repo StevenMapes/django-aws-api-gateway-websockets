@@ -22,8 +22,6 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
                 "X-Forwarded-For",
                 "X-Forwarded-Proto",
                 "Content-Length",
-                "X-Forwarded-Port",
-                "X-Amzn-Trace-Id",
                 "Connectionid",
                 "User-Agent",
                 "X-Amzn-Apigateway-Api-Id",
@@ -35,6 +33,8 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
         self.assertEqual(
             [
                 "Connection",
+                "X-Amzn-Trace-Id",
+                "X-Forwarded-Port",
                 "X-Real-Ip",
             ],
             views.WebSocketView.additional_required_headers,
