@@ -1,4 +1,5 @@
-from django.contrib import admin
+from boto3.exceptions import Boto3Error
+from django.contrib import admin, messages
 from django.contrib.admin import ModelAdmin
 
 from django_aws_api_gateway_websockets import models
@@ -8,7 +9,12 @@ def create_api_gateway(modeladmin, request, queryset):
     """Creates the API Gateway record if one does not already exist"""
     for obj in queryset:
         if not obj.api_created:
-            obj.create_gateway()
+            try:
+                obj.create_gateway()
+            except Boto3Error as be:
+                messages.error(
+                    request, f"{str(be)} occurred when processing {obj.api_name}"
+                )
 
 
 create_api_gateway.short_description = "Create API Gateway"
@@ -18,7 +24,12 @@ def create_custom_domain(modeladmin, request, queryset):
     """Creates the Custom Domain record if one does not already exist"""
     for obj in queryset:
         if obj.api_created and not obj.custom_domain_created:
-            obj.create_custom_domain()
+            try:
+                obj.create_custom_domain()
+            except Boto3Error as be:
+                messages.error(
+                    request, f"{str(be)} occurred when processing {obj.api_name}"
+                )
 
 
 create_custom_domain.short_description = "Create Custom Domain record for the API"
