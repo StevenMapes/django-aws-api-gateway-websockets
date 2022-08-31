@@ -53,6 +53,12 @@ class ApiGateway(models.Model):
     def __str__(self) -> str:
         return self.api_name
 
+    def save(self, **kwargs):
+        """Ensure the trailing slash is saved to the target endpoint"""
+        if not self.target_base_endpoint[-1:] == "/":
+            self.target_base_endpoint = f"{self.target_base_endpoint}/"
+        super().save(**kwargs)
+
     api_name = models.CharField(max_length=255, unique=True)
     api_description = models.CharField(max_length=255, blank=True, default="")
     default_channel_name = models.CharField(

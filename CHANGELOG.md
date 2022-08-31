@@ -2,6 +2,7 @@
 - Correcting the name on the license
 - Updating the README setup instructions including the required Django settings
 - Adding Exception handling into the Django Admin page so that the exceptions are caught and added to Django messages
+- Ensures the trailing / is appended to the target base endpoint.
 
 # 0.1.3 - 4th August 2022
 - License is now MIT
