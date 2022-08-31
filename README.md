@@ -67,6 +67,9 @@ you will need to assign the correct permission to the IAM User/Role following be
 
 If you are using a EC2/ECS then you should be using an IAM Role otherwise use a user.
 
+This package **does not** include creating an AWS Certificate as you may already have one. You should create that 
+yourself.  If you do not know how then see the [Appendix](#Appendix) section at the end of this file.
+
 ## IAM Policy
 You'll need to grant the IAM permission to allow this project to create the API Gateway, create the domain mappings and
 to execute the API to send messages from the server to the client(s).
@@ -293,12 +296,11 @@ WebSocketSession.objects.filter(channel_name="Chatroom 1").send_message(
 The ```WebSocketSessionQuerySet.send_message``` method automatically adds a filter of ```connected=True``` 
 
 ## Django Admin
-Two Django Admin pages will be available within your project under the app _Django AWS APIGateway WebSockets_.
-
-Those pages allow you to view and manage the two base models.
+Two Django Admin pages will be added to your project under the app _Django AWS APIGateway WebSockets_. Those pages 
+allow you to view and manage the two base models.
 
 ### Creating an API Gateway Endpoint
-**Important** This section assumes that you have created the IAM access required.
+**Important** This section assumes that you are using an IAM account with the permissions listed earlier.
 
 Using the Django Admin page create a new API Gateway record using the following for reference:
 
@@ -430,20 +432,23 @@ API Gateway will route this to the endpoint set for the "bob" route. This will b
 value being assigned to **bob**. The ```dispatch``` method of the view will then look for a method on the class called
 ```bob```. If one is found then it will be invoked otherwise the ```default``` method will be called.
 
+# Appendix
+
+## Creating an SSL Certificate within AWS Certificate Manager
+Please refer to the [official AWS documentation](https://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request-public.html)
+
 # Found a Bug?
 Issues are tracked via GitHub issues at the [project issue page](https://github.com/StevenMapes/django-aws-api-gateway-websockets/issues)
 
 # Have A Feature Request?
 Feature requests can be raised by creating an issue within the [project issue page](https://github.com/StevenMapes/django-aws-api-gateway-websockets/issues), but please create the issue with "Feature Request -" at the start of the issue
 
-# Documentation
+# Testing
 TBA
 
-# Compiling Requirements
+# # Compiling Requirements
 Run ```pip install pip-tools``` then run ```python requirements/compile.py``` to generate the various requirements files
 Also require ```pytest-django``` for testing
-
-# Testing
 
 # pip-tools
 
