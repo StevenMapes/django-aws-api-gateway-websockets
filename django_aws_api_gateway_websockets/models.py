@@ -312,10 +312,16 @@ class WebSocketSession(models.Model):
                 f"{settings.AWS_REGION_NAME}.amazonaws.com/{self.api_gateway.stage_name}"
             ),
         )
-
-        return client.post_to_connection(
-            Data=json.dumps(data), ConnectionId=self.connection_id
-        )
+        try:
+            return client.post_to_connection(
+                Data=json.dumps(data), ConnectionId=self.connection_id
+            )
+        except ClientError as error:
+            if error.response["Error"]["Code"] == "GoneException":
+                self.connected = False
+                self.save()
+            else:
+                raise error
 
     objects = WebSocketSessionQuerySet.as_manager()
 
