@@ -29,39 +29,6 @@ This project officially supports Python 3.8+ and Django 3.2+.
 | 3.9               | Y       | Y       | Y       | N/A     |
 | 3.10              | Y       | Y       | Y       | N/A     |
 
-# AWS Setup
-In order for this package to create the API Gateway, it's routes, integration, custom domain and to publish messages
-you will need to assign the correct permission with your IAM User or Role following best practices.
-
-If you are using a EC2/ECS then you should be using an IAM Role. 
-
-## IAM Permissions
-**IMPORTANT**: I'm still reviewing the "minimum required permissions" but this project has been tested with the 
-following:
-
-1. GET, POST, PATCH and PUT permissions to the API Gateway restricted to the API ID of the API Gateway you created above.
-2. __execute-api__ which is used to send messages again restricted.
-
-The IAM role requires both the POST permission to ```apigateway``` and ```apigateway2```, you may want to grant GET 
-as well so that you can use the client.get_domain_names() method.
-```
-{
-    "Sid": "VisualEditor7",
-    "Effect": "Allow",
-    "Action": [
-        "apigateway:GET",
-        "apigateway:POST"
-    ],
-    "Resource": "arn:aws:apigateway:REGION_NAME_HERE::/domainnames"
-}
-```
-Ensure the action ```"execute-api:*"``` is granted to the resource of
-```
-"arn:aws:execute-api:REGION_NAME:YOUR_AWS_ACCOUNT_ID_HERE:*/*/*/*"
-``` 
-where the REGION_NAME is the region you expect
-or * and YOUR_AWS_ACCOUNT_ID_HERE is your account id
-
 # Installation
 You can install this package from pip using
 ```
@@ -94,6 +61,41 @@ SESSION_COOKIE_DOMAIN='.www.example.com'
 ### Flushing Sessions
 Because you are changing the session cookie you will also need to flush any cached sessions using ```python manage.py clearsessions```.
 
+# AWS Setup
+In order for this package to create the API Gateway, it's routes, integration, custom domain and to publish messages
+you will need to assign the correct permission to the IAM User/Role following best practices of restrictive permission.
+
+If you are using a EC2/ECS then you should be using an IAM Role otherwise use a user.
+
+## IAM Permissions
+You'll need to grant the IAM permission to create the API Gateway
+
+**IMPORTANT**: I'm still reviewing the "minimum required permissions" but this project has been tested with the 
+following:
+
+1. GET, POST, PATCH and PUT permissions to API Gateway restricted to the ```API ID``` of the API Gateway you will create.
+2. __execute-api__. Used to send messages, this should be restricted to the APIs you wish to allow.
+
+The IAM role requires both the POST permission to ```apigateway``` and ```apigateway2```, you may want to grant GET 
+as well so that you can use the client.get_domain_names() method.
+```
+{
+    "Sid": "VisualEditor7",
+    "Effect": "Allow",
+    "Action": [
+        "apigateway:GET",
+        "apigateway:POST"
+    ],
+    "Resource": "arn:aws:apigateway:REGION_NAME_HERE::/domainnames"
+}
+```
+Ensure the action ```"execute-api:*"``` is granted to the resource of
+```
+"arn:aws:execute-api:REGION_NAME:YOUR_AWS_ACCOUNT_ID_HERE:*/*/*/*"
+``` 
+where the REGION_NAME is the region you expect or * and YOUR_AWS_ACCOUNT_ID_HERE is your account id. This will grant the
+user/role permission to execute ALL API Gateways within one region or ALL regions. You should restrict this further to 
+only the specific API(s) you are using for the project 
 
 # Getting Started
 

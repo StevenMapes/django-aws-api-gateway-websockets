@@ -1,3 +1,7 @@
+# 0.1.4 - 4th August 2022
+- Correcting the name on the license
+- Updating the README setup instructions including the required Django settings 
+
 # 0.1.3 - 4th August 2022
 - License is now MIT
 - Now considered as in Beta
