@@ -1,4 +1,4 @@
-from boto3.exceptions import Boto3Error
+from botocore import exceptions
 from django.contrib import admin, messages
 from django.contrib.admin import ModelAdmin
 
@@ -11,9 +11,9 @@ def create_api_gateway(modeladmin, request, queryset):
         if not obj.api_created:
             try:
                 obj.create_gateway()
-            except Boto3Error as be:
+            except exceptions.ClientError as ce:
                 messages.error(
-                    request, f"{str(be)} occurred when processing {obj.api_name}"
+                    request, f"{str(ce)} occurred when processing {obj.api_name}"
                 )
 
 
@@ -26,9 +26,9 @@ def create_custom_domain(modeladmin, request, queryset):
         if obj.api_created and not obj.custom_domain_created:
             try:
                 obj.create_custom_domain()
-            except Boto3Error as be:
+            except exceptions.ClientError as ce:
                 messages.error(
-                    request, f"{str(be)} occurred when processing {obj.api_name}"
+                    request, f"{str(ce)} occurred when processing {obj.api_name}"
                 )
 
 
