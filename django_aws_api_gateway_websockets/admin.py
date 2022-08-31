@@ -11,6 +11,9 @@ def create_api_gateway(modeladmin, request, queryset):
         if not obj.api_created:
             try:
                 obj.create_gateway()
+                messages.success(
+                    request, f"API Gateway endpoint created for {obj.api_name}"
+                )
             except exceptions.ClientError as ce:
                 messages.error(
                     request, f"{str(ce)} occurred when processing {obj.api_name}"
@@ -26,6 +29,10 @@ def create_custom_domain(modeladmin, request, queryset):
         if obj.api_created and not obj.custom_domain_created:
             try:
                 obj.create_custom_domain()
+                messages.success(
+                    request,
+                    f"Custom Domain setup for {obj.api_name}. Next update DNS to point to {obj.api_gateway_domain_name}",
+                )
             except exceptions.ClientError as ce:
                 messages.error(
                     request, f"{str(ce)} occurred when processing {obj.api_name}"
