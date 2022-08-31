@@ -477,9 +477,7 @@ Also require ```pytest-django``` for testing
 - Create a pull request, tagging the issue, bug me until I can merge your pull request. Also, don't forget to add yourself to AUTHORS.
 
 # TO DO
-1. Clean-up script for purging old sessions
-2. Management command for triggering the clean-up.
-3. Example of a "chat" implementation I.E. a view that receives a message and published the same message to all sessions 
+1. Example of a "chat" implementation I.E. a view that receives a message and published the same message to all sessions 
 within the same channel
-4. Example of setting the channel within the default handler
-5. Example of creating a custom route
+2. Example of setting the channel within the default handler
+3. Example of creating a custom route

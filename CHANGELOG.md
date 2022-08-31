@@ -1,6 +1,7 @@
 # 0.1.5 - 4th August 2022
 - Adding in a supplementary list of headers that are also required, by default, but that you may need to blank out when
 testing from a non-AWS deployment such as via na ngrok proxy
+- Adding the management command to stale connections 
 
 # 0.1.4 - 4th August 2022
 - Correcting the name on the license

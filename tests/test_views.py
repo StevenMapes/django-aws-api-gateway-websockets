@@ -1,5 +1,3 @@
-from unittest.mock import patch
-
 from django.http import HttpResponseBadRequest
 from django.test import RequestFactory, SimpleTestCase
 
