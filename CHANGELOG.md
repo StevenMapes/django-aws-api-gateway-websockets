@@ -1,3 +1,6 @@
+# 0.2.0 - 12th September 2022
+- Updating the packaging of the project as the management command was not being bundled with the rest of the code.
+
 # 0.1.5 - 4th August 2022
 - Adding in a supplementary list of headers that are also required, by default, but that you may need to blank out when
 testing from a non-AWS deployment such as via na ngrok proxy
