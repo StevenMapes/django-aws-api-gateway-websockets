@@ -80,7 +80,7 @@ You'll need to grant the IAM permission to allow this project to create the API 
 to execute the API to send messages from the server to the client(s).
 
 I'm still reviewing the "minimum required permissions" but this project has been tested with the 
-following IAM policy:
+following IAM policy which you can copy and paste into the JSON editor within the AWS console:
 
 ```
 {
@@ -123,9 +123,9 @@ following IAM policy:
                 "arn:aws:apigateway:*::/apis/*/stages/*/accesslogsettings",
                 "arn:aws:apigateway:*::/apis/*/stages/*/cache/authorizers",
                 "arn:aws:apigateway:*::/apis/*/stages/*/routesettings/*",
-                "arn:aws:apigateway:eu-west-1::/domainnames",
-                "arn:aws:apigateway:*::/domainnames/*/apimappings",
-                "arn:aws:apigateway:*::/domainnames/*/apimappings/*",
+                "arn:aws:apigateway:{AWS-REGION-NAME}::/domainnames",
+                "arn:aws:apigateway:{AWS-REGION-NAME}::/domainnames/*/apimappings",
+                "arn:aws:apigateway:{AWS-REGION-NAME}::/domainnames/*/apimappings/*",
                 "arn:aws:execute-api:{AWS-REGION-NAME}:{AWS-ACCOUNT-NUMBER}:*/*/*/*",
                 "arn:aws:iam::{AWS-ACCOUNT-NUMBER}:role/aws-service-role/ops.apigateway.amazonaws.com/AWSServiceRoleForAPIGateway"
             ]
@@ -134,9 +134,9 @@ following IAM policy:
 }
 ```
 
-You will need to edit the last two permission, the ```execute-api``` and ```iam aws-service-role```permissions, and will need to replace 
-```{AWS-REGION-NANE}``` with the correct AWS region you are using, E.G ```eu-west-1``` as well as replacing
-```{AWS-ACCOUNT-NUMBER}``` with your account number E.G: 123456789101 
+You will need to edit the permissio and replace the following: 
+1. ```{AWS-REGION-NANE}``` with the correct AWS region you are using, E.G ```eu-west-1```. If you wish to grant access to all regions then replace this placeholder with an ```*```
+2. ```{AWS-ACCOUNT-NUMBER}``` with your account number E.G: 123456789101 
 
 This policy grants permissions to ensure the API Gateway(s) will be created, the custom domain name mapped to the 
 gateway and that you can send messages from the server to clients.  The AWS Service role is required as it's used when 
