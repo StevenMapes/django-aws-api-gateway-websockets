@@ -94,7 +94,8 @@ following IAM policy:
                 "apigateway:PATCH",
                 "apigateway:POST",
                 "apigateway:PUT",
-                "execute-api:*"
+                "execute-api:*",
+                "iam:CreateServiceLinkedRole"
             ],
             "Resource": [
                 "arn:aws:apigateway:*::/apis",
@@ -125,19 +126,22 @@ following IAM policy:
                 "arn:aws:apigateway:eu-west-1::/domainnames",
                 "arn:aws:apigateway:*::/domainnames/*/apimappings",
                 "arn:aws:apigateway:*::/domainnames/*/apimappings/*",
-                "arn:aws:execute-api:{AWS-REGION-NAME}:{AWS-ACCOUNT-NUMBER}:*/*/*/*"
+                "arn:aws:execute-api:{AWS-REGION-NAME}:{AWS-ACCOUNT-NUMBER}:*/*/*/*",
+                "arn:aws:iam::{AWS-ACCOUNT-NUMBER}:role/aws-service-role/ops.apigateway.amazonaws.com/AWSServiceRoleForAPIGateway"
             ]
         }
     ]
 }
 ```
 
-You will need to edit the last permission, the ```execute-api``` permissions, and will need to replace 
+You will need to edit the last two permission, the ```execute-api``` and ```iam aws-service-role```permissions, and will need to replace 
 ```{AWS-REGION-NANE}``` with the correct AWS region you are using, E.G ```eu-west-1``` as well as replacing
 ```{AWS-ACCOUNT-NUMBER}``` with your account number E.G: 123456789101 
 
 This policy grants permissions to ensure the API Gateway(s) will be created, the custom domain name mapped to the 
-gateway and that you can send messages from the server to clients.
+gateway and that you can send messages from the server to clients.  The AWS Service role is required as it's used when 
+you create a custom domain name for API Gateway. If you do this via the console it will create the role for you so we
+need to ensure the IAM user has the permission in order to replicate this.
 
 Once you have created your API Gateway(s) you may wish to follow AWS best practice and restrict of revoke the 
 permissions to the API Gateway(s) you have created.  Because I do not know what you will name your gateway, the 
