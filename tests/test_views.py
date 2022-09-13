@@ -5,7 +5,7 @@ from django_aws_api_gateway_websockets import views
 
 
 class WebSocketViewSimpleTestCase(SimpleTestCase):
-    """For tests the do not require a DB"""
+    """For tests that do not require a DB"""
 
     def setUp(self) -> None:
         self.factory = RequestFactory()

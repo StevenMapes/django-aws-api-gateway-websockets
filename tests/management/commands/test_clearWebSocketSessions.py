@@ -8,7 +8,7 @@ from django_aws_api_gateway_websockets.management.commands.clearWebSocketSession
 
 
 class ClearWebSocketSessionTestCase(SimpleTestCase):
-    """Test the manageement command takes the expected action(s)"""
+    """Test the management command takes the expected action(s)"""
 
     @patch(
         "django_aws_api_gateway_websockets.management.commands.clearWebSocketSessions.WebSocketSession"

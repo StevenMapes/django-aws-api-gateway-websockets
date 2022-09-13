@@ -465,9 +465,16 @@ Issues are tracked via GitHub issues at the [project issue page](https://github.
 Feature requests can be raised by creating an issue within the [project issue page](https://github.com/StevenMapes/django-aws-api-gateway-websockets/issues), but please create the issue with "Feature Request -" at the start of the issue
 
 # Testing
-TBA
+To run the tests use
 
-# # Compiling Requirements
+```
+coverage erase && \
+python -W error::DeprecationWarning -W error::PendingDeprecationWarning -m coverage run --parallel -m pytest --ds tests.settings && \
+coverage combine && \
+coverage report
+```
+
+# Compiling Requirements
 Run ```pip install pip-tools``` then run ```python requirements/compile.py``` to generate the various requirements files
 Also require ```pytest-django``` for testing
 
