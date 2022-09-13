@@ -1,6 +1,7 @@
 # 0.2.1 - 13th September 2022
 - BUG FIX - The ```_create_domain_name``` method of the ```ApiGateway``` was always setting a hosted zone id even if one
-was not to be used
+was not to be used.
+- Updating the README.md file with the updated IAM policy
 
 # 0.2.0 - 12th September 2022
 - Updating the packaging of the project as the management command was not being bundled with the rest of the code.
