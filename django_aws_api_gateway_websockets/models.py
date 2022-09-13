@@ -233,7 +233,6 @@ class ApiGateway(models.Model):
             "CertificateArn": self.certificate_arn,
             "DomainNameStatus": "AVAILABLE",
             "EndpointType": "REGIONAL",
-            "HostedZoneId": self.hosted_zone_id,
             "SecurityPolicy": "TLS_1_2",
         }
         if self.hosted_zone_id:
