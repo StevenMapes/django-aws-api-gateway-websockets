@@ -60,7 +60,7 @@ class WebSocketView(View):
             self.debug_log.append(msg)
 
     def setup(self, request, *args, **kwargs):
-        """Converts the request.body string back into a dictionary and assign to the objets body property for ease"""
+        """Converts the request.body string back into a dictionary and assign to the objects body property for ease"""
         super().setup(request, *args, **kwargs)
         self._debug("Within setup")
         self.body = json.loads(request.body) if request.body else {}
