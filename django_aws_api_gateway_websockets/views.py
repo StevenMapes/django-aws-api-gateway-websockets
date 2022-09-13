@@ -80,7 +80,10 @@ class WebSocketView(View):
 
     def missing_headers(self, request, *args, **kwargs) -> HttpResponseBadRequest:
         """Method for handling missing headers"""
-        msg = f"Some of the required headers are missing; Expected {self.required_headers}, Received {request.headers.keys()}"
+        msg = (
+            f"Some of the required headers are missing; Expected {self.required_headers}, "
+            f"Received {request.headers.keys()}"
+        )
         return self._return_bad_request(msg)
 
     def invalid_useragent(self, request, *args, **kwargs) -> HttpResponseBadRequest:
@@ -103,24 +106,16 @@ class WebSocketView(View):
         return res
 
     def _allowed_apigateway(self, request, *args, **kwargs) -> bool:
+        """Ensure the AWS API Gateway is the expected one (if set against the class) otherwise use the DB check"""
         res = self._check_platform_registered_api_gateways(request)
         if self.aws_api_gateway_id:
-            res = self._expected_apigateway_id(request, *args, **kwargs)
+            res = self.aws_api_gateway_id == request.headers["X-Amzn-Apigateway-Api-Id"]
+            self._debug(f"_expected_apigateway_id() returned {res}")
         self._debug(f"_allowed_apigateway() returned {res}")
         return res
 
-    def _expected_apigateway_id(self, request, *args, **kwargs) -> bool:
-        """Ensure AWS Gateway ID in head is expected or that instance allows all I.E is not set"""
-        res = (
-            self.aws_api_gateway_id
-            and request.headers["X-Amzn-Apigateway-Api-Id"]
-            is not self.aws_api_gateway_id
-        )
-        self._debug(f"_expected_apigateway_id() returned {res}")
-        return res
-
     def _check_platform_registered_api_gateways(self, request) -> bool:
-        """Checks to ensure that the API Gateway calling the view is one the user has registered"""
+        """Checks to ensure that the API Gateway calling the view is one that the user has registered"""
         self.api_gateway = ApiGateway.objects.filter(
             api_id=request.headers["X-Amzn-Apigateway-Api-Id"]
         ).first()
@@ -130,11 +125,14 @@ class WebSocketView(View):
         return bool(self.api_gateway)
 
     def _expected_useragent(self, request, *args, **kwargs) -> bool:
-        """Validated that the useragent is the expected one for all calls except the connect method"""
+        """Validated that the useragent is the expected one for all calls except the connect method
+
+        For the connect method the useragent should be API Gateway itself and NOT the client's forwarded useragent
+        """
         if self.aws_api_gateway_id:
             res = (
-                request.headers["User-Agent"]
-                is not f"{self.expected_useragent_prefix}{self.aws_api_gateway_id}"
+                not request.headers["User-Agent"]
+                == f"{self.expected_useragent_prefix}{self.aws_api_gateway_id}"
             )
         else:
             res = self.expected_useragent_prefix in request.headers["User-Agent"]
