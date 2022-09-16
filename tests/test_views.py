@@ -726,3 +726,44 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
         self.assertEqual(
             obj.websocket_session, MockWebSocketSession.objects.get.return_value
         )
+
+    def test__additional_connection_checks(self):
+        """The _additional_connection_checks method should return True, "" for the default implementation"""
+        obj = views.WebSocketView()
+        result, msg = obj._additional_connection_checks(None)
+        self.assertTrue(result)
+        self.assertEqual("", msg)
+
+    @patch("django_aws_api_gateway_websockets.views.WebSocketSession")
+    def test_disconnect(self, MockWebSocketSession):
+        """The disconnect method should load the websocket session, update a property then call the save method"""
+        wss = MagicMock(connected=True)
+        MockWebSocketSession.objects.get.return_value = wss
+
+        request = self.factory.post(
+            "",
+            data=json.dumps({}),
+            content_type="application/json",
+            HTTP_Connectionid="1234",
+        )
+        obj = views.WebSocketView()
+
+        self.assertTrue(wss.connected)
+
+        obj.disconnect(request)
+
+        MockWebSocketSession.objects.get.assert_called_with(
+            connection_id=request.headers["Connectionid"]
+        )
+        MockWebSocketSession.objects.get.return_value.save.assert_called_with()
+        self.assertFalse(MockWebSocketSession.objects.get.return_value.connected)
+
+    def test_default(self):
+        """The method handling default actions should raise a NotImplemented error by default"""
+        obj = views.WebSocketView()
+
+        with self.assertRaises(NotImplementedError) as e:
+            obj.default(request=self.factory.get(""))
+        self.assertEqual(
+            "This logic needs to be defined within the subclass", str(e.exception)
+        )
