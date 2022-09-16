@@ -2,7 +2,7 @@ import json
 from unittest.mock import MagicMock, patch
 
 from django.core.exceptions import ObjectDoesNotExist
-from django.http import HttpResponseBadRequest
+from django.http import HttpResponseBadRequest, JsonResponse
 from django.test import RequestFactory, SimpleTestCase, override_settings
 
 from django_aws_api_gateway_websockets import views
@@ -767,3 +767,181 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
         self.assertEqual(
             "This logic needs to be defined within the subclass", str(e.exception)
         )
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    @patch("django_aws_api_gateway_websockets.views.WebSocketSession")
+    @patch("django_aws_api_gateway_websockets.views.JsonResponse")
+    def test_connect(self, MockJsonResponse, MockWebSocketSession):
+        """Test the connect method when the expected header are set. Should pass through all checks"""
+        user = MagicMock(is_authenticated=True)
+        request = self.factory.post(
+            "?channel=my-channel",
+            data=json.dumps({}),
+            content_type="application/json",
+            HTTP_Connectionid="1234",
+            HTTP_Cookie="some-cookie",
+            HTTP_Origin="example.com",
+            HTTP_Sec_Websocket_Extensions="some-value",
+            HTTP_Sec_Websocket_Key="some-key",
+            HTTP_Sec_Websocket_Version="1.2.3",
+            HTTP_HOST="www.example.com",
+            HTTP_ORIGIN="https://www.example.com",
+        )
+        request.user = user
+        obj = views.WebSocketView()
+
+        res = obj.connect(request)
+        MockWebSocketSession.objects.create.assert_called_with(
+            connection_id=request.headers["Connectionid"],
+            channel_name=obj._get_channel_name(request),
+            user=request.user if request.user.is_authenticated else None,
+            api_gateway=obj.api_gateway,
+        )
+        MockJsonResponse.assert_called_with({})
+        self.assertEqual(MockJsonResponse.return_value, res)
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    @patch("django_aws_api_gateway_websockets.views.WebSocketSession")
+    @patch("django_aws_api_gateway_websockets.views.JsonResponse")
+    @patch("django_aws_api_gateway_websockets.views.HttpResponseBadRequest")
+    def test_connect__missing_expected_headers(
+        self, MockHttpResponseBadRequest, MockJsonResponse, MockWebSocketSession
+    ):
+        """Test the connect method when the expected headers are missing."""
+        user = MagicMock(is_authenticated=True)
+        request = self.factory.post(
+            "?channel=my-channel",
+            data=json.dumps({}),
+            content_type="application/json",
+            HTTP_Connectionid="1234",
+            HTTP_Cookie="some-cookie",
+            HTTP_Origin="example.com",
+            HTTP_HOST="www.example.com",
+            HTTP_ORIGIN="https://www.example.com",
+        )
+        request.user = user
+        obj = views.WebSocketView()
+
+        res = obj.connect(request)
+
+        self.assertEqual(MockHttpResponseBadRequest.return_value, res)
+        self.assertEqual(0, MockWebSocketSession.objects.create.call_count)
+        self.assertEqual(0, MockJsonResponse.call_count)
+        MockHttpResponseBadRequest.assert_called_with(
+            (
+                "Missing headers; Expected ['Cookie', 'Origin', 'Sec-Websocket-Extensions', 'Sec-Websocket-Key', "
+                "'Sec-Websocket-Version'], Received {'Cookie': 'some-cookie', 'Content-Length': '2', "
+                "'Content-Type': 'application/json', 'Connectionid': '1234', 'Origin': 'https://www.example.com', "
+                "'Host': 'www.example.com'}"
+            )
+        )
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    @patch("django_aws_api_gateway_websockets.views.WebSocketSession")
+    @patch("django_aws_api_gateway_websockets.views.JsonResponse")
+    @patch("django_aws_api_gateway_websockets.views.HttpResponseBadRequest")
+    def test_connect__with_invalid_host(
+        self, MockHttpResponseBadRequest, MockJsonResponse, MockWebSocketSession
+    ):
+        """Test the connect method when the host is not in the allowed list are missing."""
+        user = MagicMock(is_authenticated=True)
+        request = self.factory.post(
+            "?channel=my-channel",
+            data=json.dumps({}),
+            content_type="application/json",
+            HTTP_Connectionid="1234",
+            HTTP_Cookie="some-cookie",
+            HTTP_Origin="example.com",
+            HTTP_Sec_Websocket_Extensions="some-value",
+            HTTP_Sec_Websocket_Key="some-key",
+            HTTP_Sec_Websocket_Version="1.2.3",
+            HTTP_HOST="www.spoofed.com",
+            HTTP_ORIGIN="https://www.spoofed.com",
+        )
+        request.user = user
+        obj = views.WebSocketView()
+
+        res = obj.connect(request)
+
+        self.assertEqual(MockHttpResponseBadRequest.return_value, res)
+        self.assertEqual(0, MockWebSocketSession.objects.create.call_count)
+        self.assertEqual(0, MockJsonResponse.call_count)
+        MockHttpResponseBadRequest.assert_called_with(
+            (f"Host www.spoofed.com not in AllowedHosts ['www.example.com']")
+        )
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    @patch("django_aws_api_gateway_websockets.views.WebSocketSession")
+    @patch("django_aws_api_gateway_websockets.views.JsonResponse")
+    @patch("django_aws_api_gateway_websockets.views.HttpResponseBadRequest")
+    def test_connect__with_host_not_in_origin(
+        self, MockHttpResponseBadRequest, MockJsonResponse, MockWebSocketSession
+    ):
+        """Test the connect method when the host does not exist within the origin."""
+        user = MagicMock(is_authenticated=True)
+        request = self.factory.post(
+            "?channel=my-channel",
+            data=json.dumps({}),
+            content_type="application/json",
+            HTTP_Connectionid="1234",
+            HTTP_Cookie="some-cookie",
+            HTTP_Origin="example.com",
+            HTTP_Sec_Websocket_Extensions="some-value",
+            HTTP_Sec_Websocket_Key="some-key",
+            HTTP_Sec_Websocket_Version="1.2.3",
+            HTTP_HOST="www.example.com",
+            HTTP_ORIGIN="https://www.spoofed.com",
+        )
+        request.user = user
+        obj = views.WebSocketView()
+
+        res = obj.connect(request)
+
+        self.assertEqual(MockHttpResponseBadRequest.return_value, res)
+        self.assertEqual(0, MockWebSocketSession.objects.create.call_count)
+        MockHttpResponseBadRequest.assert_called_with(
+            "Host www.example.com not in Origin https://www.spoofed.com"
+        )
+        self.assertEqual(0, MockJsonResponse.call_count)
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    @patch("django_aws_api_gateway_websockets.views.WebSocketSession")
+    @patch("django_aws_api_gateway_websockets.views.JsonResponse")
+    @patch("django_aws_api_gateway_websockets.views.HttpResponseBadRequest")
+    def test_connect__additional_connection_checks_returns_false(
+        self, MockHttpResponseBadRequest, MockJsonResponse, MockWebSocketSession
+    ):
+        """Test the connect method when the expected headers are missing."""
+        user = MagicMock(is_authenticated=True)
+        request = self.factory.post(
+            "?channel=my-channel",
+            data=json.dumps({}),
+            content_type="application/json",
+            HTTP_Connectionid="1234",
+            HTTP_Cookie="some-cookie",
+            HTTP_Origin="example.com",
+            HTTP_Sec_Websocket_Extensions="some-value",
+            HTTP_Sec_Websocket_Key="some-key",
+            HTTP_Sec_Websocket_Version="1.2.3",
+            HTTP_HOST="www.example.com",
+            HTTP_ORIGIN="https://www.example.com",
+        )
+        request.user = user
+
+        class SubClassedView(views.WebSocketView):
+            def _additional_connection_checks(
+                self, request, *args, **kwargs
+            ) -> (bool, str):
+                """Could add in additional steps for certificates, APIGateway Authorizers etc"""
+                return False, "Some error message raised in subclass"
+
+        obj = SubClassedView()
+
+        res = obj.connect(request)
+
+        self.assertEqual(MockHttpResponseBadRequest.return_value, res)
+        self.assertEqual(0, MockWebSocketSession.objects.create.call_count)
+        MockHttpResponseBadRequest.assert_called_with(
+            "Some error message raised in subclass"
+        )
+        self.assertEqual(0, MockJsonResponse.call_count)

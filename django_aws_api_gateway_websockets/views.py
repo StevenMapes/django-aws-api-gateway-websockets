@@ -245,7 +245,7 @@ class WebSocketView(View):
             return self._return_bad_request(msg)
 
         if not self._check_host_is_in_origin(request):
-            msg = f"Host {request.headers['Host']} not in Origin {request.headers['Host']}"
+            msg = f"Host {request.headers['Host']} not in Origin {request.headers['Origin']}"
             return self._return_bad_request(msg)
 
         res, msg = self._additional_connection_checks(request, *args, **kwargs)
