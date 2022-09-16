@@ -160,6 +160,7 @@ class WebSocketView(View):
     def _expected_connection_headers(self, request, *args, **kwargs) -> bool:
         """Run additional checks for the connection route for security"""
         request_headers = request.headers.keys()
+
         return all(h in request_headers for h in self.required_connection_headers)
 
     def _add_user_to_request(self, request):

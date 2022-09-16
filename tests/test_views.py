@@ -1,8 +1,9 @@
 import json
 from unittest.mock import MagicMock, patch
 
+from django.core.exceptions import ObjectDoesNotExist
 from django.http import HttpResponseBadRequest
-from django.test import RequestFactory, SimpleTestCase
+from django.test import RequestFactory, SimpleTestCase, override_settings
 
 from django_aws_api_gateway_websockets import views
 
@@ -153,7 +154,7 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
         )
 
     def test__expected_headers(self):
-        """Ensure the methods returns True when all headers are present otherwise should return Fakse"""
+        """Ensure the methods returns True when all headers are present otherwise should return False"""
         post_data = {"action": "default", "key": "value"}
 
         test_headers = [
@@ -388,12 +389,12 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
 
         self.assertFalse(obj._expected_useragent(request=request))
 
-    def test__expected_useragent_returns_true_for_normal_browser_useragent(
+    def test__expected_useragent_returns_true_when_useragent_is_not_the_exepcted_api_gateways_useragent(
         self,
     ):
         """
-        If the aws_api_gateway_id is set and the user agent is not the expected one, I.E ending with it, then the
-        method should return False
+        If the aws_api_gateway_id is set and the useragent is NOT the useragent we expect to receive from the API Gateway
+        I.E AmazonAPIGateway_ then a API Gateway ID, then the method should return True
         """
         allowed_api_id = "ABC123AB"
 
@@ -402,10 +403,267 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
             "",
             data=json.dumps(post_data),
             content_type="application/json",
-            HTTP_USER_AGENT=f"AmazonAPIGateway_ANOTHER_ID",
+            HTTP_USER_AGENT="AmazonAPIGateway_ANOTHER_ID",
         )
 
         obj = views.WebSocketView()
         obj.aws_api_gateway_id = allowed_api_id
 
         self.assertTrue(obj._expected_useragent(request=request))
+
+    def test__expected_useragent_returns_false_when_useragent_is_not_the_exepcted_api_gateways_useragent(
+        self,
+    ):
+        """
+        If the aws_api_gateway_id is set and the user agent is the useragent we expect to receive from the API Gateway
+        I.E where the useragent is AmazonAPIGateway_ then a API Gateway ID, then the method should return False
+        """
+        allowed_api_id = "ABC123AB"
+
+        post_data = {"action": "default", "key": "value"}
+        request = self.factory.post(
+            "",
+            data=json.dumps(post_data),
+            content_type="application/json",
+            HTTP_USER_AGENT=f"AmazonAPIGateway_{allowed_api_id}",
+        )
+
+        obj = views.WebSocketView()
+        obj.aws_api_gateway_id = allowed_api_id
+
+        self.assertFalse(obj._expected_useragent(request=request))
+
+    def test__expected_useragent_with_no_allowed_api_id_but_an_apigateway_made_the_call__should_return_true(
+        self,
+    ):
+        """
+        If the aws_api_gateway_id is set and the user agent is the useragent we expect to receive from the API Gateway
+        I.E where the useragent is AmazonAPIGateway_ then a API Gateway ID, then the method should return False
+        """
+        allowed_api_id = ""
+
+        post_data = {"action": "default", "key": "value"}
+        request = self.factory.post(
+            "",
+            data=json.dumps(post_data),
+            content_type="application/json",
+            HTTP_USER_AGENT=f"AmazonAPIGateway_SomeOtherId",
+        )
+
+        obj = views.WebSocketView()
+        obj.aws_api_gateway_id = allowed_api_id
+
+        self.assertTrue(obj._expected_useragent(request=request))
+
+    def test__expected_useragent_with_no_allowed_api_id_and_an_apigateway_didnt_make_the_call__should_return_false(
+        self,
+    ):
+        """
+        If the aws_api_gateway_id is not set and the user agent is a normal user then False should be returned
+        """
+        allowed_api_id = ""
+
+        post_data = {"action": "default", "key": "value"}
+        request = self.factory.post(
+            "",
+            data=json.dumps(post_data),
+            content_type="application/json",
+            HTTP_USER_AGENT=f"Mozzila/5.0",
+        )
+
+        obj = views.WebSocketView()
+        obj.aws_api_gateway_id = allowed_api_id
+
+        self.assertFalse(obj._expected_useragent(request=request))
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    def test__check_allowed_hosts__when_host_is_allowed__return_true(self):
+        """When the host of the request is within the allowed hosts of settings.py True should be returned"""
+        post_data = {"action": "default", "key": "value"}
+        request = self.factory.post(
+            "",
+            data=json.dumps(post_data),
+            content_type="application/json",
+            HTTP_USER_AGENT=f"Mozzila/5.0",
+            HTTP_HOST="www.example.com",
+        )
+
+        obj = views.WebSocketView()
+
+        self.assertTrue(obj._check_allowed_hosts(request=request))
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    def test__check_allowed_hosts__when_host_is_not_allowed__return_false(self):
+        """When the host of the request is within the allowed hosts of settings.py False should be returned"""
+        post_data = {"action": "default", "key": "value"}
+        request = self.factory.post(
+            "",
+            data=json.dumps(post_data),
+            content_type="application/json",
+            HTTP_USER_AGENT=f"Mozzila/5.0",
+            HTTP_HOST="www.anotherdomain.com",
+        )
+
+        obj = views.WebSocketView()
+
+        self.assertFalse(obj._check_allowed_hosts(request=request))
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    def test__check_host_is_in_origin__when_it_iss(self):
+        """When the host of the request is within the origin of the request True should be returned"""
+        post_data = {"action": "default", "key": "value"}
+        request = self.factory.post(
+            "",
+            data=json.dumps(post_data),
+            content_type="application/json",
+            HTTP_USER_AGENT=f"Mozzila/5.0",
+            HTTP_HOST="www.example.com",
+            HTTP_ORIGIN="https://www.example.com",
+        )
+
+        obj = views.WebSocketView()
+
+        self.assertTrue(obj._check_host_is_in_origin(request=request))
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    def test__check_host_is_in_origin__when_it_is_not(self):
+        """When the host of the request is NOT ithin the origin of the request False should be returned"""
+        post_data = {"action": "default", "key": "value"}
+        request = self.factory.post(
+            "",
+            data=json.dumps(post_data),
+            content_type="application/json",
+            HTTP_USER_AGENT=f"Mozzila/5.0",
+            HTTP_HOST="www.anotherdomain.com",
+            HTTP_ORIGIN="http://www.example.com",
+        )
+
+        obj = views.WebSocketView()
+
+        self.assertFalse(obj._check_host_is_in_origin(request=request))
+
+    def test__expected_connection_headers(self):
+        """Ensure the methods returns True when all headers are present otherwise should return False"""
+        post_data = {"action": "default", "key": "value"}
+
+        test_headers = [
+            {
+                "name": "All expected headers",
+                "required_connection_headers": [
+                    "Cookie",
+                    "Origin",
+                    "Sec-Websocket-Extensions",
+                    "Sec-Websocket-Key",
+                    "Sec-Websocket-Version",
+                ],
+                "supplied": {
+                    "HTTP_Cookie": "some-cookie",
+                    "HTTP_Origin": "example.com",
+                    "HTTP_Sec-Websocket-Extensions": "some-value",
+                    "HTTP_Sec-Websocket-Key": "some-key",
+                    "HTTP_Sec-Websocket-Version": "1.2.3",
+                },
+                "expected_result": True,
+            },
+            {
+                "name": "Missing a header",
+                "required_connection_headers": [
+                    "Cookie",
+                    "Origin",
+                    "Sec-Websocket-Extensions",
+                    "Sec-Websocket-Key",
+                    "Sec-Websocket-Version",
+                ],
+                "supplied": {
+                    "HTTP_Cookie": "some-cookie",
+                    "HTTP_Origin": "example.com",
+                    "HTTP_Sec-Websocket-Extensions": "some-value",
+                    "HTTP_Sec-Websocket-Key": "some-key",
+                },
+                "expected_result": False,
+            },
+        ]
+        for headers in test_headers:
+            with self.subTest(headers=headers):
+                obj = views.WebSocketView()
+                obj.required_connection_headers = headers["required_connection_headers"]
+                request = self.factory.post(
+                    "",
+                    data=json.dumps(post_data),
+                    content_type="application/json",
+                    HTTP_USER_AGENT="Mozilla/5.0",
+                    **headers["supplied"],
+                )
+
+                self.assertEqual(
+                    headers["expected_result"],
+                    obj._expected_connection_headers(request=request),
+                    headers["name"],
+                )
+
+    @patch("django_aws_api_gateway_websockets.views.WebSocketSession")
+    def test__add_user_to_request_raises_when_object_not_found(
+        self, MockWebSocketSession
+    ):
+        """An exception should be raised if the object can not be found"""
+        MockWebSocketSession.objects.get.side_effect = ObjectDoesNotExist(
+            "no match found"
+        )
+
+        con_id = "12345"
+
+        obj = views.WebSocketView()
+        request = self.factory.post(
+            "",
+            data=json.dumps({}),
+            content_type="application/json",
+            HTTP_Connectionid=con_id,
+        )
+
+        self.assertFalse(hasattr(request, "user"))
+        with self.assertRaises(ObjectDoesNotExist):
+            obj._add_user_to_request(request)
+
+            MockWebSocketSession.objects.get.assert_called_with(
+                connection_id=request.headers["Connectionid"]
+            )
+
+            self.assertFalse(hasattr(request, "user"))
+
+    @patch("django_aws_api_gateway_websockets.views.WebSocketSession")
+    def test__add_user_to_request_when_session_found(self, MockWebSocketSession):
+        """When a WebSocketSession is found then the user will be added to the request IF it's set against the session"""
+        mocked_user = MagicMock(pk=12)
+        configs = [
+            {"name": "No User in session", "user": None},
+            {"name": "User set in session", "user": mocked_user},
+        ]
+
+        for config in configs:
+            with self.subTest(config=config):
+                wss = MagicMock(user=config["user"], request_count=0)
+                MockWebSocketSession.objects.get.return_value = wss
+                con_id = "12345"
+
+                obj = views.WebSocketView()
+                request = self.factory.post(
+                    "",
+                    data=json.dumps({}),
+                    content_type="application/json",
+                    HTTP_Connectionid=con_id,
+                )
+
+                self.assertFalse(hasattr(request, "user"))
+                obj._add_user_to_request(request)
+
+                MockWebSocketSession.objects.get.assert_called_with(
+                    connection_id=request.headers["Connectionid"]
+                )
+
+                if config["user"]:
+                    self.assertTrue(hasattr(request, "user"))
+                    self.assertEqual(mocked_user, request.user)
+                    self.assertEqual(1, wss.request_count)
+                else:
+                    self.assertFalse(hasattr(request, "user"))
+                    self.assertEqual(1, wss.request_count)
