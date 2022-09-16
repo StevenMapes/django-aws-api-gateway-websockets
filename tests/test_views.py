@@ -6,6 +6,7 @@ from django.http import HttpResponseBadRequest
 from django.test import RequestFactory, SimpleTestCase, override_settings
 
 from django_aws_api_gateway_websockets import views
+from django_aws_api_gateway_websockets.models import ApiGateway
 
 
 class WebSocketViewSimpleTestCase(SimpleTestCase):
@@ -667,3 +668,61 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
                 else:
                     self.assertFalse(hasattr(request, "user"))
                     self.assertEqual(1, wss.request_count)
+
+    def test__get_channel_name(self):
+        """Ensure the method returns the channel either from the GET string of set against the API Gateway"""
+        api_gateway = ApiGateway(default_channel_name="default channel")
+        configs = [
+            {
+                "name": "channel in url only",
+                "qs": "channel=my-channel",
+                "channel": "my-channel",
+                "db": False,
+            },
+            {
+                "name": "channel in url and db",
+                "qs": "channel=my-channel",
+                "channel": "my-channel",
+                "db": True,
+            },
+            {
+                "name": "channel db only",
+                "qs": "",
+                "channel": "default channel",
+                "db": True,
+            },
+            {"name": "no channel", "qs": "", "channel": "", "db": False},
+        ]
+
+        for config in configs:
+            with self.subTest(config=config):
+                obj = views.WebSocketView()
+                if config["db"]:
+                    obj.api_gateway = api_gateway
+
+                request = self.factory.post(
+                    f"?{config['qs']}",
+                    data=json.dumps({}),
+                    content_type="application/json",
+                )
+
+                res = obj._get_channel_name(request)
+
+                self.assertEqual(config["channel"], res, config["name"])
+
+    @patch("django_aws_api_gateway_websockets.views.WebSocketSession")
+    def test__load_session(self, MockWebSocketSession):
+        """Ensure the WebSocketSession is fetched from the DB and set against the websocket_session class attribute"""
+        request = self.factory.post(
+            "",
+            data=json.dumps({}),
+            content_type="application/json",
+            HTTP_Connectionid="1234",
+        )
+        obj = views.WebSocketView()
+        obj._load_session(request)
+
+        MockWebSocketSession.objects.get.assert_called_with(connection_id="1234")
+        self.assertEqual(
+            obj.websocket_session, MockWebSocketSession.objects.get.return_value
+        )
