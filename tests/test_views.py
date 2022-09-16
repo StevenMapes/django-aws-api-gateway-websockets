@@ -2,7 +2,7 @@ import json
 from unittest.mock import MagicMock, patch
 
 from django.core.exceptions import ObjectDoesNotExist
-from django.http import HttpResponseBadRequest, JsonResponse
+from django.http import HttpResponseBadRequest, HttpResponseNotAllowed, JsonResponse
 from django.test import RequestFactory, SimpleTestCase, override_settings
 
 from django_aws_api_gateway_websockets import views
@@ -780,7 +780,6 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
             content_type="application/json",
             HTTP_Connectionid="1234",
             HTTP_Cookie="some-cookie",
-            HTTP_Origin="example.com",
             HTTP_Sec_Websocket_Extensions="some-value",
             HTTP_Sec_Websocket_Key="some-key",
             HTTP_Sec_Websocket_Version="1.2.3",
@@ -945,3 +944,451 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
             "Some error message raised in subclass"
         )
         self.assertEqual(0, MockJsonResponse.call_count)
+
+    @patch("django_aws_api_gateway_websockets.views.HttpResponseBadRequest")
+    @patch("django_aws_api_gateway_websockets.views.JsonResponse")
+    def test_dispatch__with_missing_headers(
+        self, MockJsonResponse, MockHttpResponseBadRequest
+    ):
+        """Should call the missing_headers method, returning it's result"""
+        user = MagicMock(is_authenticated=True)
+        request = self.factory.post(
+            "?channel=my-channel",
+            data=json.dumps({}),
+            content_type="application/json",
+            HTTP_Connectionid="1234",
+            HTTP_Cookie="some-cookie",
+            HTTP_Origin="example.com",
+            HTTP_HOST="www.example.com",
+            HTTP_ORIGIN="https://www.example.com",
+        )
+        request.user = user
+        obj = views.WebSocketView()
+
+        res = obj.dispatch(request)
+
+        MockHttpResponseBadRequest.assert_called_with(
+            (
+                "Some of the required headers are missing; Expected ['Host', 'X-Forwarded-For', 'X-Forwarded-Proto', "
+                "'Content-Length', 'Connectionid', 'User-Agent', 'X-Amzn-Apigateway-Api-Id'], Received "
+                "KeysView({'Cookie': 'some-cookie', 'Content-Length': '2', 'Content-Type': 'application/json', "
+                "'Connectionid': '1234', 'Origin': 'https://www.example.com', 'Host': 'www.example.com'})"
+            ),
+        )
+        self.assertEqual(MockHttpResponseBadRequest.return_value, res)
+        self.assertEqual(0, MockJsonResponse.call_count)
+
+    @patch("django_aws_api_gateway_websockets.views.HttpResponseBadRequest")
+    @patch("django_aws_api_gateway_websockets.views.JsonResponse")
+    def test_dispatch__allowed_api_gateway_fails(
+        self, MockJsonResponse, MockHttpResponseBadRequest
+    ):
+        """When _allowed_apigateway returns False the missing_headers method should be called"""
+        user = MagicMock(is_authenticated=True)
+
+        class SubClassedView(views.WebSocketView):
+            def _allowed_apigateway(self, request, *args, **kwargs) -> bool:
+                return False
+
+            def missing_headers(self, request, *args, **kwargs):
+                msg = "Got into missing headers"
+                return self._return_bad_request(msg)
+
+        request = self.factory.post(
+            "?channel=my-channel",
+            data=json.dumps({}),
+            content_type="application/json",
+            HTTP_Connectionid="1234",
+            HTTP_Cookie="some-cookie",
+            HTTP_Origin="example.com",
+            HTTP_Sec_Websocket_Extensions="some-value",
+            HTTP_Sec_Websocket_Key="some-key",
+            HTTP_Sec_Websocket_Version="1.2.3",
+            HTTP_HOST="www.example.com",
+            HTTP_ORIGIN="https://www.example.com",
+        )
+        request.user = user
+        obj = SubClassedView()
+
+        res = obj.dispatch(request)
+
+        MockHttpResponseBadRequest.assert_called_with("Got into missing headers")
+
+        self.assertEqual(MockHttpResponseBadRequest.return_value, res)
+        self.assertEqual(0, MockJsonResponse.call_count)
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    @patch("django_aws_api_gateway_websockets.views.WebSocketView._allowed_apigateway")
+    @patch(
+        "django_aws_api_gateway_websockets.views.WebSocketView.http_method_not_allowed"
+    )
+    @patch("django_aws_api_gateway_websockets.views.JsonResponse")
+    def test_dispatch__when_http_method_is_not_allowed(
+        self,
+        MockJsonResponse,
+        mocked_http_method_not_allowed,
+        mocked__allowed_apigateway,
+    ):
+        """When a HTTP method is used that is not allowed, the http_method_not_allowed method should be invoked"""
+        user = MagicMock(is_authenticated=True)
+        mocked__allowed_apigateway.return_value = True
+
+        class SubClassedView(views.WebSocketView):
+            http_method_names = ["get"]
+
+        request = self.factory.post(
+            "?channel=my-channel",
+            data=json.dumps({}),
+            content_type="application/json",
+            HTTP_HOST="www.example.com",
+            HTTP_X_Forwarded_For="123.123.123.123",
+            HTTP_X_Forwarded_Proto="https",
+            HTTP_Content_Length=123,
+            HTTP_Connectionid="1234",
+            HTTP_User_Agent="Mozilla/5.0",
+            HTTP_X_Amzn_Apigateway_Api_Id="APIGateway-1",
+            HTTP_Connection="",
+            HTTP_X_Amzn_Trace_Id="123456787654",
+            HTTP_X_Forwarded_Port="443",
+            HTTP_X_Real_Ip="172.0.0.1",
+            HTTP_Cookie="some-cookie",
+            HTTP_ORIGIN="https://www.example.com",
+            HTTP_Sec_Websocket_Extensions="some-value",
+            HTTP_Sec_Websocket_Key="some-key",
+            HTTP_Sec_Websocket_Version="1.2.3",
+        )
+        request.user = user
+        obj = SubClassedView()
+
+        res = obj.dispatch(request)
+
+        mocked_http_method_not_allowed.assert_called_with(request)
+        self.assertEqual(0, MockJsonResponse.call_count)
+        self.assertEqual(res, mocked_http_method_not_allowed.return_value, res.content)
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    @patch("django_aws_api_gateway_websockets.views.WebSocketView._allowed_apigateway")
+    @patch("django_aws_api_gateway_websockets.views.WebSocketView.connect")
+    @patch("django_aws_api_gateway_websockets.views.JsonResponse")
+    def test_dispatch__route_is_connect(
+        self, MockJsonResponse, mocked_connect, mocked__allowed_apigateway
+    ):
+        """When the route is connect and the headers, apigateway and method all pass checks the connect method should be invoked"""
+        user = MagicMock(is_authenticated=True)
+        mocked__allowed_apigateway.return_value = True
+
+        request = self.factory.post(
+            "",
+            data=json.dumps({}),
+            content_type="application/json",
+            HTTP_HOST="www.example.com",
+            HTTP_X_Forwarded_For="123.123.123.123",
+            HTTP_X_Forwarded_Proto="https",
+            HTTP_Content_Length=123,
+            HTTP_Connectionid="1234",
+            HTTP_User_Agent="Mozilla/5.0",
+            HTTP_X_Amzn_Apigateway_Api_Id="APIGateway-1",
+            HTTP_Connection="",
+            HTTP_X_Amzn_Trace_Id="123456787654",
+            HTTP_X_Forwarded_Port="443",
+            HTTP_X_Real_Ip="172.0.0.1",
+            HTTP_Cookie="some-cookie",
+            HTTP_ORIGIN="https://www.example.com",
+            HTTP_Sec_Websocket_Extensions="some-value",
+            HTTP_Sec_Websocket_Key="some-key",
+            HTTP_Sec_Websocket_Version="1.2.3",
+        )
+        request.user = user
+        res = views.WebSocketView.as_view()(request, route="connect")
+
+        mocked_connect.assert_called_with(request, route="connect")
+        self.assertEqual(0, MockJsonResponse.call_count)
+        self.assertEqual(res, mocked_connect.return_value, res)
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    @patch("django_aws_api_gateway_websockets.views.WebSocketView._allowed_apigateway")
+    @patch("django_aws_api_gateway_websockets.views.WebSocketView._expected_useragent")
+    @patch("django_aws_api_gateway_websockets.views.WebSocketView._add_user_to_request")
+    @patch("django_aws_api_gateway_websockets.views.WebSocketView.disconnect")
+    @patch("django_aws_api_gateway_websockets.views.JsonResponse")
+    def test_dispatch__route_is_disconnect__when_useragent_is_expected(
+        self,
+        MockJsonResponse,
+        mocked_disconnect,
+        mocked__add_user_to_request,
+        mocked__expected_useragent,
+        mocked__allowed_apigateway,
+    ):
+        """When the route is connect and the headers, apigateway and method all pass checks the connect method should be invoked"""
+        user = MagicMock(is_authenticated=True)
+        mocked__allowed_apigateway.return_value = True
+        mocked__expected_useragent.return_value = True
+        mocked__add_user_to_request.return_value = True
+
+        request = self.factory.post(
+            "",
+            data=json.dumps({}),
+            content_type="application/json",
+            HTTP_HOST="www.example.com",
+            HTTP_X_Forwarded_For="123.123.123.123",
+            HTTP_X_Forwarded_Proto="https",
+            HTTP_Content_Length=123,
+            HTTP_Connectionid="1234",
+            HTTP_User_Agent="Mozilla/5.0",
+            HTTP_X_Amzn_Apigateway_Api_Id="APIGateway-1",
+            HTTP_Connection="",
+            HTTP_X_Amzn_Trace_Id="123456787654",
+            HTTP_X_Forwarded_Port="443",
+            HTTP_X_Real_Ip="172.0.0.1",
+            HTTP_Cookie="some-cookie",
+            HTTP_ORIGIN="https://www.example.com",
+            HTTP_Sec_Websocket_Extensions="some-value",
+            HTTP_Sec_Websocket_Key="some-key",
+            HTTP_Sec_Websocket_Version="1.2.3",
+        )
+        request.user = user
+        res = views.WebSocketView.as_view()(request, route="disconnect")
+
+        mocked_disconnect.assert_called_with(request, route="disconnect")
+        mocked__expected_useragent.assert_called_with(request, route="disconnect")
+        mocked__add_user_to_request.assert_called_with(request)
+        self.assertEqual(0, MockJsonResponse.call_count)
+        self.assertEqual(res, mocked_disconnect.return_value)
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    @patch("django_aws_api_gateway_websockets.views.WebSocketView._allowed_apigateway")
+    @patch("django_aws_api_gateway_websockets.views.WebSocketView._expected_useragent")
+    @patch("django_aws_api_gateway_websockets.views.WebSocketView._add_user_to_request")
+    @patch("django_aws_api_gateway_websockets.views.WebSocketView.invalid_useragent")
+    @patch("django_aws_api_gateway_websockets.views.WebSocketView.disconnect")
+    @patch("django_aws_api_gateway_websockets.views.JsonResponse")
+    def test_dispatch__route_is_disconnect__when_useragent_is_not_expected(
+        self,
+        MockJsonResponse,
+        mocked_disconnect,
+        mock_invalid_useragent,
+        mocked__add_user_to_request,
+        mocked__expected_useragent,
+        mocked__allowed_apigateway,
+    ):
+        """When the route is connect and the headers, apigateway and method all pass checks the connect method should be invoked"""
+        user = MagicMock(is_authenticated=True)
+        mocked__allowed_apigateway.return_value = True
+        mocked__expected_useragent.return_value = False
+
+        request = self.factory.post(
+            "",
+            data=json.dumps({}),
+            content_type="application/json",
+            HTTP_HOST="www.example.com",
+            HTTP_X_Forwarded_For="123.123.123.123",
+            HTTP_X_Forwarded_Proto="https",
+            HTTP_Content_Length=123,
+            HTTP_Connectionid="1234",
+            HTTP_User_Agent="Mozilla/5.0",
+            HTTP_X_Amzn_Apigateway_Api_Id="APIGateway-1",
+            HTTP_Connection="",
+            HTTP_X_Amzn_Trace_Id="123456787654",
+            HTTP_X_Forwarded_Port="443",
+            HTTP_X_Real_Ip="172.0.0.1",
+            HTTP_Cookie="some-cookie",
+            HTTP_ORIGIN="https://www.example.com",
+            HTTP_Sec_Websocket_Extensions="some-value",
+            HTTP_Sec_Websocket_Key="some-key",
+            HTTP_Sec_Websocket_Version="1.2.3",
+        )
+        request.user = user
+        res = views.WebSocketView.as_view()(request, route="disconnect")
+
+        mock_invalid_useragent.assert_called_with(request, route="disconnect")
+
+        mocked__expected_useragent.assert_called_with(request, route="disconnect")
+        self.assertEqual(0, mocked_disconnect.call_count)
+        self.assertEqual(0, mocked__add_user_to_request.call_count)
+        self.assertEqual(0, MockJsonResponse.call_count)
+        self.assertEqual(res, mock_invalid_useragent.return_value)
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    @patch("django_aws_api_gateway_websockets.views.WebSocketView._allowed_apigateway")
+    @patch("django_aws_api_gateway_websockets.views.WebSocketView._expected_useragent")
+    @patch("django_aws_api_gateway_websockets.views.WebSocketView._add_user_to_request")
+    @patch("django_aws_api_gateway_websockets.views.WebSocketView.invalid_useragent")
+    @patch("django_aws_api_gateway_websockets.views.WebSocketView.disconnect")
+    @patch("django_aws_api_gateway_websockets.views.WebSocketView._load_session")
+    @patch("django_aws_api_gateway_websockets.views.JsonResponse")
+    def test_dispatch__route_is_custom__useragent_is_expected(
+        self,
+        MockJsonResponse,
+        mocked__load_session,
+        mocked_disconnect,
+        mock_invalid_useragent,
+        mocked__add_user_to_request,
+        mocked__expected_useragent,
+        mocked__allowed_apigateway,
+    ):
+        """When the route is a custom one your method should be invoked"""
+        user = MagicMock(is_authenticated=True)
+        mocked__allowed_apigateway.return_value = True
+        mocked__expected_useragent.return_value = True
+
+        class SubClassedView(views.WebSocketView):
+            def chat(self, request, *args, **kwargs):
+                return "This is the chat method"
+
+        request = self.factory.post(
+            "",
+            data=json.dumps({"action": "chat"}),
+            content_type="application/json",
+            HTTP_HOST="www.example.com",
+            HTTP_X_Forwarded_For="123.123.123.123",
+            HTTP_X_Forwarded_Proto="https",
+            HTTP_Content_Length=123,
+            HTTP_Connectionid="1234",
+            HTTP_User_Agent="Mozilla/5.0",
+            HTTP_X_Amzn_Apigateway_Api_Id="APIGateway-1",
+            HTTP_Connection="",
+            HTTP_X_Amzn_Trace_Id="123456787654",
+            HTTP_X_Forwarded_Port="443",
+            HTTP_X_Real_Ip="172.0.0.1",
+            HTTP_Cookie="some-cookie",
+            HTTP_ORIGIN="https://www.example.com",
+            HTTP_Sec_Websocket_Extensions="some-value",
+            HTTP_Sec_Websocket_Key="some-key",
+            HTTP_Sec_Websocket_Version="1.2.3",
+        )
+        request.user = user
+        res = SubClassedView.as_view()(request, route="chat")
+
+        self.assertEqual(res, "This is the chat method")
+        mocked__expected_useragent.assert_called_with(request, route="chat")
+        mocked__add_user_to_request.assert_called_with(request)
+        mocked__load_session.assert_called_with(request)
+        self.assertEqual(0, mocked_disconnect.call_count)
+        self.assertEqual(0, MockJsonResponse.call_count)
+        self.assertEqual(0, mock_invalid_useragent.call_count)
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    @patch("django_aws_api_gateway_websockets.views.WebSocketView._allowed_apigateway")
+    @patch("django_aws_api_gateway_websockets.views.WebSocketView._expected_useragent")
+    @patch("django_aws_api_gateway_websockets.views.WebSocketView._add_user_to_request")
+    @patch("django_aws_api_gateway_websockets.views.WebSocketView.invalid_useragent")
+    @patch("django_aws_api_gateway_websockets.views.WebSocketView.disconnect")
+    @patch("django_aws_api_gateway_websockets.views.WebSocketView._load_session")
+    @patch("django_aws_api_gateway_websockets.views.JsonResponse")
+    def test_dispatch__route_is_custom__but_useragent_is_unexpected(
+        self,
+        MockJsonResponse,
+        mocked__load_session,
+        mocked_disconnect,
+        mock_invalid_useragent,
+        mocked__add_user_to_request,
+        mocked__expected_useragent,
+        mocked__allowed_apigateway,
+    ):
+        """When the route is a custom one your method should be invoked"""
+        user = MagicMock(is_authenticated=True)
+        mocked__allowed_apigateway.return_value = True
+        mocked__expected_useragent.return_value = False
+
+        class SubClassedView(views.WebSocketView):
+            def chat(self, request, *args, **kwargs):
+                return "This is the chat method"
+
+        request = self.factory.post(
+            "",
+            data=json.dumps({"action": "chat"}),
+            content_type="application/json",
+            HTTP_HOST="www.example.com",
+            HTTP_X_Forwarded_For="123.123.123.123",
+            HTTP_X_Forwarded_Proto="https",
+            HTTP_Content_Length=123,
+            HTTP_Connectionid="1234",
+            HTTP_User_Agent="Mozilla/5.0",
+            HTTP_X_Amzn_Apigateway_Api_Id="APIGateway-1",
+            HTTP_Connection="",
+            HTTP_X_Amzn_Trace_Id="123456787654",
+            HTTP_X_Forwarded_Port="443",
+            HTTP_X_Real_Ip="172.0.0.1",
+            HTTP_Cookie="some-cookie",
+            HTTP_ORIGIN="https://www.example.com",
+            HTTP_Sec_Websocket_Extensions="some-value",
+            HTTP_Sec_Websocket_Key="some-key",
+            HTTP_Sec_Websocket_Version="1.2.3",
+        )
+        request.user = user
+        res = SubClassedView.as_view()(request, route="chat")
+
+        self.assertEqual(res, mock_invalid_useragent.return_value)
+
+        mocked__load_session.assert_called_with(request)
+        mocked__expected_useragent.assert_called_with(request, route="chat")
+        mock_invalid_useragent.assert_called_with(request, route="chat")
+        self.assertEqual(0, mocked_disconnect.call_count)
+        self.assertEqual(0, MockJsonResponse.call_count)
+        self.assertEqual(0, mocked__add_user_to_request.call_count)
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    @patch("django_aws_api_gateway_websockets.views.WebSocketView._allowed_apigateway")
+    @patch("django_aws_api_gateway_websockets.views.WebSocketView._expected_useragent")
+    @patch("django_aws_api_gateway_websockets.views.WebSocketView._add_user_to_request")
+    @patch("django_aws_api_gateway_websockets.views.WebSocketView.invalid_useragent")
+    @patch("django_aws_api_gateway_websockets.views.WebSocketView.disconnect")
+    @patch("django_aws_api_gateway_websockets.views.WebSocketView._load_session")
+    @patch(
+        "django_aws_api_gateway_websockets.views.WebSocketView.route_selection_key_missing"
+    )
+    @patch("django_aws_api_gateway_websockets.views.JsonResponse")
+    def test_dispatch__route_selection_key_missing(
+        self,
+        MockJsonResponse,
+        mocked_route_selection_key_missing,
+        mocked__load_session,
+        mocked_disconnect,
+        mock_invalid_useragent,
+        mocked__add_user_to_request,
+        mocked__expected_useragent,
+        mocked__allowed_apigateway,
+    ):
+        """When the route is a custom one your method should be invoked"""
+        user = MagicMock(is_authenticated=True)
+        mocked__allowed_apigateway.return_value = True
+        mocked__expected_useragent.return_value = False
+
+        class SubClassedView(views.WebSocketView):
+            def chat(self, request, *args, **kwargs):
+                return "This is the chat method"
+
+        request = self.factory.post(
+            "",
+            data=json.dumps({}),
+            content_type="application/json",
+            HTTP_HOST="www.example.com",
+            HTTP_X_Forwarded_For="123.123.123.123",
+            HTTP_X_Forwarded_Proto="https",
+            HTTP_Content_Length=123,
+            HTTP_Connectionid="1234",
+            HTTP_User_Agent="Mozilla/5.0",
+            HTTP_X_Amzn_Apigateway_Api_Id="APIGateway-1",
+            HTTP_Connection="",
+            HTTP_X_Amzn_Trace_Id="123456787654",
+            HTTP_X_Forwarded_Port="443",
+            HTTP_X_Real_Ip="172.0.0.1",
+            HTTP_Cookie="some-cookie",
+            HTTP_ORIGIN="https://www.example.com",
+            HTTP_Sec_Websocket_Extensions="some-value",
+            HTTP_Sec_Websocket_Key="some-key",
+            HTTP_Sec_Websocket_Version="1.2.3",
+        )
+        request.user = user
+        res = SubClassedView.as_view()(request, route="chat")
+
+        self.assertEqual(res, mocked_route_selection_key_missing.return_value)
+
+        mocked_route_selection_key_missing.assert_called_with(request, route="chat")
+
+        self.assertEqual(0, mocked__load_session.call_count)
+        self.assertEqual(0, mocked__expected_useragent.call_count)
+        self.assertEqual(0, mock_invalid_useragent.call_count)
+        self.assertEqual(0, mocked_disconnect.call_count)
+        self.assertEqual(0, MockJsonResponse.call_count)
+        self.assertEqual(0, mocked__add_user_to_request.call_count)
