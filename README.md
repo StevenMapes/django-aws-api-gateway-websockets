@@ -1,6 +1,6 @@
 [![Read The Docs](https://img.shields.io/readthedocs/django-mysql?style=for-the-badge)](https://django-aws-api-gateway-websockets.readthedocs.io/)
-![CI Build Status](https://img.shields.io/github/workflow/status/StevenMapes/django-aws-api-gateway-websockets/CI/main?style=for-the-badge)
-![Coverage](https://img.shields.io/codecov/c/github/StevenMapes/django-aws-api-gateway-websockets/main?style=for-the-badge)
+[![CI Build Status](https://img.shields.io/github/workflow/status/StevenMapes/django-aws-api-gateway-websockets/CI/main?style=for-the-badge)](https://github.com/StevenMapes/django-aws-api-gateway-websockets/actions)
+[![Coverage](https://img.shields.io/codecov/c/github/StevenMapes/django-aws-api-gateway-websockets/main?style=for-the-badge)](https://codecov.io/github/StevenMapes/django-aws-api-gateway-websockets/)
 ![Code Style](https://img.shields.io/badge/code%20style-black-000000.svg?style=for-the-badge)
 ![Pre-Commit Enabled](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white&style=for-the-badge)
 
