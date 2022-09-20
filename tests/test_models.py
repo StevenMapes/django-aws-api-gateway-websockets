@@ -1,5 +1,6 @@
 from unittest.mock import MagicMock, patch
 
+from botocore.exceptions import ClientError
 from django.conf import settings
 from django.test import SimpleTestCase, TestCase, override_settings
 
@@ -140,6 +141,151 @@ class ApiGatewaySimpleTestCase(SimpleTestCase):
     def test__str___returns_api_name(self):
         """The __str__ method should return the value of api_name"""
         self.assertEqual("My Api", str(ApiGateway(api_name="My Api")))
+
+    @patch("django_aws_api_gateway_websockets.models.get_boto3_client")
+    def test_create_gateway__when_api_already_created(self, mocked_get_boto3_client):
+        """Should return None without trying to create the API"""
+        obj = ApiGateway(api_name="My Api", api_created=True)
+
+        self.assertIsNone(obj.create_gateway())
+        self.assertEqual(0, mocked_get_boto3_client.call_count)
+
+    @patch("django_aws_api_gateway_websockets.models.get_boto3_client")
+    @patch.object(ApiGateway, "_create_api")
+    @patch.object(ApiGateway, "_create_routes")
+    @patch.object(ApiGateway, "_create_stage_and_deploy")
+    @patch.object(ApiGateway, "save")
+    def test_create_gateway__no_errors(
+        self,
+        mocked_save,
+        mocked__create_stage_and_deploy,
+        mocked__create_routes,
+        mocked___create_api,
+        mocked_get_boto3_client,
+    ):
+        """When there are no errors the _create_api, _create_routes, _create_stage_and_deploy methods should be called"""
+        obj = ApiGateway(api_name="My Api", api_created=False)
+
+        self.assertFalse(obj.api_created)
+        obj.create_gateway()
+
+        self.assertTrue(obj.api_created)
+        mocked_get_boto3_client.assert_called_with()
+        mocked___create_api.assert_called_with(mocked_get_boto3_client.return_value)
+        mocked__create_routes.assert_called_with(mocked_get_boto3_client.return_value)
+        mocked__create_stage_and_deploy.assert_called_with(
+            mocked_get_boto3_client.return_value
+        )
+        mocked_save.assert_called_with()
+
+    @patch("django_aws_api_gateway_websockets.models.get_boto3_client")
+    @patch.object(ApiGateway, "_create_api")
+    @patch.object(ApiGateway, "_create_routes")
+    @patch.object(ApiGateway, "_create_stage_and_deploy")
+    @patch.object(ApiGateway, "save")
+    def test_create_gateway__when_create_api_raises_error(
+        self,
+        mocked_save,
+        mocked__create_stage_and_deploy,
+        mocked__create_routes,
+        mocked___create_api,
+        mocked_get_boto3_client,
+    ):
+        """When an exception is called during create_api the other methods should not be called and the api_created
+        property should be left as False
+        """
+        obj = ApiGateway(api_name="My Api", api_created=False)
+
+        mocked___create_api.side_effect = Exception("Unexpected Error")
+
+        with self.assertRaises(Exception) as e:
+            self.assertFalse(obj.api_created)
+            obj.create_gateway()
+
+        self.assertEqual("Unexpected Error", str(e.exception))
+
+        mocked_get_boto3_client.assert_called_with()
+        mocked___create_api.assert_called_with(mocked_get_boto3_client.return_value)
+        self.assertFalse(obj.api_created)
+        self.assertEqual(0, mocked__create_routes.call_count)
+        self.assertEqual(0, mocked__create_stage_and_deploy.call_count)
+        self.assertEqual(0, mocked_save.call_count)
+
+    @patch("django_aws_api_gateway_websockets.models.get_boto3_client")
+    @patch.object(ApiGateway, "_create_api")
+    @patch.object(ApiGateway, "_create_routes")
+    @patch.object(ApiGateway, "_create_stage_and_deploy")
+    @patch.object(ApiGateway, "save")
+    def test_create_gateway__when__create_routes_raises_clienterror(
+        self,
+        mocked_save,
+        mocked__create_stage_and_deploy,
+        mocked__create_routes,
+        mocked___create_api,
+        mocked_get_boto3_client,
+    ):
+        """When an exception is called during _create_routes the other methods should not be called BUT the api_created
+        property should be sert to as True
+        """
+        obj = ApiGateway(api_name="My Api", api_created=False)
+
+        mocked__create_routes.side_effect = ClientError(
+            {"Error": {"Code": "ABC123", "Message": "Actual Error Here"}}, "apigateway"
+        )
+        with self.assertRaises(Exception) as e:
+            self.assertFalse(obj.api_created)
+            obj.create_gateway()
+
+        self.assertTrue(obj.api_created)
+        mocked_save.assert_called_with()
+        self.assertEqual(
+            "An error occurred (ABC123) when calling the apigateway operation: Actual Error Here",
+            str(e.exception),
+        )
+
+        mocked_get_boto3_client.assert_called_with()
+        mocked___create_api.assert_called_with(mocked_get_boto3_client.return_value)
+        mocked__create_routes.assert_called_with(mocked_get_boto3_client.return_value)
+        self.assertEqual(0, mocked__create_stage_and_deploy.call_count)
+
+    @patch("django_aws_api_gateway_websockets.models.get_boto3_client")
+    @patch.object(ApiGateway, "_create_api")
+    @patch.object(ApiGateway, "_create_routes")
+    @patch.object(ApiGateway, "_create_stage_and_deploy")
+    @patch.object(ApiGateway, "save")
+    def test_create_gateway__when__create_stage_and_deploy_clienterror(
+        self,
+        mocked_save,
+        mocked__create_stage_and_deploy,
+        mocked__create_routes,
+        mocked___create_api,
+        mocked_get_boto3_client,
+    ):
+        """When an exception is called during _create_stage_and_deploy the api_created property should be set to as
+        True
+        """
+        obj = ApiGateway(api_name="My Api", api_created=False)
+
+        mocked__create_stage_and_deploy.side_effect = ClientError(
+            {"Error": {"Code": "ABC123", "Message": "Actual Error Here"}}, "apigateway"
+        )
+        with self.assertRaises(Exception) as e:
+            self.assertFalse(obj.api_created)
+            obj.create_gateway()
+
+        self.assertTrue(obj.api_created)
+        mocked_save.assert_called_with()
+        self.assertEqual(
+            "An error occurred (ABC123) when calling the apigateway operation: Actual Error Here",
+            str(e.exception),
+        )
+
+        mocked_get_boto3_client.assert_called_with()
+        mocked___create_api.assert_called_with(mocked_get_boto3_client.return_value)
+        mocked__create_routes.assert_called_with(mocked_get_boto3_client.return_value)
+        mocked__create_stage_and_deploy.assert_called_with(
+            mocked_get_boto3_client.return_value
+        )
 
 
 class ApiGatewayIntegrationTest(TestCase):

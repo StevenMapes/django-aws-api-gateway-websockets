@@ -1,6 +1,6 @@
 repos:
 - repo: https://github.com/psf/black
-  rev: 22..1.0
+  rev: 22.8.0
   hooks:
   - id: black
 - repo: https://github.com/asottile/blacken-docs
@@ -8,9 +8,8 @@ repos:
   hooks:
   - id: blacken-docs
     additional_dependencies:
-    - black==22.1.0
+    - black==22.8.0
 
-# Turning off as it may well break the worker files
 - repo: https://github.com/pycqa/isort
   rev: 5.10.1
   hooks:
