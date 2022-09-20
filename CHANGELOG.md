@@ -1,3 +1,6 @@
+# 0.2.2 - 20th September 2022
+- Added in additional unit tests. Still requires additional tests for full coverage
+
 # 0.2.1 - 13th September 2022
 - BUG FIX - The ```_create_domain_name``` method of the ```ApiGateway``` was always setting a hosted zone id even if one
 was not to be used.
