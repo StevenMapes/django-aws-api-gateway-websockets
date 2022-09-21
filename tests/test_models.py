@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 from botocore.exceptions import ClientError
 from django.conf import settings
@@ -285,6 +285,306 @@ class ApiGatewaySimpleTestCase(SimpleTestCase):
         mocked__create_routes.assert_called_with(mocked_get_boto3_client.return_value)
         mocked__create_stage_and_deploy.assert_called_with(
             mocked_get_boto3_client.return_value
+        )
+
+    @patch("django_aws_api_gateway_websockets.models.get_boto3_client")
+    @patch.object(ApiGateway, "_create_domain_name")
+    @patch.object(ApiGateway, "_create_api_mapping")
+    @patch.object(ApiGateway, "save")
+    def test_create_custom_domain__raises_valueerror_when_api_created_is_false(
+        self,
+        mocked_save,
+        mocked__create_api_mapping,
+        mocked__create_domain_name,
+        mocked_get_boto3_client,
+    ):
+        """When api_created is False then a ValueError should be raised"""
+        obj = ApiGateway(api_name="My Api", api_created=False)
+
+        with self.assertRaises(Exception) as e:
+            obj.create_custom_domain()
+
+        self.assertEqual(
+            str(e.exception), "The API needs to be created before calling this method"
+        )
+
+        self.assertEqual(0, mocked_get_boto3_client.call_count)
+        self.assertEqual(0, mocked__create_domain_name.call_count)
+        self.assertEqual(0, mocked__create_api_mapping.call_count)
+        self.assertEqual(0, mocked_save.call_count)
+
+    @patch("django_aws_api_gateway_websockets.models.get_boto3_client")
+    @patch.object(ApiGateway, "_create_domain_name")
+    @patch.object(ApiGateway, "_create_api_mapping")
+    @patch.object(ApiGateway, "save")
+    def test_create_custom_domain__raises_valueerror_when_certificate_arn_is_not_set(
+        self,
+        mocked_save,
+        mocked__create_api_mapping,
+        mocked__create_domain_name,
+        mocked_get_boto3_client,
+    ):
+        """When api_created is True but the certificate_arn is not set then a ValueError should be raised"""
+        obj = ApiGateway(api_name="My Api", api_created=True, certificate_arn="")
+
+        with self.assertRaises(Exception) as e:
+            obj.create_custom_domain()
+
+        self.assertEqual(str(e.exception), "A Certificate ARN is required")
+
+        self.assertEqual(0, mocked_get_boto3_client.call_count)
+        self.assertEqual(0, mocked__create_domain_name.call_count)
+        self.assertEqual(0, mocked__create_api_mapping.call_count)
+        self.assertEqual(0, mocked_save.call_count)
+
+    @patch("django_aws_api_gateway_websockets.models.get_boto3_client")
+    @patch.object(ApiGateway, "_create_domain_name")
+    @patch.object(ApiGateway, "_create_api_mapping")
+    @patch.object(ApiGateway, "save")
+    def test_create_custom_domain__as_expected(
+        self,
+        mocked_save,
+        mocked__create_api_mapping,
+        mocked__create_domain_name,
+        mocked_get_boto3_client,
+    ):
+        """When api_created is False, the certificate arn is set and no errors are raised"""
+        domain_result = {
+            "DomainNameConfigurations": [
+                {"ApiGatewayDomainName": "api-gateway.websocket.example.com"}
+            ]
+        }
+        mocked__create_domain_name.return_value = domain_result
+
+        obj = ApiGateway(
+            api_name="My Api",
+            api_created=True,
+            certificate_arn="aws123:zxcv:3455",
+            custom_domain_created=False,
+            api_gateway_domain_name="",
+            api_mapping_id="",
+        )
+
+        self.assertFalse(obj.custom_domain_created)
+
+        obj.create_custom_domain()
+
+        mocked_get_boto3_client.assert_called_with()
+        mocked__create_domain_name.assert_called_with(
+            mocked_get_boto3_client.return_value
+        )
+        mocked__create_api_mapping.asset_called_with(
+            mocked_get_boto3_client.return_value
+        )
+        mocked_save.assert_called_with()
+
+        self.assertTrue(obj.custom_domain_created)
+        self.assertEqual(
+            "api-gateway.websocket.example.com", obj.api_gateway_domain_name
+        )
+        self.assertEqual(obj.api_mapping_id, mocked__create_api_mapping.return_value)
+
+    @patch("django_aws_api_gateway_websockets.models.get_boto3_client")
+    @patch.object(ApiGateway, "_create_domain_name")
+    @patch.object(ApiGateway, "_create_api_mapping")
+    @patch.object(ApiGateway, "save")
+    def test_create_custom_domain__clienterror_raised(
+        self,
+        mocked_save,
+        mocked__create_api_mapping,
+        mocked__create_domain_name,
+        mocked_get_boto3_client,
+    ):
+        """When api_created is False, the certificate arn is set and no errors are raised"""
+        mocked__create_api_mapping.side_effect = ClientError(
+            {"Error": {"Code": "ABC123", "Message": "Actual Error Here"}}, "apigateway"
+        )
+
+        domain_result = {
+            "DomainNameConfigurations": [
+                {"ApiGatewayDomainName": "api-gateway.websocket.example.com"}
+            ]
+        }
+        mocked__create_domain_name.return_value = domain_result
+
+        obj = ApiGateway(
+            api_name="My Api",
+            api_created=True,
+            certificate_arn="aws123:zxcv:3455",
+            custom_domain_created=False,
+            api_gateway_domain_name="",
+            api_mapping_id="",
+        )
+
+        self.assertFalse(obj.custom_domain_created)
+
+        with self.assertRaises(ClientError) as ce:
+            obj.create_custom_domain()
+
+        mocked_get_boto3_client.assert_called_with()
+        mocked__create_domain_name.assert_called_with(
+            mocked_get_boto3_client.return_value
+        )
+        mocked__create_api_mapping.asset_called_with(
+            mocked_get_boto3_client.return_value
+        )
+        mocked_save.assert_called_with()
+
+        self.assertTrue(obj.custom_domain_created)
+        self.assertEqual(
+            "api-gateway.websocket.example.com", obj.api_gateway_domain_name
+        )
+        self.assertEqual(
+            str(ce.exception),
+            "An error occurred (ABC123) when calling the apigateway operation: Actual Error Here",
+        )
+
+    def test__create_api(self):
+        """When api_created is False, the certificate arn is set and no errors are raised"""
+        client = MagicMock()
+        client.create_api.return_value = {
+            "ApiId": "1234ABCD",
+            "ApiEndpoint": "https://api.amazon.com/this/url",
+        }
+
+        obj = ApiGateway(
+            api_id="",
+            api_endpoint="",
+            api_key_selection_expression="$request.header.x-api-key",
+            api_description="Some of description",
+            api_name="",
+            route_key="$default",
+            route_selection_expression="$request.body.action",
+            target_base_endpoint="https://example.com",
+        )
+        obj._create_api(client)
+
+        client.create_api.assert_called_with(
+            ApiKeySelectionExpression=obj.api_key_selection_expression,
+            Description=obj.api_description,
+            DisableSchemaValidation=True,
+            Name=obj.api_name,
+            ProtocolType="WEBSOCKET",
+            RouteKey=obj.route_key,
+            RouteSelectionExpression=obj.route_selection_expression,
+            Target=f"{obj.target_base_endpoint}/default",
+        )
+
+        self.assertEqual("1234ABCD", obj.api_id)
+        self.assertEqual("https://api.amazon.com/this/url", obj.api_endpoint)
+
+    def test__create_routes(self):
+        """create_integration and create_stage are should be called three times"""
+        client = MagicMock()
+
+        client.create_integration.side_effect = [
+            {"IntegrationId": "i123-d345"},
+            {"IntegrationId": "test-1234"},
+            {"IntegrationId": "0997-tyty"},
+        ]
+
+        obj = ApiGateway(
+            api_id="123456",
+            api_endpoint="",
+            api_key_selection_expression="$request.header.x-api-key",
+            api_description="Some of description",
+            api_name="",
+            route_key="$default",
+            route_selection_expression="$request.body.action",
+            target_base_endpoint="https://example.com",
+        )
+
+        obj._create_routes(client)
+
+        client.create_integration.has_calls(
+            [
+                call(
+                    ApiId=obj.api_id,
+                    ConnectionType="INTERNET",
+                    IntegrationMethod="POST",
+                    IntegrationType="HTTP_PROXY",
+                    IntegrationUri=f"{obj.target_base_endpoint}connect",
+                    PassthroughBehavior="WHEN_NO_MATCH",
+                    PayloadFormatVersion="1.0",
+                    RequestParameters={
+                        "integration.request.header.connectionId": "context.connectionId"
+                    },
+                    TimeoutInMillis=29000,
+                ),
+                call(
+                    ApiId=obj.api_id,
+                    ConnectionType="INTERNET",
+                    IntegrationMethod="POST",
+                    IntegrationType="HTTP_PROXY",
+                    IntegrationUri=f"{obj.target_base_endpoint}disconnect",
+                    PassthroughBehavior="WHEN_NO_MATCH",
+                    PayloadFormatVersion="1.0",
+                    RequestParameters={
+                        "integration.request.header.connectionId": "context.connectionId"
+                    },
+                    TimeoutInMillis=29000,
+                ),
+                call(
+                    ApiId=obj.api_id,
+                    ConnectionType="INTERNET",
+                    IntegrationMethod="POST",
+                    IntegrationType="HTTP_PROXY",
+                    IntegrationUri=f"{obj.target_base_endpoint}default",
+                    PassthroughBehavior="WHEN_NO_MATCH",
+                    PayloadFormatVersion="1.0",
+                    RequestParameters={
+                        "integration.request.header.connectionId": "context.connectionId"
+                    },
+                    TimeoutInMillis=29000,
+                ),
+            ]
+        )
+
+        client.create_route.has_calls(
+            [
+                call(
+                    ApiId=obj.api_id,
+                    ApiKeyRequired=False,
+                    AuthorizationType="NONE",
+                    RouteKey="$connect",
+                    Target=f"integrations/i123-d345",
+                ),
+                call(
+                    ApiId=obj.api_id,
+                    ApiKeyRequired=False,
+                    AuthorizationType="NONE",
+                    RouteKey="$disconnect",
+                    Target=f"integrations/test-1234",
+                ),
+                call(
+                    ApiId=obj.api_id,
+                    ApiKeyRequired=False,
+                    AuthorizationType="NONE",
+                    RouteKey="$default",
+                    Target=f"integrations/0997-tyty",
+                ),
+            ]
+        )
+
+    @patch("django_aws_api_gateway_websockets.models.get_boto3_client")
+    def test__create_stage_and_deploy(self, mocked_get_boto3_client):
+        """Should return None without trying to create the API"""
+        client = MagicMock()
+        obj = ApiGateway(
+            api_id="1234",
+            api_name="My Api",
+            stage_name="My Stage Name",
+            stage_description="Some description",
+        )
+        obj._create_stage_and_deploy(client)
+
+        client.create_stage.assert_called_with(
+            ApiId=obj.api_id, StageName=obj.stage_name
+        )
+        client.create_deployment.assert_called_with(
+            ApiId=obj.api_id,
+            Description=obj.stage_description,
+            StageName=obj.stage_name,
         )
 
 
