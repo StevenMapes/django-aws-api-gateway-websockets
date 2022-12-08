@@ -307,7 +307,7 @@ class ApiGatewayAdditionalRoute(models.Model):
         )
 
         if deploy:
-            self.api_gateway.deploy(client)
+            self.api_gateway.deploy_api(client)
 
 
 class WebSocketSessionQuerySet(models.QuerySet):

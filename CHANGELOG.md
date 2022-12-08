@@ -1,4 +1,4 @@
-# 1.0.2 - 8th December 2022
+# 1.0.0 - 1.0.3 - 8th December 2022
 - Added support for additional custom routes for each API. This means that you could use one API Gateway for an entire
 project if you wished to using the ```ApiGatewayAdditionalRoute``` to route requests to different URLs within your 
 project.  This is extremely useful if you have multiple apps that require websockets. The recommendation is to have a 
