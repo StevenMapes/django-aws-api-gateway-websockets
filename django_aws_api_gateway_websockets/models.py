@@ -147,8 +147,9 @@ class ApiGateway(models.Model):
         self._create_api(client)
         try:
             self._create_routes(client)
-            for additional_route in self.additional_routes.all():
-                additional_route.create_route(client, deploy=False)
+            if self.pk:
+                for additional_route in self.additional_routes.all():
+                    additional_route.create_route(client, deploy=False)
             self._create_stage_and_deploy(client)
         except ClientError as ce:
             raise ce

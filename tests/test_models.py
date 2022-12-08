@@ -152,6 +152,7 @@ class ApiGatewaySimpleTestCase(SimpleTestCase):
 
     @patch("django_aws_api_gateway_websockets.models.get_boto3_client")
     @patch.object(ApiGateway, "_create_api")
+    @patch.object(ApiGateway, "_create_stage_and_deploy")
     @patch.object(ApiGateway, "_create_routes")
     @patch.object(ApiGateway, "_create_stage_and_deploy")
     @patch.object(ApiGateway, "save")
