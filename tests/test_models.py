@@ -154,7 +154,6 @@ class ApiGatewaySimpleTestCase(SimpleTestCase):
     @patch.object(ApiGateway, "_create_api")
     @patch.object(ApiGateway, "_create_stage_and_deploy")
     @patch.object(ApiGateway, "_create_routes")
-    @patch.object(ApiGateway, "_create_stage_and_deploy")
     @patch.object(ApiGateway, "save")
     def test_create_gateway__no_errors(
         self,
