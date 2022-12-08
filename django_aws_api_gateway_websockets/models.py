@@ -149,7 +149,8 @@ class ApiGateway(models.Model):
             self._create_routes(client)
             if self.pk:
                 for additional_route in self.additional_routes.all():
-                    additional_route.create_route(client, deploy=False)
+                    if not additional_route.deployed:
+                        additional_route.create_route(client, deploy=False)
             self._create_stage_and_deploy(client)
         except ClientError as ce:
             raise ce
@@ -235,7 +236,7 @@ class ApiGateway(models.Model):
             Description=self.stage_description,
             StageName=self.stage_name,
         )
-        self.deployment_id = res["Items"][0]["DeploymentId"]
+        self.deployment_id = res["DeploymentId"]
 
     def _create_domain_name(self, client):
         """Creates the domain including the HostedZoneID if one is set"""
@@ -268,10 +269,9 @@ class ApiGatewayAdditionalRoute(models.Model):
     def save(self, *args, **kwargs):
         """Save the record then deploy the new route if the parent has already been deployed"""
         super().save(*args, **kwargs)
-        if self.api_gateway.deployment_id:
+        if self.api_gateway.deployment_id and not self.deployed:
             client = get_boto3_client()
             self.create_route(client)
-            pass
 
     api_gateway = models.ForeignKey(
         ApiGateway, on_delete=models.CASCADE, related_name="additional_routes"
@@ -279,6 +279,7 @@ class ApiGatewayAdditionalRoute(models.Model):
     name = models.CharField(max_length=63, help_text="Descriptive name for the route")
     route_key = models.CharField(max_length=64, unique=True)
     integration_url = models.URLField()
+    deployed = models.BooleanField(default=False, editable=False)
     created_on = models.DateTimeField(auto_now_add=True)
     updated_on = models.DateTimeField(auto_now=True)
 
@@ -308,6 +309,8 @@ class ApiGatewayAdditionalRoute(models.Model):
 
         if deploy:
             self.api_gateway.deploy_api(client)
+            self.deployed = True
+            self.save()
 
 
 class WebSocketSessionQuerySet(models.QuerySet):
