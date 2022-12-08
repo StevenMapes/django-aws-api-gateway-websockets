@@ -1,6 +1,6 @@
 from botocore import exceptions
 from django.contrib import admin, messages
-from django.contrib.admin import ModelAdmin
+from django.contrib.admin import ModelAdmin, TabularInline
 
 from django_aws_api_gateway_websockets import models
 
@@ -42,6 +42,14 @@ def create_custom_domain(modeladmin, request, queryset):
 create_custom_domain.short_description = "Create Custom Domain record for the API"
 
 
+class ApiGatewayAdditionalRouteInline(TabularInline):
+    autocomplete_fields = ["api_gateway"]
+    model = models.ApiGatewayAdditionalRoute
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("api_gateway")
+
+
 @admin.register(models.WebSocketSession)
 class WebSocketSessionAdmin(ModelAdmin):
     search_fields = ["connection_id", "channel_name"]
@@ -81,3 +89,26 @@ class ApiGatewayAdmin(ModelAdmin):
     list_filter = ["api_created", "custom_domain_created"]
     actions = [create_api_gateway, create_custom_domain]
     date_hierarchy = "created_on"
+    inlines = [
+        ApiGatewayAdditionalRouteInline,
+    ]
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).prefetch_related("additional_routes")
+
+
+@admin.register(models.ApiGatewayAdditionalRoute)
+class ApiGatewayAdditionalRouteAdmin(ModelAdmin):
+    autocomplete_fields = ["api_gateway"]
+    search_fields = ["name", "key"]
+    list_display = [
+        "name",
+        "api_gateway",
+        "route_key",
+        "integration_url",
+    ]
+    list_filter = ["api_gateway"]
+    date_hierarchy = "created_on"
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("api_gateway")

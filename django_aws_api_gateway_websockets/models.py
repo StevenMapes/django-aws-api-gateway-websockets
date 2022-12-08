@@ -105,6 +105,9 @@ class ApiGateway(models.Model):
     route_key = models.CharField(max_length=255, default="$default")
     stage_name = models.CharField(max_length=63, default="production", blank=True)
     stage_description = models.CharField(max_length=63, default="", blank=True)
+    deployment_id = models.CharField(
+        max_length=32, default="", blank=True, editable=False
+    )
     tags = models.JSONField(
         blank=True, default=dict, help_text='In format {"tag-name": "tag-value"}'
     )
@@ -144,6 +147,8 @@ class ApiGateway(models.Model):
         self._create_api(client)
         try:
             self._create_routes(client)
+            for additional_route in self.additional_routes.all():
+                additional_route.create_route(client, deploy=False)
             self._create_stage_and_deploy(client)
         except ClientError as ce:
             raise ce
@@ -221,11 +226,15 @@ class ApiGateway(models.Model):
     def _create_stage_and_deploy(self, client):
         """Create the stage and deployment"""
         client.create_stage(ApiId=self.api_id, StageName=self.stage_name)
-        client.create_deployment(
+        self.deploy_api(client)
+
+    def deploy_api(self, client):
+        res = client.create_deployment(
             ApiId=self.api_id,
             Description=self.stage_description,
             StageName=self.stage_name,
         )
+        self.deployment_id = res["Items"][0]["DeploymentId"]
 
     def _create_domain_name(self, client):
         """Creates the domain including the HostedZoneID if one is set"""
@@ -247,6 +256,57 @@ class ApiGateway(models.Model):
             ApiId=self.api_id, DomainName=self.domain_name, Stage=self.stage_name
         )
         return mapping_res["ApiMappingId"]
+
+
+class ApiGatewayAdditionalRoute(models.Model):
+    """Stores the additional route keys"""
+
+    def __str__(self) -> str:
+        return self.name
+
+    def save(self, *args, **kwargs):
+        """Save the record then deploy the new route if the parent has already been deployed"""
+        super().save(*args, **kwargs)
+        if self.api_gateway.deployment_id:
+            client = get_boto3_client()
+            self.create_route(client)
+            pass
+
+    api_gateway = models.ForeignKey(
+        ApiGateway, on_delete=models.CASCADE, related_name="additional_routes"
+    )
+    name = models.CharField(max_length=63, help_text="Descriptive name for the route")
+    route_key = models.CharField(max_length=64, unique=True)
+    integration_url = models.URLField()
+    created_on = models.DateTimeField(auto_now_add=True)
+    updated_on = models.DateTimeField(auto_now=True)
+
+    def create_route(self, client, deploy=True):
+        """Create the Integration and then the route"""
+        integration_res = client.create_integration(
+            ApiId=self.api_gateway.api_id,
+            ConnectionType="INTERNET",
+            IntegrationMethod="POST",
+            IntegrationType="HTTP_PROXY",
+            IntegrationUri=self.integration_url,
+            PassthroughBehavior="WHEN_NO_MATCH",
+            PayloadFormatVersion="1.0",
+            RequestParameters={
+                "integration.request.header.connectionId": "context.connectionId"
+            },
+            TimeoutInMillis=29000,
+        )
+        client.create_route(
+            ApiId=self.api_gateway.api_id,
+            ApiKeyRequired=False,
+            AuthorizationType="NONE",
+            RouteKey=self.route_key,
+            Target=f"integrations/{integration_res['IntegrationId']}",
+            RouteResponseSelectionExpression="$default",
+        )
+
+        if deploy:
+            self.api_gateway.deploy(client)
 
 
 class WebSocketSessionQuerySet(models.QuerySet):
