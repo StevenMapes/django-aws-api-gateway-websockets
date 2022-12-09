@@ -76,10 +76,10 @@ jobs:
         run: |
           python -m coverage combine
           python -m coverage html --skip-covered --skip-empty
-          python -m coverage report --fail-under=85
+          python -m coverage report --fail-under=100
 
       - name: Upload HTML report
-#        if: ${{ failure() }}
+        if: ${{ failure() }}
         uses: actions/upload-artifact@v3
         with:
           name: html-report
