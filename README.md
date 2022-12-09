@@ -27,11 +27,14 @@ it back to avoid receiving CSRF Token failures.
 # Python and Django Support
 This project officially supports Python 3.8+ and Django 3.2+.
 
-| **Python/Django** | **3.2** | **4.0** | **4.1** | **4.2** |
-|-------------------|---------|---------|---------|---------|
-| 3.8               | Y       | Y       | Y       | N/A     |
-| 3.9               | Y       | Y       | Y       | N/A     |
-| 3.10              | Y       | Y       | Y       | N/A     |
+| **Python/Django**  | **3.2**  | **4.0**  | **4.1** | **4.2** |
+|--------------------|----------|----------|---------|---------|
+| 3.8                | Y        | Y        | Y       | N/A     |
+| 3.9                | Y        | Y        | Y       | N/A     |
+| 3.10               | Y        | Y        | Y       | N/A     |
+| 3.11               | N        | N        | Y*      | N/A     |
+
+* Python 3.11 only works with Django 4.1.3+
 
 # Installation
 You can install this package from pip using
