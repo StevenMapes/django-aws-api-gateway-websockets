@@ -46,10 +46,10 @@ jobs:
 
     - name: Run tox targets for ${{ matrix.python-version }}
       run: tox run -f py$(echo ${{ matrix.python-version }} | tr -d .)
-#
-#    - name: Generate Report
-#      run: |
-#        pip install coverage
-#        coverage run -m unittest
-#    - name: Upload Coverage to Codecov
-#      uses: codecov/codecov-action@v2
+
+    - name: Generate Report
+      run: |
+        pip install coverage
+        coverage run -m unittest
+    - name: Upload Coverage to Codecov
+      uses: codecov/codecov-action@v2
