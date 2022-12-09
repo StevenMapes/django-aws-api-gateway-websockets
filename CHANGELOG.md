@@ -1,6 +1,11 @@
 
-# 1.0.7 - Unreleased
-- Added in test for Python 3.11
+# 1.0.7 - 9th December 2022
+- Added in tests for Python 3.11
+- Removed use of CodeCov and moved to use GitHUb actions to store and report on the coverage.
+- Actions fail if coverage drops below 85%, this threshold will be increased in the future as I add in additional tests
+- Updated requirements and removed legacy tox files
+- Updated version of gitHub Actions
+- Added link to the PyPi site from the readme
 
 # 1.0.6 - 9th December 2022
 - Updating the listing pages to include whether the additional route has been deployed or not
