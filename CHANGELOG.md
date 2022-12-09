@@ -1,3 +1,7 @@
+
+# 1.0.7 - Unreleased
+- Added in test for Python 3.11
+
 # 1.0.6 - 9th December 2022
 - Updating the listing pages to include whether the additional route has been deployed or not
 - Updated the README file
