@@ -1,3 +1,7 @@
+# 1.0.6 - 9th December 2022
+- Updating the listing pages to include whether the additional route has been deployed or not
+- Updated the README file
+
 # 1.0.0 - 1.0.5 - 8th December 2022
 - Added support for additional custom routes for each API. This means that you could use one API Gateway for an entire
 project if you wished to using the ```ApiGatewayAdditionalRoute``` to route requests to different URLs within your 

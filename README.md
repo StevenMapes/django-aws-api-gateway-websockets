@@ -308,8 +308,8 @@ WebSocketSession.objects.filter(channel_name="Chatroom 1").send_message(
 The ```WebSocketSessionQuerySet.send_message``` method automatically adds a filter of ```connected=True``` 
 
 ## Django Admin
-Two Django Admin pages will be added to your project under the app _Django AWS APIGateway WebSockets_. Those pages 
-allow you to view and manage the two base models.
+Three Django Admin pages will be added to your project under the app _Django AWS APIGateway WebSockets_. Those pages 
+allow you to view and manage the three base models.
 
 ### Creating an API Gateway Endpoint
 **Important** This section assumes that you are using an IAM account with the permissions listed earlier.
@@ -361,6 +361,22 @@ Once you've populated those fields you an then run the two actions as management
 ```python manage.py createCustomDomain --pk=1```
 
 The same actions will run as above.
+
+## Adding Additional Routes
+This project will route all requests to one URL by default however that is not always what you will need, 
+sometimes you will want to route requests to different URL to send requests to different views potentially within 
+different apps.  API Gateway support this by using creating integrations and routes that use unique "route keys" to 
+identify requests and then route those requests to a URL.
+
+To support this approach this project uses ```ApiGatewayAdditionalRoute``` entries to map a route key to a chosen URL.
+They are available to manage as inline forms on the main ```ApiGateway``` admin or as their own admin page.
+
+The models are set-up to auto-deploy the new route if the ```ApiGateway``` has already been deployed. If it has not been
+deployed already then these routes will be setup during the main deployment.
+
+From the client side you choose the route you wish to take by setting the value of the **action** to the route key you
+wish to match.
+
 
 ## Gotchas and debugging
 ### Failure to connect to websockets
