@@ -50,6 +50,7 @@ jobs:
     - name: Generate Report
       run: |
         pip install coverage
+        tox run -f py$(echo ${{ matrix.python-version }} | tr -d .)
         coverage run -m unittest
     - name: Upload Coverage to Codecov
       uses: codecov/codecov-action@v2
