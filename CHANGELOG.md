@@ -1,3 +1,5 @@
+# 1.0.8 - 9th December 2022
+- Corrected the examples of the CSRF and Session values on the README file.
 
 # 1.0.7 - 9th December 2022
 - Added in tests for Python 3.11

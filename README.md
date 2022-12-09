@@ -48,19 +48,34 @@ Add ```django_aws_api_gateway_websockets``` into ```INSTALLED_APPS```
 ### IMPORTANT
 If your site is **not** already running cross-origin you will need to update some settings and flush the sessions to ensure the primary domain and subdomain will work.
 
-Because the API Gateway will run from a subdomain you need ensure the cookies are setup to allow subdomains to read them.
-Assuming your site runs from www.example.com and you wanted to use ws.www.example.com for websockets you would need to 
+Because the API Gateway will run from a subdomain you need ensure the cookies are set-up to allow subdomains to read them.
+Assuming your site runs from **www.example.com** and you wanted to use **ws.www.example.com** for websockets you would need to 
 set the below CSRF and COOKIE settings
 ```
 # CSRF
 CSRF_COOKIE_SAMESITE=Lax
-CSRF_TRUSTED_ORIGINS=www.example.com,ws.example.com
+CSRF_TRUSTED_ORIGINS=www.example.com,ws.www.example.com
 CSRF_COOKIE_DOMAIN='.www.example.com'
 
 # Sessions
 SESSION_COOKIE_SAMESITE='Lax'
 SESSION_COOKIE_NAME='mysessionid'
 SESSION_COOKIE_DOMAIN='.www.example.com'
+```
+
+If you wanted to use **www.example.com** for the main site and  **ws.example.com** for websockets you'd need to use 
+these settings
+
+```
+# CSRF
+CSRF_COOKIE_SAMESITE=Lax
+CSRF_TRUSTED_ORIGINS=www.example.com,ws.example.com
+CSRF_COOKIE_DOMAIN='.example.com'
+
+# Sessions
+SESSION_COOKIE_SAMESITE='Lax'
+SESSION_COOKIE_NAME='mysessionid'
+SESSION_COOKIE_DOMAIN='.example.com'
 ```
 
 **NOTE:** You need to rename the SESSION cookie. In the example I have renamed if from ```sessionid``` to ```mysessionid```. This will ensure that any old cookies are ignored.
