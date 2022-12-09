@@ -45,8 +45,11 @@ jobs:
         python -m pip install --upgrade codecov
         python -m pip install --upgrade 'tox>=4.0.0rc3'
 
+#    - name: Run tox targets for ${{ matrix.python-version }}
+#      run: tox run -f py$(echo ${{ matrix.python-version }} | tr -d .)
+
     - name: Run tox targets for ${{ matrix.python-version }}
-      run: tox run -f py$(echo ${{ matrix.python-version }} | tr -d .)
+      run: tox --py current
 
     - name: Upload coverage
       run: |
