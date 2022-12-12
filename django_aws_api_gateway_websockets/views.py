@@ -205,9 +205,9 @@ class WebSocketView(View):
         """
         if self._expected_headers(request) and self._allowed_apigateway(request):
             if request.method.lower() in self.http_method_names:
-                if "connect" == self.kwargs["route"]:
+                if "connect" == self.kwargs.get("route"):
                     handler = self.connect
-                elif "disconnect" == self.kwargs["route"]:
+                elif "disconnect" == self.kwargs.get("route"):
                     if not self._expected_useragent(request, *args, **kwargs):
                         handler = self.invalid_useragent
                     else:

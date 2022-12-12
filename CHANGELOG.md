@@ -1,3 +1,7 @@
+# 1.0.9 - 12th December 2022
+- Fixing an issue within the dispatch method of the view where the route key was missing from the arg. Now continues 
+with the checks. 
+
 # 1.0.8 - 9th December 2022
 - Corrected the examples of the CSRF and Session values on the README file.
 
