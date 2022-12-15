@@ -263,6 +263,13 @@ class ApiGateway(models.Model):
 class ApiGatewayAdditionalRoute(models.Model):
     """Stores the additional route keys"""
 
+    class Meta:
+        # Once version 4 is the minium then swap to use this
+        # constraints = [
+        #     models.UniqueConstraint("api_gateway", 'name', name='unique_name_per_gateway')
+        # ]
+        unique_together = [["api_gateway", "route_key"]]
+
     def __str__(self) -> str:
         return self.name
 
@@ -277,7 +284,7 @@ class ApiGatewayAdditionalRoute(models.Model):
         ApiGateway, on_delete=models.CASCADE, related_name="additional_routes"
     )
     name = models.CharField(max_length=63, help_text="Descriptive name for the route")
-    route_key = models.CharField(max_length=64, unique=True)
+    route_key = models.CharField(max_length=64, db_index=True)
     integration_url = models.URLField()
     deployed = models.BooleanField(default=False, editable=False)
     created_on = models.DateTimeField(auto_now_add=True)

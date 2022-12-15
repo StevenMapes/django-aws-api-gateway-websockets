@@ -1,3 +1,7 @@
+# 1.0.10 - 15th December 2022
+- Fixing an issue where ```ApiGatewayAdditionalRoute``` had a unique constraint on the ```route_key``` when it should 
+have been a composite unique constraint on the  ```api_gateway``` and the ```route_key``` 
+
 # 1.0.9 - 12th December 2022
 - Fixing an issue within the dispatch method of the view where the route key was missing from the arg. Now continues 
 with the checks. 
