@@ -1,3 +1,6 @@
+# 1.0.11 - 18th January 2023
+- Adding Django 4.2a1 into the matrix of tests
+
 # 1.0.10 - 15th December 2022
 - Fixing an issue where ```ApiGatewayAdditionalRoute``` had a unique constraint on the ```route_key``` when it should 
 have been a composite unique constraint on the  ```api_gateway``` and the ```route_key``` 
