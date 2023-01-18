@@ -1,4 +1,4 @@
-[![CI Build Status](https://img.shields.io/github/workflow/status/StevenMapes/django-aws-api-gateway-websockets/CI/main?style=for-the-badge)](https://github.com/StevenMapes/django-aws-api-gateway-websockets/actions)
+[![CI Build Status](https://img.shields.io/github/actions/workflow/status/<user>/<repo>/workflows/main.yml?branch=main)](https://github.com/StevenMapes/django-aws-api-gateway-websockets/actions)
 [![Coverage](https://img.shields.io/badge/Coverage-87%25-success?style=for-the-badge)](https://github.com/StevenMapes/django-aws-api-gateway-websockets/actions?workclow=CI)
 [![PyPi](https://img.shields.io/pypi/v/django-aws-api-gateway-websockets.svg?style=for-the-badge)](https://pypi.org/project/django-aws-api-gateway-websockets/)
 ![Code Style](https://img.shields.io/badge/code%20style-black-000000.svg?style=for-the-badge)
