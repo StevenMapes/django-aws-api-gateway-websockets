@@ -28,6 +28,30 @@ django\_aws\_api\_gateway\_websockets.migrations.0003\_auto\_20220706\_1018 modu
    :undoc-members:
    :show-inheritance:
 
+django\_aws\_api\_gateway\_websockets.migrations.0004\_auto\_20221208\_1227 module
+----------------------------------------------------------------------------------
+
+.. automodule:: django_aws_api_gateway_websockets.migrations.0004_auto_20221208_1227
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+django\_aws\_api\_gateway\_websockets.migrations.0005\_apigatewayadditionalroute\_deployed module
+-------------------------------------------------------------------------------------------------
+
+.. automodule:: django_aws_api_gateway_websockets.migrations.0005_apigatewayadditionalroute_deployed
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+django\_aws\_api\_gateway\_websockets.migrations.0006\_auto\_20221215\_0847 module
+----------------------------------------------------------------------------------
+
+.. automodule:: django_aws_api_gateway_websockets.migrations.0006_auto_20221215_0847
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Module contents
 ---------------
 

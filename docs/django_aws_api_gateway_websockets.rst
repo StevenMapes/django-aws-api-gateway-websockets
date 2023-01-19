@@ -1,8 +1,25 @@
 django\_aws\_api\_gateway\_websockets package
 =============================================
 
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 4
+
+   django_aws_api_gateway_websockets.management
+   django_aws_api_gateway_websockets.migrations
+
 Submodules
 ----------
+
+django\_aws\_api\_gateway\_websockets.admin module
+--------------------------------------------------
+
+.. automodule:: django_aws_api_gateway_websockets.admin
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 django\_aws\_api\_gateway\_websockets.apps module
 -------------------------------------------------
@@ -12,10 +29,10 @@ django\_aws\_api\_gateway\_websockets.apps module
    :undoc-members:
    :show-inheritance:
 
-django\_aws\_api\_gateway\_websockets.urls module
--------------------------------------------------
+django\_aws\_api\_gateway\_websockets.models module
+---------------------------------------------------
 
-.. automodule:: django_aws_api_gateway_websockets.urls
+.. automodule:: django_aws_api_gateway_websockets.models
    :members:
    :undoc-members:
    :show-inheritance:

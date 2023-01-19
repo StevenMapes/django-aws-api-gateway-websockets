@@ -4,6 +4,14 @@ django\_aws\_api\_gateway\_websockets.management.commands package
 Submodules
 ----------
 
+django\_aws\_api\_gateway\_websockets.management.commands.clearWebSocketSessions module
+---------------------------------------------------------------------------------------
+
+.. automodule:: django_aws_api_gateway_websockets.management.commands.clearWebSocketSessions
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 django\_aws\_api\_gateway\_websockets.management.commands.createApiGateway module
 ---------------------------------------------------------------------------------
 
