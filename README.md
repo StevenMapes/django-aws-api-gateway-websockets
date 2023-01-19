@@ -255,8 +255,15 @@ class ExampleWebSocketView(WebSocketView):
             channel_name=self.websocket_session.channel_name
         ).send_message({"key": "value})
 
-        # Multicast a message to ALL CONNECTED clients who are with the channel_nme "my-example-channel"
-        WebSocketSession.objects.filter(channel_name=my-example-channel).send_message({"key": "value})
+        # Multicast a message to ALL CONNECTED clients who are with the 
+        # channel_nme "my-example-channel"
+        WebSocketSession.objects.filter(
+            channel_name=my-example-channel
+        ).send_message(
+            {
+                "key": "value
+            }
+        )
 
 ```
 
