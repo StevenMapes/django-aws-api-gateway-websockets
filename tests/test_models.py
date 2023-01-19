@@ -1,3 +1,4 @@
+import json
 from unittest.mock import MagicMock, call, patch
 
 from botocore.exceptions import ClientError
@@ -842,3 +843,112 @@ class WebSocketSessionSimpleTestCase(SimpleTestCase):
         """The __str__ of WebSocketSession should return the connection_id attribute"""
         obj = WebSocketSession(connection_id="ABC-123")
         self.assertEqual("ABC-123", str(obj))
+
+
+class WebSocketSessionIntegrationTestCase(TestCase):
+    def setUp(self) -> None:
+        self.api_gateway = ApiGateway.objects.create(
+            api_name="First Gateway",
+            api_description="A test api gateway",
+            target_base_endpoint="http://www.example1.com/",
+            deployment_id="",
+        )
+
+    @patch("django_aws_api_gateway_websockets.models.get_boto3_client")
+    @override_settings(AWS_REGION_NAME="eu-west-1")
+    def test_send_message_return_response_on_success(self, mocked_get_boto3_client):
+        """The return of post_to_connection should be returned on a positive send_message"""
+        obj = WebSocketSession.objects.create(
+            connection_id="ABC-123",
+            channel_name="My-Channel",
+            connected=True,
+            api_gateway=self.api_gateway,
+        )
+        data = {"action": "example", "msg": "Test Me"}
+
+        res = obj.send_message(data)
+
+        mocked_get_boto3_client.assert_called_with(
+            "apigatewaymanagementapi",
+            endpoint_url=(
+                f"https://{obj.api_gateway.api_id}.execute-api."
+                f"{settings.AWS_REGION_NAME}.amazonaws.com/{obj.api_gateway.stage_name}"
+            ),
+        )
+        mocked_get_boto3_client.return_value.post_to_connection.assert_called_with(
+            Data=json.dumps(data), ConnectionId=obj.connection_id
+        )
+        self.assertEqual(
+            mocked_get_boto3_client.return_value.post_to_connection.return_value, res
+        )
+
+    @patch("django_aws_api_gateway_websockets.models.get_boto3_client")
+    @override_settings(AWS_REGION_NAME="eu-west-1")
+    def test_send_message_boto3_gone_away(self, mocked_get_boto3_client):
+        """When a GoneException is raised by Boto3 then an exception is not bubbled but the connected property is set
+        to False
+        """
+        mocked_get_boto3_client.return_value.post_to_connection.side_effect = (
+            ClientError(
+                {"Error": {"Code": "GoneException", "Message": "Actual Error Here"}},
+                "apigateway",
+            )
+        )
+
+        obj = WebSocketSession.objects.create(
+            connection_id="ABC-123",
+            channel_name="My-Channel",
+            connected=True,
+            api_gateway=self.api_gateway,
+        )
+        data = {"action": "example", "msg": "Test Me"}
+
+        obj.send_message(data)
+
+        mocked_get_boto3_client.assert_called_with(
+            "apigatewaymanagementapi",
+            endpoint_url=(
+                f"https://{obj.api_gateway.api_id}.execute-api."
+                f"{settings.AWS_REGION_NAME}.amazonaws.com/{obj.api_gateway.stage_name}"
+            ),
+        )
+        mocked_get_boto3_client.return_value.post_to_connection.assert_called_with(
+            Data=json.dumps(data), ConnectionId=obj.connection_id
+        )
+
+    @patch("django_aws_api_gateway_websockets.models.get_boto3_client")
+    @override_settings(AWS_REGION_NAME="eu-west-1")
+    def test_send_message_raises_other_boto3_exceptions(self, mocked_get_boto3_client):
+        """When a GoneException is raised by Boto3 then an exception is not bubbled but the connected property is set
+        to False
+        """
+        mocked_get_boto3_client.return_value.post_to_connection.side_effect = (
+            ClientError(
+                {"Error": {"Code": "ABC123", "Message": "Actual Error Here"}},
+                "apigateway",
+            )
+        )
+
+        obj = WebSocketSession.objects.create(
+            connection_id="ABC-123",
+            channel_name="My-Channel",
+            connected=True,
+            api_gateway=self.api_gateway,
+        )
+        data = {"action": "example", "msg": "Test Me"}
+
+        with self.assertRaises(ClientError):
+            obj.send_message(data)
+
+        mocked_get_boto3_client.assert_called_with(
+            "apigatewaymanagementapi",
+            endpoint_url=(
+                f"https://{obj.api_gateway.api_id}.execute-api."
+                f"{settings.AWS_REGION_NAME}.amazonaws.com/{obj.api_gateway.stage_name}"
+            ),
+        )
+
+
+class WebSocketSessionQuerySetIntegrationTestCase(TestCase):
+    # todo - Implement these tests
+    pass
