@@ -50,11 +50,13 @@ If your site is **not** already running cross-origin you will need to update som
 
 Because the API Gateway will run from a subdomain you need ensure the cookies are set-up to allow subdomains to read them.
 Assuming your site runs from **www.example.com** and you wanted to use **ws.www.example.com** for websockets you would need to 
-set the below CSRF and COOKIE settings
+set the below CSRF and COOKIE settings (Django 4 examples shown)
 ```
 # CSRF
 CSRF_COOKIE_SAMESITE=Lax
-CSRF_TRUSTED_ORIGINS=www.example.com,ws.www.example.com
+# CSRF_TRUSTED_ORIGINS=www.example.com,ws.www.example.com ## For Django 3*
+## For Django 4+
+CSRF_TRUSTED_ORIGINS=https://www.example.com,https://ws.www.example.com
 CSRF_COOKIE_DOMAIN='.www.example.com'
 
 # Sessions
@@ -69,7 +71,7 @@ these settings
 ```
 # CSRF
 CSRF_COOKIE_SAMESITE=Lax
-CSRF_TRUSTED_ORIGINS=www.example.com,ws.example.com
+CSRF_TRUSTED_ORIGINS=https://www.example.com,https://ws.www.example.com
 CSRF_COOKIE_DOMAIN='.example.com'
 
 # Sessions
@@ -250,8 +252,11 @@ class ExampleWebSocketView(WebSocketView):
         
         # Multicast a message to ALL CONNECTED clients on the same "channel"
         WebSocketSession.objects.filter(
-            channel_name=self.websocket_session.channel_name, connected=True
+            channel_name=self.websocket_session.channel_name
         ).send_message({"key": "value})
+
+        # Multicast a message to ALL CONNECTED clients who are with the channel_nme "my-example-channel"
+        WebSocketSession.objects.filter(channel_name=my-example-channel).send_message({"key": "value})
 
 ```
 
@@ -529,9 +534,3 @@ Also require ```pytest-django``` for testing
 - Add a test case to show that the bug is fixed or the feature is implemented correctly.
 - Test using ```python -W error::DeprecationWarning -W error::PendingDeprecationWarning -m coverage run --parallel -m pytest --ds tests.settings```
 - Create a pull request, tagging the issue, bug me until I can merge your pull request. Also, don't forget to add yourself to AUTHORS.
-
-# TO DO
-1. Example of a "chat" implementation I.E. a view that receives a message and published the same message to all sessions 
-within the same channel
-2. Example of setting the channel within the default handler
-3. Example of creating a custom route
