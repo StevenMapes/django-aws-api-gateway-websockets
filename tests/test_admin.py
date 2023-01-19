@@ -2,6 +2,7 @@ from unittest.mock import MagicMock, patch
 
 from botocore import exceptions
 from django.contrib.admin.sites import AdminSite
+from django.contrib.auth.models import User
 from django.test import RequestFactory, SimpleTestCase, TestCase
 
 from django_aws_api_gateway_websockets import admin, models
@@ -159,13 +160,42 @@ class CreatCustomDomainSimpleTestCase(SimpleTestCase):
         )
 
 
-class WebSocketSessionAdminTestCase(TestCase):
+class AdminTestCase(TestCase):
     """Tests that require the database"""
 
-    def test_queryset(self):
+    def setUp(self) -> None:
+        self.user, _ = User.objects.get_or_create(
+            username="test", is_staff=True, is_superuser=True
+        )
+
+    def test_WebSocketSessionAdmin_queryset(self):
         """Ensure the overloaded queryset method is working"""
         site = admin.WebSocketSessionAdmin(
             model=models.WebSocketSession, admin_site=AdminSite()
         )
         request = RequestFactory().get("/view-path")
+        site.get_queryset(request)
+
+    def test_ApiGatewayAdmin_queryset(self):
+        """Ensure the overloaded queryset method is working"""
+        site = admin.ApiGatewayAdmin(model=models.ApiGateway, admin_site=AdminSite())
+        request = RequestFactory().get("/view-path")
+        site.get_queryset(request)
+
+    def test_ApiGatewayAdditionalRouteAdmin_queryset(self):
+        """Ensure the overloaded queryset method is working"""
+        site = admin.ApiGatewayAdditionalRouteAdmin(
+            model=models.ApiGatewayAdditionalRoute, admin_site=AdminSite()
+        )
+        request = RequestFactory().get("/view-path")
+        site.get_queryset(request)
+
+    def test_ApiGatewayAdditionalRouteInline_queryset(self):
+        """Ensure the overloaded queryset method is working"""
+        site = admin.ApiGatewayAdditionalRouteInline(
+            parent_model=models.ApiGatewayAdditionalRoute, admin_site=AdminSite()
+        )
+        request = RequestFactory().get("/view-path")
+        request.user = self.user
+        request.session = {}
         site.get_queryset(request)

@@ -4,7 +4,12 @@ from botocore.exceptions import ClientError
 from django.conf import settings
 from django.test import SimpleTestCase, TestCase, override_settings
 
-from django_aws_api_gateway_websockets.models import ApiGateway, get_boto3_client
+from django_aws_api_gateway_websockets.models import (
+    ApiGateway,
+    ApiGatewayAdditionalRoute,
+    WebSocketSession,
+    get_boto3_client,
+)
 
 
 class GetBoto3ClientTestCase(SimpleTestCase):
@@ -154,17 +159,26 @@ class ApiGatewaySimpleTestCase(SimpleTestCase):
     @patch.object(ApiGateway, "_create_api")
     @patch.object(ApiGateway, "_create_stage_and_deploy")
     @patch.object(ApiGateway, "_create_routes")
+    @patch.object(ApiGateway, "additional_routes")
     @patch.object(ApiGateway, "save")
     def test_create_gateway__no_errors(
         self,
         mocked_save,
-        mocked__create_stage_and_deploy,
+        mocked_additional_routes,
         mocked__create_routes,
+        mocked__create_stage_and_deploy,
         mocked___create_api,
         mocked_get_boto3_client,
     ):
         """When there are no errors the _create_api, _create_routes, _create_stage_and_deploy methods should be called"""
-        obj = ApiGateway(api_name="My Api", api_created=False)
+        obj = ApiGateway(pk=12, api_name="My Api", api_created=False)
+        route_1 = ApiGatewayAdditionalRoute(deployed=True)
+        route_2 = ApiGatewayAdditionalRoute(
+            deployed=False, api_gateway=obj, integration_url="https://example.com/foo"
+        )
+
+        mocked_additional_routes.all.return_value = [route_1, route_2]
+        obj = ApiGateway(pk=12, api_name="My Api", api_created=False)
 
         self.assertFalse(obj.api_created)
         obj.create_gateway()
@@ -173,6 +187,20 @@ class ApiGatewaySimpleTestCase(SimpleTestCase):
         mocked_get_boto3_client.assert_called_with()
         mocked___create_api.assert_called_with(mocked_get_boto3_client.return_value)
         mocked__create_routes.assert_called_with(mocked_get_boto3_client.return_value)
+        mocked_additional_routes.all.assert_called_with()
+        mocked_get_boto3_client.return_value.create_integration.assert_called_with(
+            ApiId=route_2.api_gateway.api_id,
+            ConnectionType="INTERNET",
+            IntegrationMethod="POST",
+            IntegrationType="HTTP_PROXY",
+            IntegrationUri=route_2.integration_url,
+            PassthroughBehavior="WHEN_NO_MATCH",
+            PayloadFormatVersion="1.0",
+            RequestParameters={
+                "integration.request.header.connectionId": "context.connectionId"
+            },
+            TimeoutInMillis=29000,
+        )
         mocked__create_stage_and_deploy.assert_called_with(
             mocked_get_boto3_client.return_value
         )
@@ -587,6 +615,67 @@ class ApiGatewaySimpleTestCase(SimpleTestCase):
             StageName=obj.stage_name,
         )
 
+    def test__create_domain_name__no_hosted_zone_id(self):
+        """Test the parameters passed into the Boto3 client when the HostedZoneID is not set"""
+        client = MagicMock()
+        obj = ApiGateway(
+            domain_name="example.com",
+            certificate_arn="arn:aws:acm:region:account:certificate/certificate_ID",
+            hosted_zone_id="",
+        )
+        obj._create_domain_name(client)
+
+        client.create_domain_name.assert_called_with(
+            DomainName=obj.domain_name,
+            DomainNameConfigurations=[
+                {
+                    "CertificateArn": obj.certificate_arn,
+                    "DomainNameStatus": "AVAILABLE",
+                    "EndpointType": "REGIONAL",
+                    "SecurityPolicy": "TLS_1_2",
+                }
+            ],
+        )
+
+    def test__create_domain_name__with_hosted_zone_id(self):
+        """Test the parameters passed into the Boto3 client when the HostedZoneID is set"""
+        client = MagicMock()
+        obj = ApiGateway(
+            domain_name="example.com",
+            certificate_arn="arn:aws:acm:region:account:certificate/certificate_ID",
+            hosted_zone_id="ABCD-123",
+        )
+        obj._create_domain_name(client)
+
+        client.create_domain_name.assert_called_with(
+            DomainName=obj.domain_name,
+            DomainNameConfigurations=[
+                {
+                    "CertificateArn": obj.certificate_arn,
+                    "DomainNameStatus": "AVAILABLE",
+                    "EndpointType": "REGIONAL",
+                    "SecurityPolicy": "TLS_1_2",
+                    "HostedZoneId": obj.hosted_zone_id,
+                }
+            ],
+        )
+
+    def test__create_api_mapping(self):
+        """Test the parameters passed into the Boto3 client when the HostedZoneID is set"""
+        client = MagicMock()
+        client.create_api_mapping.return_value = {"ApiMappingId": "MyID"}
+
+        obj = ApiGateway(
+            api_id=1234, domain_name="example.com", stage_name="development"
+        )
+
+        res = obj._create_api_mapping(client)
+
+        client.create_api_mapping.assert_called_with(
+            ApiId=obj.api_id, DomainName=obj.domain_name, Stage=obj.stage_name
+        )
+        self.assertEqual("MyID", res)
+
 
 class ApiGatewayIntegrationTest(TestCase):
     def test_save_ensures_endpoint_ends_with_forward_slash(self):
@@ -627,3 +716,129 @@ class ApiGatewayIntegrationTest(TestCase):
                 self.assertEqual(
                     api.target_base_endpoint, config["result"], config["name"]
                 )
+
+
+class ApiGatewayAdditionalRouteSimpleTestCase(SimpleTestCase):
+    def test__str__returns_name(self):
+        """The __str__ of ApiGatewayAdditionalRoute should return the name attribute"""
+        obj = ApiGatewayAdditionalRoute(name="My Test")
+        self.assertEqual("My Test", str(obj))
+
+
+class ApiGatewayAdditionalRouteIntegrationTestCase(TestCase):
+    def setUp(self) -> None:
+        self.non_deployed_api_gateway = ApiGateway(
+            api_name="First Gateway",
+            api_description="A test api gateway",
+            target_base_endpoint="http://www.example1.com/",
+            deployment_id="",
+        )
+        self.non_deployed_api_gateway.save()
+
+        self.deployed_api_gateway = ApiGateway(
+            api_name="Second Gateway",
+            api_description="A test api gateway",
+            target_base_endpoint="http://www.example.com/ws/",
+            deployment_id="ABC123",
+        )
+        self.deployed_api_gateway.save()
+
+    @patch("django_aws_api_gateway_websockets.models.get_boto3_client")
+    def test_adding_route_to_gateway_with_no_deployment_id(
+        self, mocked_get_boto3_client
+    ):
+        """When adding a route to a non-deployed gateway no post-save logic should run"""
+        ApiGatewayAdditionalRoute.objects.create(
+            api_gateway=self.non_deployed_api_gateway,
+            name="Alternative Route",
+            route_key="another-route",
+            integration_url="https://www.example.com/ws/other",
+            deployed=False,
+        )
+        self.assertEqual(0, mocked_get_boto3_client.call_count)
+
+    @patch("django_aws_api_gateway_websockets.models.get_boto3_client")
+    def test_adding_route_to_gateway_with_no_deployment_id_but_deployed_is_true(
+        self, mocked_get_boto3_client
+    ):
+        """When adding a route to a non-deployed gateway no post-save logic should run even is deployed is True"""
+        ApiGatewayAdditionalRoute.objects.create(
+            api_gateway=self.non_deployed_api_gateway,
+            name="Alternative Route",
+            route_key="another-route",
+            integration_url="https://www.example.com/ws/other",
+            deployed=True,
+        )
+        self.assertEqual(0, mocked_get_boto3_client.call_count)
+
+    @patch("django_aws_api_gateway_websockets.models.get_boto3_client")
+    def test_adding_route_to_gateway_with_deployment_id_but_deployed_is_true(
+        self, mocked_get_boto3_client
+    ):
+        """When saving an additional route where the deployed property is TRUE, the create_route method should not
+        be called even as we expect the route has already been deployed another way
+        """
+        ApiGatewayAdditionalRoute.objects.create(
+            api_gateway=self.deployed_api_gateway,
+            name="Alternative Route",
+            route_key="another-route",
+            integration_url="https://www.example.com/ws/other",
+            deployed=True,
+        )
+        self.assertEqual(0, mocked_get_boto3_client.call_count)
+
+    @patch("django_aws_api_gateway_websockets.models.get_boto3_client")
+    def test_adding_route_to_gateway_with_deployment_id_and_deployed_is_false(
+        self, mocked_get_boto3_client
+    ):
+        """When saving an additional route where the deployed property is False and the API Gateway has a deployment ID
+        then the new additional route should be automatically deployed
+        """
+        mocked_get_boto3_client.return_value.create_integration.return_value = {
+            "IntegrationId": "Int-ID-123"
+        }
+
+        obj = ApiGatewayAdditionalRoute.objects.create(
+            api_gateway=self.deployed_api_gateway,
+            name="Alternative Route",
+            route_key="another-route",
+            integration_url="https://www.example.com/ws/other",
+            deployed=False,
+        )
+
+        self.assertTrue(obj.deployed)
+
+        mocked_get_boto3_client.assert_called_with()
+        mocked_get_boto3_client.return_value.create_integration.assert_called_with(
+            ApiId=self.deployed_api_gateway.api_id,
+            ConnectionType="INTERNET",
+            IntegrationMethod="POST",
+            IntegrationType="HTTP_PROXY",
+            IntegrationUri=obj.integration_url,
+            PassthroughBehavior="WHEN_NO_MATCH",
+            PayloadFormatVersion="1.0",
+            RequestParameters={
+                "integration.request.header.connectionId": "context.connectionId"
+            },
+            TimeoutInMillis=29000,
+        )
+        mocked_get_boto3_client.return_value.create_route(
+            ApiId=obj.api_gateway.api_id,
+            ApiKeyRequired=False,
+            AuthorizationType="NONE",
+            RouteKey=obj.route_key,
+            Target="integrations/Int-ID-123",
+            RouteResponseSelectionExpression="$default",
+        )
+        mocked_get_boto3_client.return_value.create_deployment(
+            ApiId=self.deployed_api_gateway.api_id,
+            Description=self.deployed_api_gateway.stage_description,
+            StageName=self.deployed_api_gateway.stage_name,
+        )
+
+
+class WebSocketSessionSimpleTestCase(SimpleTestCase):
+    def test__str__returns_name(self):
+        """The __str__ of WebSocketSession should return the connection_id attribute"""
+        obj = WebSocketSession(connection_id="ABC-123")
+        self.assertEqual("ABC-123", str(obj))
