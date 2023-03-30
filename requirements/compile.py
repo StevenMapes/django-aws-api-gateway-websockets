@@ -139,7 +139,7 @@ if __name__ == "__main__":
             "python",
             *common_args,
             "-P",
-            "Django==4.2a1",
+            "Django==4.2rc1",
             "-o",
             "py311-django42.txt",
         ],
