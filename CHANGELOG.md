@@ -1,4 +1,4 @@
-# 1.0.12 - **UNRLEASED**
+# 1.0.12 - **UNRELEASED**
 - Updating the README file with additional examples
 - Adding in additional unit tests to improve coverage from 86% to 96%
 - Adding Django 4.2rc1 into the matrix of tests replacing 4.2.a1
