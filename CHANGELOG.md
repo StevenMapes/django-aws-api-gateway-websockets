@@ -2,7 +2,7 @@
 - Updating the README file with additional examples.
 - Adding in additional unit tests to improve coverage from 86% to 96%.
 - Adding Django 4.2 into the matrix of tests replacing 4.2a1
-- Added Django 5.0a1 into the text matrix 
+- Starting to prepare to add Django 5 support one a hashable version can be used to install from. 
 
 # 1.0.11 - 18th January 2023
 - Adding Django 4.2a1 into the matrix of tests

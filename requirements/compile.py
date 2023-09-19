@@ -146,6 +146,7 @@ if __name__ == "__main__":
         check=True,
         capture_output=True,
     )
+    # Django 5 required Python 3.10+
     # subprocess.run(
     #     [
     #         "python",
