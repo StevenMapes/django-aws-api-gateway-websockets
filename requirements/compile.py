@@ -146,7 +146,18 @@ if __name__ == "__main__":
         check=True,
         capture_output=True,
     )
-
+    # subprocess.run(
+    #     [
+    #         "python",
+    #         *common_args,
+    #         "-P",
+    #         "Django==5.0a1",
+    #         "-o",
+    #         "py311-django50.txt",
+    #     ],
+    #     check=True,
+    #     capture_output=True,
+    # )
     # Use SED to remove the --extra-index-url lines from every file
     sed_args = ["sed", "-i", "-e", "s/--extra-index-url .*$//g"]
     [
