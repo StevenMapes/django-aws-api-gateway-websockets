@@ -27,12 +27,13 @@ it back to avoid receiving CSRF Token failures.
 # Python and Django Support
 This project officially supports Python 3.8+ and Django 3.2+.
 
-| **Python/Django**  | **3.2**  | **4.0**  | **4.1** | **4.2** |
-|--------------------|----------|----------|---------|---------|
-| 3.8                | Y        | Y        | Y       | Y       |
-| 3.9                | Y        | Y        | Y       | Y       |
-| 3.10               | Y        | Y        | Y       | Y       |
-| 3.11               | N        | N        | Y*      | Y       |
+| **Python/Django** | **3.2**  | **4.0**  | **4.1** | **4.2** | **5.0** |
+|-------------------|----------|----------|---------|---------|---------|
+| 3.8               | Y        | Y        | Y       | Y       | N       |
+| 3.9               | Y        | Y        | Y       | Y       | N       |
+| 3.10              | Y        | Y        | Y       | Y       | Y       |
+| 3.11              | N        | N        | Y*      | Y       | Y       |
+| 3.12              | N        | N        | N       | Y       | Y       |
 
 * Python 3.11 only works with Django 4.1.3+
 
@@ -525,10 +526,10 @@ coverage report
 ```
 
 # Compiling Requirements
-Run ```pip install pip-tools``` then run ```python requirements/compile.py``` to generate the various requirements files
-Also require ```pytest-django``` for testing
+Run ```pip install pip-tools``` then run ```python requirements/compile.py``` to generate the various requirements files.
+I use two local VIRTUALENVS to build the requirements, one running Python3.8 and the other running Python 3.11.
 
-# pip-tools
+Also require ```pytest-django``` for testing
 
 # tox
 

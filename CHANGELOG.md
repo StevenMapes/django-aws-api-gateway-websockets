@@ -1,4 +1,4 @@
-# 1.0.12 - **UNRELEASED**
+# 1.0.12 - 20th September 2023
 - Updating the README file with additional examples.
 - Adding in additional unit tests to improve coverage from 86% to 96%.
 - Adding Django 4.2 into the matrix of tests replacing 4.2a1

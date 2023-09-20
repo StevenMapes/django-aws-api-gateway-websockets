@@ -91,6 +91,7 @@ if __name__ == "__main__":
             check=True,
             capture_output=True,
         )
+    if (3, 10, 0) <= py_version < (3, 11, 0):
         subprocess.run(
             [
                 "python",
@@ -115,6 +116,19 @@ if __name__ == "__main__":
             check=True,
             capture_output=True,
         )
+        subprocess.run(
+            [
+                "python",
+                *common_args,
+                "-P",
+                "Django>=4.2,<5",
+                "-o",
+                "py310-django42.txt",
+            ],
+            check=True,
+            capture_output=True,
+        )
+
     if (3, 11, 0) <= py_version < (3, 12, 0):
         subprocess.run(
             [
@@ -124,18 +138,6 @@ if __name__ == "__main__":
                 "Django>=4.1.8,<4.2",
                 "-o",
                 "py311-django41.txt",
-            ],
-            check=True,
-            capture_output=True,
-        )
-        subprocess.run(
-            [
-                "python",
-                *common_args,
-                "-P",
-                "Django>=4.2,<5",
-                "-o",
-                "py310-django42.txt",
             ],
             check=True,
             capture_output=True,
@@ -165,6 +167,32 @@ if __name__ == "__main__":
             check=True,
             capture_output=True,
         )
+    # if (3, 12, 0) <= py_version < (3, 13, 0):
+    #     subprocess.run(
+    #         [
+    #             "python",
+    #             *common_args,
+    #             "-P",
+    #             "Django>=4.2,<5",
+    #             "-o",
+    #             "py312-django42.txt",
+    #         ],
+    #         check=True,
+    #         capture_output=True,
+    #     )
+    #     subprocess.run(
+    #         [
+    #             "python",
+    #             *common_args,
+    #             "-P",
+    #             "Django==5.0a1",
+    #             "-o",
+    #             "py312-django50.txt",
+    #         ],
+    #         check=True,
+    #         capture_output=True,
+    #     )
+
     # Use SED to remove the --extra-index-url lines from every file
     sed_args = ["sed", "-i", "-e", "s/--extra-index-url .*$//g"]
     [
