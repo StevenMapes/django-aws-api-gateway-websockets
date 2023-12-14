@@ -44,7 +44,6 @@ classifiers = [
     "Topic :: Websockets",
     "License :: OSI Approved :: MIT License",
 ]
-license_file = "LICENSE"
 
 [project.urls]
 "Homepage" = "https://github.com/StevenMapes/django-aws-api-gateway-websockets"
