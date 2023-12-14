@@ -5,6 +5,11 @@
 ![Pre-Commit Enabled](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white&style=for-the-badge)
 [![Read The Docs](https://img.shields.io/readthedocs/django-mysql?style=for-the-badge)](https://django-aws-api-gateway-websockets.readthedocs.io/)
 
+[![PyPi Downloads](https://img.shields.io/pypi/dd/django-aws-api-gateway-websockets)](https://pypistats.org/packages/django-aws-api-gateway-websockets)
+[![PyPi Downloads](https://img.shields.io/pypi/dw/django-aws-api-gateway-websockets)](https://pypistats.org/packages/django-aws-api-gateway-websockets)
+[![PyPi Downloads](https://img.shields.io/pypi/dm/django-aws-api-gateway-websockets)](https://pypistats.org/packages/django-aws-api-gateway-websockets)
+
+
 
 # Django AWS API Gateway Websockets
 It is the aim of this project to create a uniform way to record websocket connections, associate the Django user who established the connection and then retrieve that user within each request.
