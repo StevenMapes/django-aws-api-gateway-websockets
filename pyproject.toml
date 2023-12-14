@@ -13,7 +13,7 @@ version = "1.0.13"
 authors = [
   { name="Steven Mapes", email="steve@stevenmapes.com" },
 ]
-license = "MIT"
+license = {text = "MIT"}
 description = "Created to allow Django projects to be used as a HTTP backend for AWS API Gateway websockets"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -46,7 +46,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Websockets",
-    "License :: OSI Approved :: MIT License",
+    "License :: MIT",
 ]
 
 [project.urls]
