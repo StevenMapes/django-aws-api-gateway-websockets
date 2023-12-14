@@ -504,7 +504,12 @@ class ApiGatewaySimpleTestCase(SimpleTestCase):
 
     def test__create_routes(self):
         """create_integration and create_stage are should be called three times"""
-        client = MagicMock()
+        mocked_create_integration = MagicMock()
+        mocked_create_route = MagicMock()
+        client = MagicMock(
+            create_integration=mocked_create_integration,
+            create_route=mocked_create_route,
+        )
 
         client.create_integration.side_effect = [
             {"IntegrationId": "i123-d345"},
@@ -525,7 +530,7 @@ class ApiGatewaySimpleTestCase(SimpleTestCase):
 
         obj._create_routes(client)
 
-        client.create_integration.has_calls(
+        mocked_create_integration.has_calls(
             [
                 call(
                     ApiId=obj.api_id,
@@ -569,7 +574,7 @@ class ApiGatewaySimpleTestCase(SimpleTestCase):
             ]
         )
 
-        client.create_route.has_calls(
+        mocked_create_route.has_calls(
             [
                 call(
                     ApiId=obj.api_id,
