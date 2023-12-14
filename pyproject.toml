@@ -16,7 +16,10 @@ authors = [
 description = "Created to allow Django projects to be used as a HTTP backend for AWS API Gateway websockets"
 readme = "README.md"
 requires-python = ">=3.8"
-install_requires = "Django>=3.2.0"
+dependencies = [
+    "Django>=3.2.0"
+
+]
 keywords = [
     "Django",
     "WebSockets",
