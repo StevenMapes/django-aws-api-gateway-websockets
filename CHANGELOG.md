@@ -1,3 +1,7 @@
+- # 1.0.13 - 14th December 2023
+- Adding Django 4.2 into the matrix of tests replacing 4.2a1
+- Adding Django 5 into the tox runner
+
 # 1.0.12 - 20th September 2023
 - Updating the README file with additional examples.
 - Adding in additional unit tests to improve coverage from 86% to 96%.
