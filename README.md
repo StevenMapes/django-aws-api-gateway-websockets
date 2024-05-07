@@ -30,15 +30,15 @@ already been added as a class decorator on the base view but if you overload the
 it back to avoid receiving CSRF Token failures.
 
 # Python and Django Support
-This project officially supports Python 3.8+ and Django 3.2+.
+This project officially supports Python 3.8+ and Django 4.2+.
 
-| **Python/Django** | **3.2**  | **4.0**  | **4.1** | **4.2** | **5.0** |
-|-------------------|----------|----------|---------|---------|---------|
-| 3.8               | Y        | Y        | Y       | Y       | N       |
-| 3.9               | Y        | Y        | Y       | Y       | N       |
-| 3.10              | Y        | Y        | Y       | Y       | Y       |
-| 3.11              | N        | N        | Y*      | Y       | Y       |
-| 3.12              | N        | N        | N       | Y       | Y       |
+| **Python/Django** | **4.2** | **5.0** |
+|-------------------|---------|---------|
+| 3.8               | Y       | N       |
+| 3.9               | Y       | N       |
+| 3.10              | Y       | Y       |
+| 3.11              | Y       | Y       |
+| 3.12              | Y       | Y       |
 
 * Python 3.11 only works with Django 4.1.3+
 
