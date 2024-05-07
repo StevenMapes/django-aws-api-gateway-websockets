@@ -4,7 +4,6 @@ django
 pytest
 pytest-django
 pip
-black
 pre-commit
 
 # Sphinx

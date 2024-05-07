@@ -9,7 +9,7 @@ skip = [
 
 [project]
 name = "django-aws-api-gateway-websockets"
-version = "1.0.14"
+version = "1.0.15"
 authors = [
   { name="Steven Mapes", email="steve@stevenmapes.com" },
 ]

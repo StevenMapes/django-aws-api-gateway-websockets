@@ -1,5 +1,11 @@
-- - # 1.0.14 - 7th May 2024
-- Removing support for Django < 4.2.0
+- # 1.0.15 - 7th May 2024
+- Upgrade black, blacken-docs and isort within precommit, removed black from the requirements as it's only used by
+pre-commit
+
+- # 1.0.14 - 7th May 2024
+- Removing support for Django < 4.2.0. This project will probably still work with Django 3.2+ but I'm now longer going
+to support it with tests.
+- Bumped requirements as well
 
 - # 1.0.13 - 14th December 2023
 - Adding Django 4.2 into the matrix of tests replacing 4.2a1
