@@ -1,3 +1,6 @@
+- - # 1.0.14 - 7th May 2024
+- Removing support for Django < 4.2.0
+
 - # 1.0.13 - 14th December 2023
 - Adding Django 4.2 into the matrix of tests replacing 4.2a1
 - Adding Django 5 into the tox runner

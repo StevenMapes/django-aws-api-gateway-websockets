@@ -9,7 +9,7 @@ skip = [
 
 [project]
 name = "django-aws-api-gateway-websockets"
-version = "1.0.13"
+version = "1.0.14"
 authors = [
   { name="Steven Mapes", email="steve@stevenmapes.com" },
 ]
@@ -18,7 +18,7 @@ description = "Created to allow Django projects to be used as a HTTP backend for
 readme = "README.md"
 requires-python = ">=3.8"
 dependencies = [
-    "Django>=3.2.0"
+    "Django>=4.2.0"
 
 ]
 keywords = [
@@ -31,9 +31,6 @@ keywords = [
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Framework :: Django",
-    "Framework :: Django :: 3.2",
-    "Framework :: Django :: 4.0",
-    "Framework :: Django :: 4.1",
     "Framework :: Django :: 4.2",
     "Framework :: Django :: 5.0",
     "Intended Audience :: Developers",
