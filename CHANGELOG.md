@@ -1,3 +1,6 @@
+- # 1.0.16 - 24th May 2024
+- Added in test for Django 5.1a1
+
 - # 1.0.15 - 7th May 2024
 - Upgrade black, blacken-docs and isort within precommit, removed black from the requirements as it's only used by
 pre-commit

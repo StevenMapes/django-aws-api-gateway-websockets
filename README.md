@@ -32,13 +32,13 @@ it back to avoid receiving CSRF Token failures.
 # Python and Django Support
 This project officially supports Python 3.8+ and Django 4.2+.
 
-| **Python/Django** | **4.2** | **5.0** |
-|-------------------|---------|---------|
-| 3.8               | Y       | N       |
-| 3.9               | Y       | N       |
-| 3.10              | Y       | Y       |
-| 3.11              | Y       | Y       |
-| 3.12              | Y       | Y       |
+| **Python/Django** | **4.2** | **5.0** | **5.1** |
+|-------------------|---------|---------|---------|
+| 3.8               | Y       | N       | N/A     | 
+| 3.9               | Y       | N       | M/A     |
+| 3.10              | Y       | Y       | Y       |
+| 3.11              | Y       | Y       | Y       |
+| 3.12              | Y       | Y       | Y       |
 
 * Python 3.11 only works with Django 4.1.3+
 
@@ -94,7 +94,10 @@ Because you are changing the session cookie you will also need to flush any cach
 ## Clearing Stale Websocket connections
 The websocket connections will become stale over time and some housekeeping is required.  To help there is a management
 command clearWebSocketSessions that can be run to delete the closed connections from the database.  Simply run
-```python manage.py clearWebSocketSessions```. I recommend setting this as a scheduled task.
+```
+python manage.py clearWebSocketSessions
+``` 
+I recommend setting this as a scheduled task.
 
 # AWS Setup
 In order for this package to create the API Gateway, it's routes, integration, custom domain and to publish messages
@@ -391,11 +394,15 @@ At this point you can open the record where you'll find that the ```API Gateway 
 If you are not using Django Admin then you can populate the apigateway database table manually using the same list 
 as shown above.
 
-Once you've populated those fields you an then run the two actions as management commands rather than via Django Admin.
+Once you've populated those fields you can then run the two actions as management commands rather than via Django Admin.
 
-```python manage.py createApiGateway --pk=1```
+```
+python manage.py createApiGateway --pk=1
+```
 
-```python manage.py createCustomDomain --pk=1```
+```
+python manage.py createCustomDomain --pk=1
+```
 
 The same actions will run as above.
 
