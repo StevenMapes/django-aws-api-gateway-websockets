@@ -1,3 +1,6 @@
+- # 1.0.17 - 28th May 2024
+- Bumping required sqlparse version for Django 4.2 and 5.0 to be 0.5.0 due to security fix for DOS in sqlparse<5.0.0
+ 
 - # 1.0.16 - 24th May 2024
 - Added in test for Django 5.1a1
 

@@ -5,6 +5,3 @@ pytest
 pytest-django
 pip
 pre-commit
-
-# Sphinx
-# sphinx-rtd-theme
