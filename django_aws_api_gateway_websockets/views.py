@@ -16,6 +16,9 @@ class WebSocketView(View):
     Expects a URL slug parameter called route
     """
 
+    # Turn on if your infra handles security rather than checking for expected/allowed API Gateway
+    secured_infrastructure = False  # WARNING: Allows any client to connect
+
     debug = False
     debug_log = None
     route_selection_key = "action"
@@ -50,6 +53,7 @@ class WebSocketView(View):
 
     def __init__(self, **kwargs):
         self.api_gateway = kwargs.get("api_gateway", False)
+        self.secured_infrastructure = kwargs.get("secured_infrastructure", False)
         self.websocket_session = kwargs.get("websocket_session", False)
         self.debug = kwargs.get("debug", False)
         self.debug_log = []
@@ -116,13 +120,33 @@ class WebSocketView(View):
 
     def _check_platform_registered_api_gateways(self, request) -> bool:
         """Checks to ensure that the API Gateway calling the view is one that the user has registered"""
-        self.api_gateway = ApiGateway.objects.filter(
-            api_id=request.headers["X-Amzn-Apigateway-Api-Id"]
-        ).first()
+        if self.secured_infrastructure:
+            self._using_secured_infrastructure(request)
+        else:
+            self.api_gateway = ApiGateway.objects.filter(
+                api_id=request.headers["X-Amzn-Apigateway-Api-Id"]
+            ).first()
+
         self._debug(
             f"_check_platform_registered_api_gateways() returned {bool(self.api_gateway)}"
         )
         return bool(self.api_gateway)
+
+    def _using_secured_infrastructure(self, request):
+        """Allows self-registering gateways without checking they are from AWS accounts you have access to
+
+        This allows projects that run using secured infrastructure to allow all API Gateways access as the project
+        owner has determined that the infra will control access. See Feature Request #10 and discussion #9.
+        """
+        self.api_gateway = ApiGateway.objects.filter(
+            api_id=request.headers["X-Amzn-Apigateway-Api-Id"]
+        ).first()
+        if not self.api_gateway:
+            self.api_gateway = ApiGateway.objects.create(
+                api_id=request.headers["X-Amzn-Apigateway-Api-Id"],
+                api_name=request.headers["X-Amzn-Apigateway-Api-Id"],
+                api_created=True,
+            )
 
     def _expected_useragent(self, request, *args, **kwargs) -> bool:
         """Validated that the useragent is the expected one for all calls except the connect method

@@ -1,7 +1,7 @@
-boto3
-coverage
+boto3==1.34.137
+coverage==7.5.4
 django
-pytest
-pytest-django
+pytest==8.2.2
+pytest-django==4.8.0
 pip
-pre-commit
+pre-commit==3.5.0
