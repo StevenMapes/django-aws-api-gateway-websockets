@@ -1,20 +1,23 @@
-- # 1.0.17 - 28th May 2024
+- # 1.0.18 - 2nd July 2024
+- Updating the requirements so Python 3.10+ requires urllib3>=2.2.2 due to the security issues with 2.0.0 through 2.2.1
+
+# 1.0.17 - 28th May 2024
 - Bumping required sqlparse version for Django 4.2 and 5.0 to be 0.5.0 due to security fix for DOS in sqlparse<5.0.0 
 within the requirements files used for testing.
  
-- # 1.0.16 - 24th May 2024
+# 1.0.16 - 24th May 2024
 - Added in test for Django 5.1a1
 
-- # 1.0.15 - 7th May 2024
+# 1.0.15 - 7th May 2024
 - Upgrade black, blacken-docs and isort within precommit, removed black from the requirements as it's only used by
 pre-commit
 
-- # 1.0.14 - 7th May 2024
+# 1.0.14 - 7th May 2024
 - Removing support for Django < 4.2.0. This project will probably still work with Django 3.2+ but I'm now longer going
 to support it with tests.
 - Bumped requirements as well
 
-- # 1.0.13 - 14th December 2023
+# 1.0.13 - 14th December 2023
 - Adding Django 4.2 into the matrix of tests replacing 4.2a1
 - Adding Django 5 into the tox runner
 
