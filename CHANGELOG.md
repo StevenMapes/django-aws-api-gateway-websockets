@@ -1,3 +1,6 @@
+- # 1.0.19 - 11th July 2024
+- Updating the requirements for the pipline to use Django 5.0.7 or Django 4.2.14
+ 
 - # 1.0.18 - 2nd July 2024
 - Updating the requirements so Python 3.10+ requires urllib3>=2.2.2 due to the security issues with 2.0.0 through 2.2.1
 
