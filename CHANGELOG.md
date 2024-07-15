@@ -1,4 +1,7 @@
-- # 1.0.19 - 11th July 2024
+- # 1.0.20 - 15th July 2024
+- Updating setuptools to 70.0.0 for the security fix
+
+# 1.0.19 - 11th July 2024
 - Updating the requirements for the pipline to use Django 5.0.7 or Django 4.2.14
  
 - # 1.0.18 - 2nd July 2024
