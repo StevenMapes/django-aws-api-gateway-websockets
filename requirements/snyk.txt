@@ -1,0 +1,3 @@
+-r py312-django50.txt
+
+future==1.0.0

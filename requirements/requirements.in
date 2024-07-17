@@ -5,3 +5,4 @@ pytest==8.2.2
 pytest-django==4.8.0
 pip
 pre-commit==3.5.0
+setuptools==70.3.0

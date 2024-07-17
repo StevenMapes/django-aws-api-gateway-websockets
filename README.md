@@ -35,7 +35,7 @@ This project officially supports Python 3.8+ and Django 4.2+.
 | **Python/Django** | **4.2** | **5.0** | **5.1** |
 |-------------------|---------|---------|---------|
 | 3.8               | Y       | N       | N/A     | 
-| 3.9               | Y       | N       | M/A     |
+| 3.9               | Y       | N       | N/A     |
 | 3.10              | Y       | Y       | Y       |
 | 3.11              | Y       | Y       | Y       |
 | 3.12              | Y       | Y       | Y       |
