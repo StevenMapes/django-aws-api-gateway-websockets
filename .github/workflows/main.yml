@@ -32,6 +32,9 @@ jobs:
     - uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
+        allow-prereleases: true
+        cache: pip
+        cache-dependency-path: 'requirements/*.txt'
 
 #    - uses: actions/cache@v3
 #      with:
@@ -51,7 +54,7 @@ jobs:
     - name: Upload coverage data
       uses: actions/upload-artifact@v4
       with:
-        name: coverage-data-${{ matrix.python-version }}
+        name: sm-coverage-data-${{ matrix.python-version }}
         path: '${{ github.workspace }}/.coverage.*'
 
   coverage:
@@ -71,7 +74,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: ${{ github.workspace }}
-          pattern: coverage-data-*
+          pattern: sm-coverage-data-*
           merge-multiple: true
 
       - name: Combine coverage and fail if it's <85 should be 100% but I have not completed the tests yet
