@@ -54,8 +54,8 @@ jobs:
     - name: Upload coverage data
       uses: actions/upload-artifact@v4
       with:
-        name: sm-coverage-data-${{ matrix.python-version }}
-        path: '${{ github.workspace }}/.coverage.*'
+        name: sm-coverage-data
+        path: '.coverage.*'
 
   coverage:
     name: Coverage
@@ -73,8 +73,9 @@ jobs:
       - name: Download data
         uses: actions/download-artifact@v4
         with:
-          path: ${{ github.workspace }}
-          pattern: sm-coverage-data-*
+          name: sm-coverage-data
+          path: '.coverage.*'
+          overwrite: true
           merge-multiple: true
 
       - name: Combine coverage and fail if it's <85 should be 100% but I have not completed the tests yet
