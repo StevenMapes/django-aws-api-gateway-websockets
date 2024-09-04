@@ -15,7 +15,7 @@ concurrency:
 jobs:
   tests:
     name: Python ${{ matrix.python-version }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     strategy:
       fail-fast: false
@@ -33,12 +33,12 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    - uses: actions/cache@v3
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('requirements/*.txt') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
+#    - uses: actions/cache@v3
+#      with:
+#        path: ~/.cache/pip
+#        key: ${{ runner.os }}-pip-${{ hashFiles('requirements/*.txt') }}
+#        restore-keys: |
+#          ${{ runner.os }}-pip-
 
     - name: Install dependencies
       run: |
@@ -51,18 +51,18 @@ jobs:
     - name: Upload coverage data
       uses: actions/upload-artifact@v4
       with:
-        name: coverage-data
-        path: '.coverage.*'
+        name: coverage-data-${{ matrix.python-version }}
+        path: '${{ github.workspace }}/.coverage.*'
 
   coverage:
     name: Coverage
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: tests
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.12'
 
       - name: Install dependencies
         run: python -m pip install --upgrade coverage[toml]
@@ -70,13 +70,18 @@ jobs:
       - name: Download data
         uses: actions/download-artifact@v4
         with:
-          name: coverage-data
+          path: ${{ github.workspace }}
+          pattern: coverage-data-*
+          merge-multiple: true
 
       - name: Combine coverage and fail if it's <85 should be 100% but I have not completed the tests yet
         run: |
           python -m coverage combine
           python -m coverage html --skip-covered --skip-empty
           python -m coverage report --fail-under=85
+          echo "## Coverage summary" >> $GITHUB_STEP_SUMMARY
+          python -m coverage report --format=markdown >> $GITHUB_STEP_SUMMARY
+
       - name: Upload HTML report
         if: ${{ failure() }}
         uses: actions/upload-artifact@v4
