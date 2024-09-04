@@ -1,5 +1,8 @@
-- # 1.0.20 - 4th August 2024
-- Includes the PR for .gitbub/workflows/main.yml as well as updating to show support for Django 5.1
+- # 1.0.21 - 4th August 2024
+- Includes the PR for .github/workflows/main.yml as well as updating to show support for Django 5.1
+
+# 1.0.20 - 15th July 2024
+- Dependency update for security fix 
 
 # 1.0.19 - 11th July 2024
 - Updating the requirements for the pipline to use Django 5.0.7 or Django 4.2.14
