@@ -305,7 +305,7 @@ class ExampleWebSocketView(WebSocketView):
 ```
 
 **Remember**: The "action" key is the default ```route_selection_key```, if you chose to use a different one when 
-setting uip the websocket make sure to update the ```route_selection_key``` class property to use the same value
+setting up the websocket make sure to update the ```route_selection_key``` class property to use the same value
 
 
 ### Debugging the View
@@ -408,11 +408,11 @@ The same actions will run as above.
 
 ## Adding Additional Routes
 This project will route all requests to one URL by default however that is not always what you will need, 
-sometimes you will want to route requests to different URL to send requests to different views potentially within 
-different apps.  API Gateway support this by using creating integrations and routes that use unique "route keys" to 
+sometimes you will want to route requests to different URLs to send requests to different views potentially within 
+different apps.  API Gateway support this by using _"integrations"_ and _"routes"_ that use unique "route keys" to 
 identify requests and then route those requests to a URL.
 
-To support this approach this project uses ```ApiGatewayAdditionalRoute``` entries to map a route key to a chosen URL.
+To support this approach this project uses the ```ApiGatewayAdditionalRoute``` model entries to map a route key to a chosen URL.
 They are available to manage as inline forms on the main ```ApiGateway``` admin or as their own admin page.
 
 The models are set-up to auto-deploy the new route if the ```ApiGateway``` has already been deployed. If it has not been
