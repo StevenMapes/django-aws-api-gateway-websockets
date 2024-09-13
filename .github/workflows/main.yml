@@ -51,11 +51,28 @@ jobs:
     - name: Run tox targets for ${{ matrix.python-version }}
       run: tox run -f py$(echo ${{ matrix.python-version }} | tr -d .)
 
+    # - name: Upload coverage data
+    #   uses: actions/upload-artifact@v4
+    #   with:
+    #     name: sm-coverage-data
+    #     path: '.coverage.*'
     - name: Upload coverage data
       uses: actions/upload-artifact@v4
       with:
-        name: sm-coverage-data
-        path: '.coverage.*'
+        name: coverage-data-${{ matrix.python-version }}
+        path: '${{ github.workspace }}/.coverage.*'
+        include-hidden-files: true
+        if-no-files-found: error
+
+    - name: Merge coverage reports
+      id: coverage
+      uses: selfagency/merge-coverage@v1.1.2
+      with:
+        source: ${{ github.workspace }}/${{ inputs.package }}
+        coverage-reports: ${{ github.workspace }}/${{ inputs.package }}/coverage
+        output-folder: ${{ github.workspace }}/${{ inputs.package }}/coverage-reports
+        formats: html
+        artifacts: false
 
 #  coverage:
 #    name: Coverage
