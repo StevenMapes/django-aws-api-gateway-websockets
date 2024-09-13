@@ -51,61 +51,41 @@ jobs:
     - name: Run tox targets for ${{ matrix.python-version }}
       run: tox run -f py$(echo ${{ matrix.python-version }} | tr -d .)
 
-    # - name: Upload coverage data
-    #   uses: actions/upload-artifact@v4
-    #   with:
-    #     name: sm-coverage-data
-    #     path: '.coverage.*'
-    - name: Upload coverage data
-      uses: actions/upload-artifact@v4
-      with:
-        name: coverage-data-${{ matrix.python-version }}
-        path: '${{ github.workspace }}/.coverage.*'
-        include-hidden-files: true
-        if-no-files-found: error
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-24.04
+    needs: tests
+    steps:
+      - uses: actions/checkout@v4
 
-    - name: Merge coverage reports
-      id: coverage
-      uses: selfagency/merge-coverage@v1.1.2
-      with:
-        source: ${{ github.workspace }}/${{ inputs.package }}
-        coverage-reports: ${{ github.workspace }}/${{ inputs.package }}/coverage
-        output-folder: ${{ github.workspace }}/${{ inputs.package }}/coverage-reports
-        formats: html
-        artifacts: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
 
-#  coverage:
-#    name: Coverage
-#    runs-on: ubuntu-24.04
-#    needs: tests
-#    steps:
-#      - uses: actions/checkout@v4
-#      - uses: actions/setup-python@v5
-#        with:
-#          python-version: '3.12'
-#
-#      - name: Install dependencies
-#        run: python -m pip install --upgrade coverage[toml]
-#
-#      - name: Download data
-#        uses: actions/download-artifact@v4
-#        with:
-#          name: sm-coverage-data
-#          path: '.coverage.*'
-#          overwrite: true
-#          merge-multiple: true
-#
-#      - name: Combine coverage and fail if it's <85 should be 100% but I have not completed the tests yet
-#        run: |
-#          python -m coverage combine
-#          python -m coverage html --skip-covered --skip-empty
-#          python -m coverage report --fail-under=85
-#          echo "## Coverage summary" >> $GITHUB_STEP_SUMMARY
-#          python -m coverage report --format=markdown >> $GITHUB_STEP_SUMMARY
-#
-#      - name: Upload HTML report
-#        if: ${{ failure() }}
-#        uses: actions/upload-artifact@v4
-#        with:
-#          name: html-report
-#          path: htmlcov
+      - name: Install uv
+        uses: astral-sh/setup-uv@v1
+
+      - name: Install dependencies
+        run: uv pip install --system coverage[toml]
+
+      - name: Download data
+        uses: actions/download-artifact@v4
+        with:
+          path: ${{ github.workspace }}
+          pattern: coverage-data-*
+          merge-multiple: true
+
+      - name: Combine coverage and fail if it's <100%
+        run: |
+          python -m coverage combine
+          python -m coverage html --skip-covered --skip-empty
+          python -m coverage report --fail-under=100
+          echo "## Coverage summary" >> $GITHUB_STEP_SUMMARY
+          python -m coverage report --format=markdown >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload HTML report
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: html-report
+          path: htmlcov
