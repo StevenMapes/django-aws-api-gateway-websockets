@@ -9,8 +9,6 @@
 [![PyPi Downloads](https://img.shields.io/pypi/dw/django-aws-api-gateway-websockets)](https://pypistats.org/packages/django-aws-api-gateway-websockets)
 [![PyPi Downloads](https://img.shields.io/pypi/dm/django-aws-api-gateway-websockets)](https://pypistats.org/packages/django-aws-api-gateway-websockets)
 
-
-
 # Django AWS API Gateway Websockets
 It is the aim of this project to create a uniform way to record websocket connections, associate the Django user who established the connection and then retrieve that user within each request.
 
@@ -30,7 +28,7 @@ already been added as a class decorator on the base view but if you overload the
 it back to avoid receiving CSRF Token failures.
 
 # Python and Django Support
-This project officially supports Python 3.8+ and Django 4.2+.
+This project supports Python 3.8 to 3.13 and Django 4.2 to 5.1. It may work with older versions of Django but I am not supporting anything below 4.2.
 
 | **Python/Django** | **4.2** | **5.0** | **5.1** |
 |-------------------|---------|---------|---------|
@@ -39,6 +37,7 @@ This project officially supports Python 3.8+ and Django 4.2+.
 | 3.10              | Y       | Y       | Y       |
 | 3.11              | Y       | Y       | Y       |
 | 3.12              | Y       | Y       | Y       |
+| 3.13              | Y       | Y       | Y       |
 
 * Python 3.11 only works with Django 4.1.3+
 
