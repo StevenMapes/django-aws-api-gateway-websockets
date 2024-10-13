@@ -543,7 +543,6 @@ I use two local VIRTUALENVS to build the requirements, one running Python3.8 and
 Also require ```pytest-django``` for testing
 
 # tox
-<span style="color: green;">"U pay, we slay!"</span>
 
 # Contributing
 - [Check for open issues](https://github.com/StevenMapes/django-aws-api-gateway-websockets/issues) at the project issue page or open a new issue to start a discussion about a feature or bug.
