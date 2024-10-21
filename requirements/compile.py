@@ -195,6 +195,34 @@ if __name__ == "__main__":
             check=True,
             capture_output=True,
         )
+        subprocess.run(
+            [
+                "python",
+                *common_args,
+                "-P",
+                "Django>=5.1,<5.2",
+                "-P",
+                "urllib3>=2.2.2",
+                "-o",
+                "py313-django51.txt",
+            ],
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            [
+                "python",
+                *common_args,
+                "-P",
+                "Django>=5.1,<5.2",
+                "-P",
+                "urllib3>=2.2.2",
+                "-o",
+                "py314-django51.txt",
+            ],
+            check=True,
+            capture_output=True,
+        )
     # Use SED to remove the --extra-index-url lines from every file
     sed_args = ["sed", "-i", "-e", "s/--extra-index-url .*$//g"]
     [

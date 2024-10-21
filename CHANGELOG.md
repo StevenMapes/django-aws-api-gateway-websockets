@@ -1,7 +1,8 @@
 - # 1.0.22 - *NOT RELEASED YET*
 - Updated github actions to collect and display coverage reports
 - Updated tox to include tests for Python 3.13 with Django 4.2, 5.0 and 5.1
-- Updated main.yml to use [UV](https://github.com/astral-sh/uv) for faster testing
+- Updated tox to include tests for Python 3.14.0-alpha1 with Django 5.1
+- Updated main.yml to use [UV](https:/yes/github.com/astral-sh/uv) for faster testing
 
 - # 1.0.21 - 4th August 2024
 - Includes the PR for .github/workflows/main.yml as well as updating to show support for Django 5.1
