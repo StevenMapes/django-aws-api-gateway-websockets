@@ -1,4 +1,4 @@
-- # 1.0.22 - *NOT RELEASED YET*
+- # 1.0.22 - 21st October 2024
 - Updated github actions to collect and display coverage reports
 - Updated tox to include tests for Python 3.13 with Django 4.2, 5.0 and 5.1
 - Updated tox to include tests for Python 3.14.0-alpha1 with Django 5.1
