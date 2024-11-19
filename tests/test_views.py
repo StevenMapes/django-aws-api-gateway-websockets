@@ -123,13 +123,7 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
 
         self.assertIsInstance(res, HttpResponseBadRequest)
         self.assertEqual(400, res.status_code)
-        self.assertEqual(
-            (
-                f"Some of the required headers are missing; Expected {obj.required_headers}, "
-                f"Received {request.headers.keys()}"
-            ).encode("utf-8"),
-            res.content,
-        )
+        self.assertEqual(b"Some of the required headers are missing", res.content)
 
     def test_invalid_useragent(self):
         """Ensure the expected response is generated when the useragent is invalid"""
@@ -146,13 +140,7 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
 
         self.assertIsInstance(res, HttpResponseBadRequest)
         self.assertEqual(400, res.status_code)
-        self.assertEqual(
-            (
-                f"Unexpected Useragent; Expected {obj.expected_useragent_prefix}{obj.aws_api_gateway_id}, "
-                f"Received {request.headers['User-Agent']}"
-            ).encode("utf-8"),
-            res.content,
-        )
+        self.assertEqual(b"Unexpected Useragent", res.content)
 
     def test__expected_headers(self):
         """Ensure the methods returns True when all headers are present otherwise should return False"""
@@ -826,14 +814,7 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
         self.assertEqual(MockHttpResponseBadRequest.return_value, res)
         self.assertEqual(0, MockWebSocketSession.objects.create.call_count)
         self.assertEqual(0, MockJsonResponse.call_count)
-        MockHttpResponseBadRequest.assert_called_with(
-            (
-                "Missing headers; Expected ['Cookie', 'Origin', 'Sec-Websocket-Extensions', 'Sec-Websocket-Key', "
-                "'Sec-Websocket-Version'], Received {'Cookie': 'some-cookie', 'Content-Length': '2', "
-                "'Content-Type': 'application/json', 'Connectionid': '1234', 'Origin': 'https://www.example.com', "
-                "'Host': 'www.example.com'}"
-            )
-        )
+        MockHttpResponseBadRequest.assert_called_with("Missing 3 headers")
 
     @override_settings(ALLOWED_HOSTS=["www.example.com"])
     @patch("django_aws_api_gateway_websockets.views.WebSocketSession")
@@ -866,7 +847,7 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
         self.assertEqual(0, MockWebSocketSession.objects.create.call_count)
         self.assertEqual(0, MockJsonResponse.call_count)
         MockHttpResponseBadRequest.assert_called_with(
-            (f"Host www.spoofed.com not in AllowedHosts ['www.example.com']")
+            (f"Host is not in AllowedHosts ['www.example.com']")
         )
 
     @override_settings(ALLOWED_HOSTS=["www.example.com"])
@@ -898,9 +879,7 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
 
         self.assertEqual(MockHttpResponseBadRequest.return_value, res)
         self.assertEqual(0, MockWebSocketSession.objects.create.call_count)
-        MockHttpResponseBadRequest.assert_called_with(
-            "Host www.example.com not in Origin https://www.spoofed.com"
-        )
+        MockHttpResponseBadRequest.assert_called_with("Host is not in Origin")
         self.assertEqual(0, MockJsonResponse.call_count)
 
     @override_settings(ALLOWED_HOSTS=["www.example.com"])
@@ -968,12 +947,7 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
         res = obj.dispatch(request)
 
         MockHttpResponseBadRequest.assert_called_with(
-            (
-                "Some of the required headers are missing; Expected ['Host', 'X-Forwarded-For', 'X-Forwarded-Proto', "
-                "'Content-Length', 'Connectionid', 'User-Agent', 'X-Amzn-Apigateway-Api-Id'], Received "
-                "KeysView({'Cookie': 'some-cookie', 'Content-Length': '2', 'Content-Type': 'application/json', "
-                "'Connectionid': '1234', 'Origin': 'https://www.example.com', 'Host': 'www.example.com'})"
-            ),
+            "Some of the required headers are missing"
         )
         self.assertEqual(MockHttpResponseBadRequest.return_value, res)
         self.assertEqual(0, MockJsonResponse.call_count)

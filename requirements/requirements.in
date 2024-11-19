@@ -1,8 +1,8 @@
-boto3==1.35.11
+boto3==1.35.64
 coverage==7.6.1
 django
-pytest==8.3.2
+pytest==8.3.3
 pytest-django==4.9.0
 pip
 pre-commit==3.5.0
-setuptools==74.1.1
+setuptools==75.3.0

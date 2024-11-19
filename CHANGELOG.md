@@ -1,3 +1,8 @@
+- # 1.1.0 - 19th November 2024
+- Fixes possible security issue #17 to remove the direct use of headers being passed into the Bad Request Response.
+- Changed the response send by the bad request response
+- Updating requirements
+
 - # 1.0.22 - 21st October 2024
 - Updated github actions to collect and display coverage reports
 - Updated tox to include tests for Python 3.13 with Django 4.2, 5.0 and 5.1

@@ -68,7 +68,6 @@ class WebSocketView(View):
 
     def _return_bad_request(self, msg):
         """Common method for logging and returning the HTTP400 response"""
-        self._debug(f"_return_bad_request passed {msg}")
         return HttpResponseBadRequest(msg)
 
     def route_selection_key_missing(
@@ -76,6 +75,7 @@ class WebSocketView(View):
     ) -> HttpResponseBadRequest:
         """Method for handling missing route_selection_key"""
         msg = f"route_select_key {self.route_selection_key} missing from request body."
+        self._debug(msg)
         return self._return_bad_request(msg)
 
     def missing_headers(self, request, *args, **kwargs) -> HttpResponseBadRequest:
@@ -84,7 +84,8 @@ class WebSocketView(View):
             f"Some of the required headers are missing; Expected {self.required_headers}, "
             f"Received {request.headers.keys()}"
         )
-        return self._return_bad_request(msg)
+        self._debug(msg)
+        return self._return_bad_request("Some of the required headers are missing")
 
     def invalid_useragent(self, request, *args, **kwargs) -> HttpResponseBadRequest:
         """Method for handling unexpected useragents"""
@@ -92,7 +93,8 @@ class WebSocketView(View):
             f"Unexpected Useragent; Expected {self.expected_useragent_prefix}{self.aws_api_gateway_id}, "
             f"Received {request.headers['User-Agent']}"
         )
-        return self._return_bad_request(msg)
+        self._debug(msg)
+        return self._return_bad_request("Unexpected Useragent")
 
     def _expected_headers(self, request, *args, **kwargs) -> bool:
         """Ensure that all required headers exist within the request header"""
@@ -237,16 +239,24 @@ class WebSocketView(View):
     ) -> Union[JsonResponse, HttpResponseBadRequest]:
         """Handle the connection route in a standard way that ensures the User to Connectionid mapping persists"""
         if not self._expected_connection_headers(request, *args, **kwargs):
-            msg = f"Missing headers; Expected {self.required_connection_headers}, Received {request.headers}"
+            request_headers = request.headers.keys()
+            missing_headers = [
+                h for h in self.required_connection_headers if h not in request_headers
+            ]
+            self._debug(
+                f"Missing headers; Expected {self.required_connection_headers}, Received {request.headers}"
+            )
+            msg = f"Missing {len(missing_headers)} headers"
             return self._return_bad_request(msg)
 
         if not self._check_allowed_hosts(request):
-            msg = f"Host {request.headers['Host']} not in AllowedHosts {settings.ALLOWED_HOSTS}"
+            msg = f"Host is not in AllowedHosts {settings.ALLOWED_HOSTS}"
+            self._debug(msg)
             return self._return_bad_request(msg)
 
         if not self._check_host_is_in_origin(request):
-            msg = f"Host {request.headers['Host']} not in Origin {request.headers['Origin']}"
-            return self._return_bad_request(msg)
+            self._debug("Host is not in Origin")
+            return self._return_bad_request("Host is not in Origin")
 
         res, msg = self._additional_connection_checks(request, *args, **kwargs)
         if not res:
