@@ -200,11 +200,76 @@ if __name__ == "__main__":
                 "python",
                 *common_args,
                 "-P",
+                "Django>=4.2.15,<5",
+                "-P",
+                "urllib3>=2.2.2",
+                "-P",
+                "sqlparse==0.5.0",
+                "-o",
+                "py313-django42.txt",
+            ],
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            [
+                "python",
+                *common_args,
+                "-P",
+                "Django>=5.0.8,<5.1",
+                "-P",
+                "urllib3>=2.2.2",
+                "-P",
+                "sqlparse==0.5.0",
+                "-o",
+                "py313-django50.txt",
+            ],
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            [
+                "python",
+                *common_args,
+                "-P",
                 "Django>=5.1,<5.2",
                 "-P",
                 "urllib3>=2.2.2",
                 "-o",
                 "py313-django51.txt",
+            ],
+            check=True,
+            capture_output=True,
+        )
+
+        subprocess.run(
+            [
+                "python",
+                *common_args,
+                "-P",
+                "Django>=4.2.15,<5",
+                "-P",
+                "urllib3>=2.2.2",
+                "-P",
+                "sqlparse==0.5.0",
+                "-o",
+                "py314-django42.txt",
+            ],
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            [
+                "python",
+                *common_args,
+                "-P",
+                "Django>=5.0.8,<5.1",
+                "-P",
+                "urllib3>=2.2.2",
+                "-P",
+                "sqlparse==0.5.0",
+                "-o",
+                "py314-django50.txt",
             ],
             check=True,
             capture_output=True,
@@ -223,6 +288,7 @@ if __name__ == "__main__":
             check=True,
             capture_output=True,
         )
+
     # Use SED to remove the --extra-index-url lines from every file
     sed_args = ["sed", "-i", "-e", "s/--extra-index-url .*$//g"]
     [
