@@ -30,6 +30,22 @@ if __name__ == "__main__":
                 "-P",
                 "sqlparse==0.5.0",
                 "-o",
+                "py38-django42.txt",
+            ],
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            [
+                "python",
+                *common_args,
+                "-P",
+                "Django>=4.2.15,<5",
+                "-P",
+                "urllib3>=1.26.19,<2.0.0",
+                "-P",
+                "sqlparse==0.5.0",
+                "-o",
                 "py39-django42.txt",
             ],
             check=True,
