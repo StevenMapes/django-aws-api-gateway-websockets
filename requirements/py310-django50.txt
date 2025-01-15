@@ -239,10 +239,12 @@ urllib3==2.3.0 \
     --hash=sha256:1cee9ad369867bfdbbb48b7dd50374c0967a0bb7710050facf0dd6911440e3df \
     --hash=sha256:f8c5449b3cf0861679ce7e0503c7b44b5ec981bec0d1d3795a07f1ba96f0204d
     # via botocore
-virtualenv==20.26.1 \
-    --hash=sha256:604bfdceaeece392802e6ae48e69cec49168b9c5f4a44e483963f9242eb0e78b \
-    --hash=sha256:7aa9982a728ae5892558bff6a2839c00b9ed145523ece2274fad6f414690ae75
-    # via pre-commit
+virtualenv==20.28.1 \
+    --hash=sha256:412773c85d4dab0409b83ec36f7a6499e72eaf08c80e81e9576bca61831c71cb \
+    --hash=sha256:5d34ab240fdb5d21549b76f9e8ff3af28252f5499fb6d6f031adac4e5a8c5329
+    # via
+    #   -r requirements.in
+    #   pre-commit
 
 # The following packages are considered to be unsafe in a requirements file:
 pip==24.0 \

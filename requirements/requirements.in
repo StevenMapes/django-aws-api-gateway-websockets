@@ -6,3 +6,5 @@ pytest-django==4.9.0
 pip
 pre-commit
 setuptools
+virtualenv==20.28.1     # Set by pre-commit
+
