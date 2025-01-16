@@ -288,7 +288,76 @@ if __name__ == "__main__":
             check=True,
             capture_output=True,
         )
-
+        subprocess.run(
+            [
+                "python",
+                *common_args,
+                "-P",
+                "Django>=5.2a1,<5.5",
+                "-P",
+                "urllib3>=2.2.2",
+                "-o",
+                "py310-django52.txt",
+            ],
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            [
+                "python",
+                *common_args,
+                "-P",
+                "Django>=5.2a1,<5.5",
+                "-P",
+                "urllib3>=2.2.2",
+                "-o",
+                "py311-django52.txt",
+            ],
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            [
+                "python",
+                *common_args,
+                "-P",
+                "Django>=5.2a1,<5.5",
+                "-P",
+                "urllib3>=2.2.2",
+                "-o",
+                "py312-django52.txt",
+            ],
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            [
+                "python",
+                *common_args,
+                "-P",
+                "Django>=5.2a1,<5.5",
+                "-P",
+                "urllib3>=2.2.2",
+                "-o",
+                "py313-django52.txt",
+            ],
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            [
+                "python",
+                *common_args,
+                "-P",
+                "Django>=5.2a1,<5.5",
+                "-P",
+                "urllib3>=2.2.2",
+                "-o",
+                "py314-django52.txt",
+            ],
+            check=True,
+            capture_output=True,
+        )
     # Use SED to remove the --extra-index-url lines from every file
     sed_args = ["sed", "-i", "-e", "s/--extra-index-url .*$//g"]
     [
