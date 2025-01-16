@@ -98,6 +98,20 @@ if __name__ == "__main__":
             check=True,
             capture_output=True,
         )
+        subprocess.run(
+            [
+                "python",
+                *common_args,
+                "-P",
+                "Django>=5.2a1,<6.0",
+                "-P",
+                "urllib3>=2.2.2",
+                "-o",
+                "py310-django52.txt",
+            ],
+            check=True,
+            capture_output=True,
+        )
     if (3, 11, 0) <= py_version < (3, 12, 0):
         subprocess.run(
             [
@@ -144,6 +158,22 @@ if __name__ == "__main__":
                 "sqlparse==0.5.0",
                 "-o",
                 "py311-django51.txt",
+            ],
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            [
+                "python",
+                *common_args,
+                "-P",
+                "Django>=5.2a1,<6.0",
+                "-P",
+                "urllib3>=2.2.2",
+                "-P",
+                "sqlparse==0.5.0",
+                "-o",
+                "py311-django52.txt",
             ],
             check=True,
             capture_output=True,
@@ -200,6 +230,21 @@ if __name__ == "__main__":
                 "python",
                 *common_args,
                 "-P",
+                "Django>=5.2a1,<6.0",
+                "-P",
+                "urllib3>=2.2.2",
+                "-o",
+                "py312-django52.txt",
+            ],
+            check=True,
+            capture_output=True,
+        )
+        # Python 3.13
+        subprocess.run(
+            [
+                "python",
+                *common_args,
+                "-P",
                 "Django>=4.2,<5",
                 "-P",
                 "urllib3>=2.2.2",
@@ -241,7 +286,21 @@ if __name__ == "__main__":
             check=True,
             capture_output=True,
         )
-
+        subprocess.run(
+            [
+                "python",
+                *common_args,
+                "-P",
+                "Django>=5.2a1,<6.0",
+                "-P",
+                "urllib3>=2.2.2",
+                "-o",
+                "py313-django52.txt",
+            ],
+            check=True,
+            capture_output=True,
+        )
+        # Python 3.14
         subprocess.run(
             [
                 "python",
@@ -293,63 +352,7 @@ if __name__ == "__main__":
                 "python",
                 *common_args,
                 "-P",
-                "Django>=5.2a1,<5.5",
-                "-P",
-                "urllib3>=2.2.2",
-                "-o",
-                "py310-django52.txt",
-            ],
-            check=True,
-            capture_output=True,
-        )
-        subprocess.run(
-            [
-                "python",
-                *common_args,
-                "-P",
-                "Django>=5.2a1,<5.5",
-                "-P",
-                "urllib3>=2.2.2",
-                "-o",
-                "py311-django52.txt",
-            ],
-            check=True,
-            capture_output=True,
-        )
-        subprocess.run(
-            [
-                "python",
-                *common_args,
-                "-P",
-                "Django>=5.2a1,<5.5",
-                "-P",
-                "urllib3>=2.2.2",
-                "-o",
-                "py312-django52.txt",
-            ],
-            check=True,
-            capture_output=True,
-        )
-        subprocess.run(
-            [
-                "python",
-                *common_args,
-                "-P",
-                "Django>=5.2a1,<5.5",
-                "-P",
-                "urllib3>=2.2.2",
-                "-o",
-                "py313-django52.txt",
-            ],
-            check=True,
-            capture_output=True,
-        )
-        subprocess.run(
-            [
-                "python",
-                *common_args,
-                "-P",
-                "Django>=5.2a1,<5.5",
+                "Django>=5.2a1,<6.0",
                 "-P",
                 "urllib3>=2.2.2",
                 "-o",
@@ -358,6 +361,7 @@ if __name__ == "__main__":
             check=True,
             capture_output=True,
         )
+
     # Use SED to remove the --extra-index-url lines from every file
     sed_args = ["sed", "-i", "-e", "s/--extra-index-url .*$//g"]
     [

@@ -4,7 +4,7 @@
 #
 #    requirements/compile.py
 #
---extra-index-url https://pypi.springbourne-tech.com
+
 
 asgiref==3.8.1 \
     --hash=sha256:3e1e3ecc849832fe52ccf2cb6686b7a55f82bb1d6aee72a58826471390335e47 \
