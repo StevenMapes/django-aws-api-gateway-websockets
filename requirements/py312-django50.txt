@@ -102,7 +102,7 @@ distlib==0.3.8 \
     --hash=sha256:034db59a0b96f8ca18035f36290806a9a6e6bd9d1ff91e45a7f172eb17e51784 \
     --hash=sha256:1530ea13e350031b6312d8580ddb6b27a104275a31106523b8f123787f494f64
     # via virtualenv
-django==5.0.11 \
+django==5.0.13 \
     --hash=sha256:09e8128f717266bf382d82ffa4933f13da05d82579abf008ede86acb15dec88b \
     --hash=sha256:e7d98fa05ce09cb3e8d5ad6472fb602322acd1740bfdadc29c8404182d664f65
     # via -r requirements.in
