@@ -92,9 +92,9 @@ distlib==0.3.9 \
     --hash=sha256:47f8c22fd27c27e25a65601af709b38e4f0a45ea4fc2e710f65755fa8caaaf87 \
     --hash=sha256:a60f20dea646b8a33f3e7772f74dc0b2d0772d2837ee1342a00645c81edf9403
     # via virtualenv
-django==5.2a1 \
-    --hash=sha256:34b39e8508364f816415e3c8f032445a1bb49d37069db8aa300886ce821735e4 \
-    --hash=sha256:ed895284801c58a415944f0efd6821e709260d029f5d74b93db9dccb650a8d50
+django==5.2b1 \
+    --hash=sha256:55c764c5990759ee97ba60ac1ce17092e91e445be1d0a83e88b754835c4bb564 \
+    --hash=sha256:ec33b0b3846d145a95d84a1ffea29f64ce4fc73ba755d9a6ab35128f354b750a
     # via -r requirements.in
 filelock==3.16.1 \
     --hash=sha256:2082e5703d51fbf98ea75855d9d5527e33d8ff23099bec374a134febee6946b0 \

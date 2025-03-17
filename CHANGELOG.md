@@ -1,3 +1,6 @@
+- # 1.1.1 - 20th November 2024
+- Updated the tox tests to include support for Django 5.2a.1 with Python 3.10, 3.11, 3.12, 3.13 and 3.14 
+ 
 - # 1.1.0 - 19th November 2024
 - Fixes possible security issue #17 to remove the direct use of headers being passed into the Bad Request Response.
 - Changed the response send by the bad request response
