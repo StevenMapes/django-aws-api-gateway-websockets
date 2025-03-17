@@ -26,12 +26,11 @@ already been added as a class decorator on the base view but if you overload the
 it back to avoid receiving CSRF Token failures.
 
 # Python and Django Support
-This project supports Python 3.8 to 3.14 and Django 4.2 to 5.2. It may work with older versions of Django, but I am not
+This project supports Python 3.9 to 3.14 and Django 4.2 to 5.2. It may work with older versions of Django, but I am not
 actively supporting anything below 4.2.
 
 | **Python/Django**  | **4.2**  | **5.0**  | **5.1** | **5.2** |
 |--------------------|----------|----------|---------|----------|
-| 3.8                | Y        | N        | N/A     | N/A      |  
 | 3.9                | Y        | N        | N/A     | N/A      | 
 | 3.10               | Y        | Y        | Y       | Y        |
 | 3.11               | Y        | Y        | Y       | Y        |

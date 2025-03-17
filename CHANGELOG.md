@@ -1,3 +1,6 @@
+- # 1.1.2 - 17th March 2025
+- Removed Python 3.8 support
+
 - # 1.1.1 - 20th November 2024
 - Updated the tox tests to include support for Django 5.2a.1 with Python 3.10, 3.11, 3.12, 3.13 and 3.14 
  
