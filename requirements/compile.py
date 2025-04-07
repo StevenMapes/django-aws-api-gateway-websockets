@@ -57,7 +57,7 @@ if __name__ == "__main__":
                 "python",
                 *common_args,
                 "-P",
-                "Django>=4.2.20,<5",
+                "Django>=5.0,<5.1",
                 "-P",
                 "urllib3>=2.2.2",
                 "-P",
