@@ -1,21 +1,24 @@
-- # 1.1.2 - 17th March 2025
+# 1.1.3 - 7th May 2025
+- Updated pyproject.toml to show Django 5.2 support, also updated the pre-commit-config and requirements or testings 
+
+# 1.1.2 - 17th March 2025
 - Removed Python 3.8 support
 
-- # 1.1.1 - 20th November 2024
+# 1.1.1 - 20th November 2024
 - Updated the tox tests to include support for Django 5.2a.1 with Python 3.10, 3.11, 3.12, 3.13 and 3.14 
  
-- # 1.1.0 - 19th November 2024
+# 1.1.0 - 19th November 2024
 - Fixes possible security issue #17 to remove the direct use of headers being passed into the Bad Request Response.
 - Changed the response send by the bad request response
 - Updating requirements
 
-- # 1.0.22 - 21st October 2024
+# 1.0.22 - 21st October 2024
 - Updated github actions to collect and display coverage reports
 - Updated tox to include tests for Python 3.13 with Django 4.2, 5.0 and 5.1
 - Updated tox to include tests for Python 3.14.0-alpha1 with Django 5.1
 - Updated main.yml to use [UV](https:/yes/github.com/astral-sh/uv) for faster testing
 
-- # 1.0.21 - 4th August 2024
+# 1.0.21 - 4th August 2024
 - Includes the PR for .github/workflows/main.yml as well as updating to show support for Django 5.1
 
 # 1.0.20 - 15th July 2024
