@@ -3,7 +3,7 @@ coverage
 django
 pytest>=8.3.4
 pytest-django>=4.9.0
-pip
+pip<=25.1   # Breaks cache_clear
 pre-commit
 setuptools
 virtualenv>=20.28.1     # Set by pre-commit
