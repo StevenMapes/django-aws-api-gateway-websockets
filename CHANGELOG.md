@@ -1,4 +1,7 @@
-# 1.2.0 - 12th May 2025
+# 1.2`0 - 12th May 2025
+- 1.2.0 was built using an older version so the package had the wrong name, it's been yanked, so use 1.2.1 instead
+
+# 1.2.0 - 12th May 2025 - yanked
 - Dropped support for Django 5.0
 - This package should still work with those combinations but they are no longer being tested
 
