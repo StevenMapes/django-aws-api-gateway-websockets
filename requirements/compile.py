@@ -57,22 +57,6 @@ if __name__ == "__main__":
                 "python",
                 *common_args,
                 "-P",
-                "Django>=5.0,<5.1",
-                "-P",
-                "urllib3>=2.2.2",
-                "-P",
-                "sqlparse==0.5.0",
-                "-o",
-                "py310-django50.txt",
-            ],
-            check=True,
-            capture_output=True,
-        )
-        subprocess.run(
-            [
-                "python",
-                *common_args,
-                "-P",
                 "Django>=5.1,<5.2",
                 "-P",
                 "urllib3>=2.2.2",
@@ -114,22 +98,6 @@ if __name__ == "__main__":
             capture_output=True,
         )
         # Django 5 required Python 3.10+
-        subprocess.run(
-            [
-                "python",
-                *common_args,
-                "-P",
-                "Django>=5.0.14,<5.1",
-                "-P",
-                "urllib3>=2.2.2",
-                "-P",
-                "sqlparse==0.5.0",
-                "-o",
-                "py311-django50.txt",
-            ],
-            check=True,
-            capture_output=True,
-        )
         subprocess.run(
             [
                 "python",
@@ -184,22 +152,6 @@ if __name__ == "__main__":
                 "python",
                 *common_args,
                 "-P",
-                "Django>=5.0.14,<5.1",
-                "-P",
-                "urllib3>=2.2.2",
-                "-P",
-                "sqlparse==0.5.0",
-                "-o",
-                "py312-django50.txt",
-            ],
-            check=True,
-            capture_output=True,
-        )
-        subprocess.run(
-            [
-                "python",
-                *common_args,
-                "-P",
                 "Django>=5.1,<5.2",
                 "-P",
                 "urllib3>=2.2.2",
@@ -245,22 +197,6 @@ if __name__ == "__main__":
                 "python",
                 *common_args,
                 "-P",
-                "Django>=5.0.14,<5.1",
-                "-P",
-                "urllib3>=2.2.2",
-                "-P",
-                "sqlparse==0.5.0",
-                "-o",
-                "py313-django50.txt",
-            ],
-            check=True,
-            capture_output=True,
-        )
-        subprocess.run(
-            [
-                "python",
-                *common_args,
-                "-P",
                 "Django>=5.1,<5.2",
                 "-P",
                 "urllib3>=2.2.2",
@@ -297,22 +233,6 @@ if __name__ == "__main__":
                 "sqlparse==0.5.0",
                 "-o",
                 "py314-django42.txt",
-            ],
-            check=True,
-            capture_output=True,
-        )
-        subprocess.run(
-            [
-                "python",
-                *common_args,
-                "-P",
-                "Django>=5.0.14,<5.1",
-                "-P",
-                "urllib3>=2.2.2",
-                "-P",
-                "sqlparse==0.5.0",
-                "-o",
-                "py314-django50.txt",
             ],
             check=True,
             capture_output=True,

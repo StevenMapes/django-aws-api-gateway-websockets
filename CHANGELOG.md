@@ -1,3 +1,7 @@
+# 1.2.0 - 12th May 2025
+- Dropped support for Django 5.0
+- This package should still work with those combinations but they are no longer being tested
+
 # 1.1.3 - 7th May 2025
 - Updated pyproject.toml to show Django 5.2 support, also updated the pre-commit-config and requirements or testings 
 
