@@ -51,6 +51,37 @@ pip install django-aws-api-gateway-websockets
 ## settings.py
 Add ```django_aws_api_gateway_websockets``` into ```INSTALLED_APPS``` 
 
+### Decide on AWS Credential Setup
+This package supports differing ways to connect to AWS, depending on the option you require depends on which settings
+you will need to define.
+
+#### Using the IAM role of the instance
+If you are running this package on an EC2 Instance that has an IAM profile then you only need to specifc the region to
+connect to by setting the ```AWS_REGION_NAME``` in ```settings.py```.
+
+E.G. ```AWS_REGION_NAME="eu-west-1"``` will mean this package will connect to the Ireland region using the IAM profile
+of the machine
+
+#### Named Profiles (AWS_IAM_PROFILE) 
+You can use a named profile by setting ```AWS_IAM_PROFILE``` to the name of the profile on your computer.
+
+E.G ```AWS_IAM_PROFILE="example"```. As the profile contains the region you do not need to set anything else.
+
+**NOTE:** If you are using ```Django-Storages``` you may already have set the value against ```AWS_S3_SESSION_PROFILE```
+
+#### Using AWS IAM Access Key and Secret
+Alternatively you can specify the exact  ACCESS_KEY, SECRET_ACCESS_KEY and REGION_NAME you wish to use by setting the
+three following ```settings.py``` values.
+
+```
+AWS_ACCESS_KEY_ID="My-Key-Here"
+AWS_SECRET_ACCESS_KEY="My-Secret-Key-Here"
+AWS_REGION_NAME="region-to-use"
+```
+
+The order above is the recommended order to use. As with all custom Django settings it's advisable to store the real
+values in either a secrets manager or environmental values. I tend to use https://pypi.org/project/python-decouple/
+
 ### IMPORTANT
 If your site is **not** already running cross-origin you will need to update some settings and flush the sessions to ensure the primary domain and subdomain will work.
 

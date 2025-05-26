@@ -1,4 +1,8 @@
-# 1.2`0 - 12th May 2025
+# 1.3.0 - 26th May 2025
+- Added in support for AWS Profiles
+- Updated the documentation to include examples of how to configure settings.py
+
+# 1.2.1 - 12th May 2025
 - 1.2.0 was built using an older version so the package had the wrong name, it's been yanked, so use 1.2.1 instead
 
 # 1.2.0 - 12th May 2025 - yanked

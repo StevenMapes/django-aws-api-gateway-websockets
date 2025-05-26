@@ -14,6 +14,24 @@ from django_aws_api_gateway_websockets.models import (
 
 
 class GetBoto3ClientTestCase(SimpleTestCase):
+
+    @override_settings(
+        AWS_IAM_PROFILE=None,
+        AWS_ACCESS_KEY_ID=None,
+        AWS_SECRET_ACCESS_KEY=None,
+        AWS_REGION_NAME="",
+    )
+    @patch("django_aws_api_gateway_websockets.models.boto3")
+    def test_region_is_required_to_use_machine_iam(self, mock_boto3):
+        """Test what happens when there are not enough credentials
+
+        :param MagicMock mock_boto3:
+        :return:
+        """
+        with self.assertRaises(RuntimeError) as re:
+            get_boto3_client("s3")
+            self.assertEqual("AWS_REGION_NAME must be set within settings.py", str(re))
+
     @override_settings(
         AWS_IAM_PROFILE="FakeIAMProfile",
         AWS_ACCESS_KEY_ID=None,
@@ -21,23 +39,17 @@ class GetBoto3ClientTestCase(SimpleTestCase):
         AWS_REGION_NAME=None,
     )
     @patch("django_aws_api_gateway_websockets.models.boto3")
-    def test_exception_raised_if_no_credentials_other_than_aws_iam_profile(
-        self, mock_boto3
-    ):
-        """Named profiles are not supported yet by this package. In theory they may be the preferred method for
-         local and non-AWS hosted deployments.
-
-         todo - I will add support in later
+    def test_boto3_connection_support_named_profiles(self, mock_boto3):
+        """Named profiles are supported via the settings.py variable AWS_IAM_PROFILE.
 
         :param MagicMock mock_boto3:
         :return:
         """
-        with self.assertRaises(RuntimeError) as e:
-            get_boto3_client("s3")
-
-        self.assertEqual(
-            str(e.exception), "AWS_REGION_NAME must be set within settings.py"
-        )
+        service = "s3"
+        res = get_boto3_client(service)
+        mock_boto3.Session.assert_called_with(profile_name=settings.AWS_IAM_PROFILE)
+        mock_boto3.Session.return_value.client.assert_called_with(service)
+        self.assertEqual(res, mock_boto3.Session.return_value.client.return_value)
 
     @override_settings(
         AWS_ACCESS_KEY_ID=None,
