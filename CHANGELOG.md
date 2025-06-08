@@ -1,3 +1,44 @@
+# 1.4.0 - 8th June 2025
+- Introduce two Django CBV mixins to speed up development for projects using this library.
+- ```AddWebSocketRouteToContextMixin``` this mixin can vbe added to CBV views that need to connect to and send message
+to the server via Websockets. It allows you to specific the ```route_key``` to use to idnetify the WebSocket route you
+created (defaulting to the "default" route), as well as adding a class property and context key of "channel_name" that
+can be used within the HTML templates to connect to the channel intended to be used by the view.
+- ```AppChannelWebSocketMixin``` this mixin extends the first with the intention of being used by CBVs where the both
+the ```route_key``` and ```channel_name``` are the same and *BOTH* are the same names as the app. This is useful in the
+design paradigm where you are going to have one WebSocket endpoint per app handling the server-side requests. This way
+you can create the route key to match the Django app name and then use this mixin to extend the CBVs that render the
+client facing HTML.
+
+For example if you have the app *blog* with the following CBV defined within the views.py
+
+```
+class IndexView(AppChannelWebSocketMixin, TemplateView):
+    template_name = "blog/index.htm"
+```
+Then you create an ```ApiGatewayAdditionalRoute``` entry with a ```route_key``` of **blog** so that the you can then
+create a Django template such as the below which can be included on any page on your project that requires websocket
+connectivity to define the connection
+
+```html
+<script src="js/reconnecting-websocket.min.js"" crossorigin="anonymous"></script>
+{% with api_gateway_route.api_gateway as websocket %}
+<script
+    data-wss-url="wss://{{ websocket.domain_name }}"
+    data-ws-channel="{{ channel_name }}"
+    data-ws-route-key="{{ api_gateway_route.route_key }}"
+>
+{% endwith %}
+let window.scWebSocketConnected = false;
+let scriptData = document.currentScript.dataset;
+let pageWebSocket = new ReconnectingWebSocket(
+    `${scriptData.wssUrl}?channel=${scriptData.wsChannel}`, null, {debug:false, reconnectInterval:3000}
+);
+```
+
+Full examples of how to use this project with re-usable JS for the client and CBVs for the server will be published
+soon.
+
 # 1.3.0 - 26th May 2025
 - Added in support for AWS Profiles
 - Updated the documentation to include examples of how to configure settings.py

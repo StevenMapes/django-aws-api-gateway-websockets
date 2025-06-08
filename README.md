@@ -574,6 +574,10 @@ I use two local VIRTUALENVS to build the requirements, one running Python3.8 and
 
 Also require ```pytest-django``` for testing
 
+# Building
+This project uses hatchling
+```python -m build --sdist```
+
 # tox
 
 # Contributing
