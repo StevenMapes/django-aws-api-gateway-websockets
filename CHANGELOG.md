@@ -1,4 +1,4 @@
-# 1.4.0 - 8th June 2025
+# 1.4.1 - 8th June 2025
 - Introduce two Django CBV mixins to speed up development for projects using this library.
 - ```AddWebSocketRouteToContextMixin``` this mixin can vbe added to CBV views that need to connect to and send message
 to the server via Websockets. It allows you to specific the ```route_key``` to use to idnetify the WebSocket route you
@@ -38,6 +38,9 @@ let pageWebSocket = new ReconnectingWebSocket(
 
 Full examples of how to use this project with re-usable JS for the client and CBVs for the server will be published
 soon.
+
+# 1.4.0 - 8th June 2025
+Yanked to bugs - do not use
 
 # 1.3.0 - 26th May 2025
 - Added in support for AWS Profiles
