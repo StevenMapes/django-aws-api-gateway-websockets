@@ -18,23 +18,6 @@ if __name__ == "__main__":
         "--allow-unsafe",
     ] + sys.argv[1:]
 
-    if (3, 8, 0) <= py_version < (3, 10, 0):
-        subprocess.run(
-            [
-                "python",
-                *common_args,
-                "-P",
-                "Django>=4.2.22,<5",
-                "-P",
-                "urllib3>=1.26.19,<2.0.0",
-                "-P",
-                "sqlparse==0.5.0",
-                "-o",
-                "py39-django42.txt",
-            ],
-            check=True,
-            capture_output=True,
-        )
     if (3, 10, 0) <= py_version < (3, 11, 0):
         subprocess.run(
             [
