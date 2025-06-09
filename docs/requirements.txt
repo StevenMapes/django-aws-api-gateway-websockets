@@ -1,3 +1,4 @@
-django
+-r ../requirements/py313-django53.txt
+
 furo
 sphinx
