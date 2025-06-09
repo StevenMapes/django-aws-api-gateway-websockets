@@ -9,29 +9,29 @@ tests.management.commands.test\_clearWebSocketSessions module
 
 .. automodule:: tests.management.commands.test_clearWebSocketSessions
    :members:
-   :undoc-members:
    :show-inheritance:
+   :undoc-members:
 
 tests.management.commands.test\_createApiGateway module
 -------------------------------------------------------
 
 .. automodule:: tests.management.commands.test_createApiGateway
    :members:
-   :undoc-members:
    :show-inheritance:
+   :undoc-members:
 
 tests.management.commands.test\_createCustomDomain module
 ---------------------------------------------------------
 
 .. automodule:: tests.management.commands.test_createCustomDomain
    :members:
-   :undoc-members:
    :show-inheritance:
+   :undoc-members:
 
 Module contents
 ---------------
 
 .. automodule:: tests.management.commands
    :members:
-   :undoc-members:
    :show-inheritance:
+   :undoc-members:
