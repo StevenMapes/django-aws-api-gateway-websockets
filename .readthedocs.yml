@@ -19,8 +19,3 @@ sphinx:
   fail_on_warning: false
 
 formats: all
-
-versions:
-  - main
-  - /^\d+\.\d+\.\d+$/
-
