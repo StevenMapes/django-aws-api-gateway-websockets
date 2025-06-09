@@ -5,15 +5,20 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 from __future__ import annotations
 
+import os
 import sys
 import tomllib
 from pathlib import Path
 
-try:
-    from .django_settings import *  # noqa
-except ImportError:
-    pass
+import django
 
+sys.path.insert(0, os.path.abspath(".."))
+os.environ["DJANGO_SETTINGS_MODULE"] = "tests.settings"
+django.setup()
+
+from django.conf import settings  # noqa
+
+import django_aws_api_gateway_websockets  # noqa
 
 # -- Path setup --------------------------------------------------------------
 
