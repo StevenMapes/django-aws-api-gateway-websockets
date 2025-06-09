@@ -22,4 +22,5 @@ formats: all
 
 versions:
   - main
-  - /^v\d+\.\d+
+  - /^\d+\.\d+\.\d+$/
+
