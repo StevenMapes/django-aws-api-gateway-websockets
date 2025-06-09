@@ -1,0 +1,726 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="./">
+  <head><meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="genindex.html" /><link rel="search" title="Search" href="search.html" /><link rel="prev" title="Contributing" href="contributing.html" />
+
+    <!-- Generated with Sphinx 8.2.3 and Furo 2024.08.06 -->
+        <title>1.4.1 - 8th June 2025 - Django-AWS-Api-Gateway-WebSockets 1.4.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/furo.css?v=354aac6f" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/furo-extensions.css?v=302659d7" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f8f8f8;
+  --color-code-foreground: black;
+  --admonition-font-size: 100%;
+  --admonition-title-font-size: 100%;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  --admonition-font-size: 100%;
+  --admonition-title-font-size: 100%;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  --admonition-font-size: 100%;
+  --admonition-title-font-size: 100%;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc">
+<label class="overlay sidebar-overlay" for="__navigation">
+  <div class="visually-hidden">Hide navigation sidebar</div>
+</label>
+<label class="overlay toc-overlay" for="__toc">
+  <div class="visually-hidden">Hide table of contents sidebar</div>
+</label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <div class="visually-hidden">Toggle site navigation sidebar</div>
+        <i class="icon"><svg><use href="#svg-menu"></use></svg></i>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="index.html"><div class="brand">Django-AWS-Api-Gateway-WebSockets 1.4.1 documentation</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle">
+          <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+        <div class="visually-hidden">Toggle table of contents sidebar</div>
+        <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="index.html">
+  
+  
+  <span class="sidebar-brand-text">Django-AWS-Api-Gateway-WebSockets 1.4.1 documentation</span>
+  
+</a><form class="sidebar-search-container" method="get" action="search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="exposition.html">Exposition</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mixins.html">Mixins</a></li>
+<li class="toctree-l1"><a class="reference internal" href="views.html">Views</a></li>
+<li class="toctree-l1"><a class="reference internal" href="management_commands/index.html">Management Commands</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributing</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">1.4.1 - 8th June 2025</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#th-june-2025-1">1.4.0 - 8th June 2025</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#th-may-2025">1.3.0 - 26th May 2025</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#th-may-2025-1">1.2.1 - 12th May 2025</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#th-may-2025-yanked">1.2.0 - 12th May 2025 - yanked</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#th-may-2025-2">1.1.3 - 7th May 2025</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#th-march-2025">1.1.2 - 17th March 2025</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#th-november-2024">1.1.1 - 20th November 2024</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#th-november-2024-1">1.1.0 - 19th November 2024</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#st-october-2024">1.0.22 - 21st October 2024</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#th-august-2024">1.0.21 - 4th August 2024</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#th-july-2024">1.0.20 - 15th July 2024</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#th-july-2024-1">1.0.19 - 11th July 2024</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#th-may-2024">1.0.17 - 28th May 2024</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#th-may-2024-1">1.0.16 - 24th May 2024</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#th-may-2024-2">1.0.15 - 7th May 2024</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#th-may-2024-3">1.0.14 - 7th May 2024</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#th-december-2023">1.0.13 - 14th December 2023</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#th-september-2023">1.0.12 - 20th September 2023</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#th-january-2023">1.0.11 - 18th January 2023</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#th-december-2022">1.0.10 - 15th December 2022</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#th-december-2022-1">1.0.9 - 12th December 2022</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#th-december-2022-2">1.0.8 - 9th December 2022</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#th-december-2022-3">1.0.7 - 9th December 2022</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#th-december-2022-4">1.0.6 - 9th December 2022</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#th-december-2022-5">1.0.0 - 1.0.5 - 8th December 2022</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#th-september-2022">0.2.2 - 20th September 2022</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#th-september-2022-1">0.2.1 - 13th September 2022</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#th-september-2022-2">0.2.0 - 12th September 2022</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#th-august-2022">0.1.5 - 4th August 2022</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#th-august-2022-1">0.1.4 - 4th August 2022</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#th-august-2022-2">0.1.3 - 4th August 2022</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#th-june-2022">0.1.2 - 29th June 2022</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#th-june-2022-2">0.1.0 - 8th June 2022</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#th-jan-2022">0.0.1 - 17th Jan 2022</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="_sources/changelog.rst.txt" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div>
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle">
+              <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+            <div class="visually-hidden">Toggle table of contents sidebar</div>
+            <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="th-june-2025">
+<h1>1.4.1 - 8th June 2025<a class="headerlink" href="#th-june-2025" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p>Introduce two Django CBV mixins to speed up development for projects
+using this library.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">AddWebSocketRouteToContextMixin</span></code> this mixin can vbe added to CBV
+views that need to connect to and send message to the server via
+Websockets. It allows you to specific the <code class="docutils literal notranslate"><span class="pre">route_key</span></code> to use to
+idnetify the WebSocket route you created (defaulting to the “default”
+route), as well as adding a class property and context key of
+“channel_name” that can be used within the HTML templates to connect
+to the channel intended to be used by the view.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">AppChannelWebSocketMixin</span></code> this mixin extends the first with the
+intention of being used by CBVs where the both the <code class="docutils literal notranslate"><span class="pre">route_key</span></code> and
+<code class="docutils literal notranslate"><span class="pre">channel_name</span></code> are the same and <em>BOTH</em> are the same names as the
+app. This is useful in the design paradigm where you are going to
+have one WebSocket endpoint per app handling the server-side
+requests. This way you can create the route key to match the Django
+app name and then use this mixin to extend the CBVs that render the
+client facing HTML.</p></li>
+</ul>
+<p>For example if you have the app <em>blog</em> with the following CBV defined
+within the views.py</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">IndexView</span><span class="p">(</span><span class="n">AppChannelWebSocketMixin</span><span class="p">,</span> <span class="n">TemplateView</span><span class="p">):</span>
+    <span class="n">template_name</span> <span class="o">=</span> <span class="s2">&quot;blog/index.htm&quot;</span>
+</pre></div>
+</div>
+<p>Then you create an <code class="docutils literal notranslate"><span class="pre">ApiGatewayAdditionalRoute</span></code> entry with a
+<code class="docutils literal notranslate"><span class="pre">route_key</span></code> of <strong>blog</strong> so that the you can then create a Django
+template such as the below which can be included on any page on your
+project that requires websocket connectivity to define the connection</p>
+<div class="highlight-html notranslate"><div class="highlight"><pre><span></span><span class="p">&lt;</span><span class="nt">script</span> <span class="na">src</span><span class="o">=</span><span class="s">&quot;js/reconnecting-websocket.min.js&quot;</span><span class="err">&quot;</span> <span class="na">crossorigin</span><span class="o">=</span><span class="s">&quot;anonymous&quot;</span><span class="p">&gt;&lt;/</span><span class="nt">script</span><span class="p">&gt;</span>
+{% with api_gateway_route.api_gateway as websocket %}
+<span class="p">&lt;</span><span class="nt">script</span>
+    <span class="na">data-wss-url</span><span class="o">=</span><span class="s">&quot;wss://{{ websocket.domain_name }}&quot;</span>
+    <span class="na">data-ws-channel</span><span class="o">=</span><span class="s">&quot;{{ channel_name }}&quot;</span>
+    <span class="na">data-ws-route-key</span><span class="o">=</span><span class="s">&quot;{{ api_gateway_route.route_key }}&quot;</span>
+<span class="p">&gt;</span>
+<span class="p">{</span><span class="o">%</span><span class="w"> </span><span class="nx">endwith</span><span class="w"> </span><span class="o">%</span><span class="p">}</span>
+let window.scWebSocketConnected = false;
+let scriptData = document.currentScript.dataset;
+let pageWebSocket = new ReconnectingWebSocket(
+    `${scriptData.wssUrl}?channel=${scriptData.wsChannel}`, null, {debug:false, reconnectInterval:3000}
+);
+</pre></div>
+</div>
+<p>Full examples of how to use this project with re-usable JS for the
+client and CBVs for the server will be published soon.</p>
+</section>
+<section id="th-june-2025-1">
+<span id="id1"></span><h1>1.4.0 - 8th June 2025<a class="headerlink" href="#th-june-2025-1" title="Link to this heading">¶</a></h1>
+<p>Yanked to bugs - do not use</p>
+</section>
+<section id="th-may-2025">
+<h1>1.3.0 - 26th May 2025<a class="headerlink" href="#th-may-2025" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p>Added in support for AWS Profiles</p></li>
+<li><p>Updated the documentation to include examples of how to configure
+settings.py</p></li>
+</ul>
+</section>
+<section id="th-may-2025-1">
+<span id="id2"></span><h1>1.2.1 - 12th May 2025<a class="headerlink" href="#th-may-2025-1" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p>1.2.0 was built using an older version so the package had the wrong
+name, it’s been yanked, so use 1.2.1 instead</p></li>
+</ul>
+</section>
+<section id="th-may-2025-yanked">
+<h1>1.2.0 - 12th May 2025 - yanked<a class="headerlink" href="#th-may-2025-yanked" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p>Dropped support for Django 5.0</p></li>
+<li><p>This package should still work with those combinations but they are
+no longer being tested</p></li>
+</ul>
+</section>
+<section id="th-may-2025-2">
+<span id="id3"></span><h1>1.1.3 - 7th May 2025<a class="headerlink" href="#th-may-2025-2" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p>Updated pyproject.toml to show Django 5.2 support, also updated the
+pre-commit-config and requirements or testings</p></li>
+</ul>
+</section>
+<section id="th-march-2025">
+<h1>1.1.2 - 17th March 2025<a class="headerlink" href="#th-march-2025" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p>Removed Python 3.8 support</p></li>
+</ul>
+</section>
+<section id="th-november-2024">
+<h1>1.1.1 - 20th November 2024<a class="headerlink" href="#th-november-2024" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p>Updated the tox tests to include support for Django 5.2a.1 with
+Python 3.10, 3.11, 3.12, 3.13 and 3.14</p></li>
+</ul>
+</section>
+<section id="th-november-2024-1">
+<span id="id4"></span><h1>1.1.0 - 19th November 2024<a class="headerlink" href="#th-november-2024-1" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p>Fixes possible security issue #17 to remove the direct use of headers
+being passed into the Bad Request Response.</p></li>
+<li><p>Changed the response send by the bad request response</p></li>
+<li><p>Updating requirements</p></li>
+</ul>
+</section>
+<section id="st-october-2024">
+<h1>1.0.22 - 21st October 2024<a class="headerlink" href="#st-october-2024" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p>Updated github actions to collect and display coverage reports</p></li>
+<li><p>Updated tox to include tests for Python 3.13 with Django 4.2, 5.0 and
+5.1</p></li>
+<li><p>Updated tox to include tests for Python 3.14.0-alpha1 with Django 5.1</p></li>
+<li><p>Updated main.yml to use <a class="reference external" href="https:/yes/github.com/astral-sh/uv">UV</a>
+for faster testing</p></li>
+</ul>
+</section>
+<section id="th-august-2024">
+<h1>1.0.21 - 4th August 2024<a class="headerlink" href="#th-august-2024" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p>Includes the PR for .github/workflows/main.yml as well as updating to
+show support for Django 5.1</p></li>
+</ul>
+</section>
+<section id="th-july-2024">
+<h1>1.0.20 - 15th July 2024<a class="headerlink" href="#th-july-2024" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p>Dependency update for security fix</p></li>
+</ul>
+</section>
+<section id="th-july-2024-1">
+<span id="id5"></span><h1>1.0.19 - 11th July 2024<a class="headerlink" href="#th-july-2024-1" title="Link to this heading">¶</a></h1>
+<ul>
+<li><p>Updating the requirements for the pipline to use Django 5.0.7 or
+Django 4.2.14</p></li>
+<li><p class="rubric" id="nd-july-2024">1.0.18 - 2nd July 2024</p>
+</li>
+<li><p>Updating the requirements so Python 3.10+ requires urllib3&gt;=2.2.2 due
+to the security issues with 2.0.0 through 2.2.1</p></li>
+</ul>
+</section>
+<section id="th-may-2024">
+<h1>1.0.17 - 28th May 2024<a class="headerlink" href="#th-may-2024" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p>Bumping required sqlparse version for Django 4.2 and 5.0 to be 0.5.0
+due to security fix for DOS in sqlparse&lt;5.0.0 within the requirements
+files used for testing.</p></li>
+</ul>
+</section>
+<section id="th-may-2024-1">
+<span id="id6"></span><h1>1.0.16 - 24th May 2024<a class="headerlink" href="#th-may-2024-1" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p>Added in test for Django 5.1a1</p></li>
+</ul>
+</section>
+<section id="th-may-2024-2">
+<span id="id7"></span><h1>1.0.15 - 7th May 2024<a class="headerlink" href="#th-may-2024-2" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p>Upgrade black, blacken-docs and isort within precommit, removed black
+from the requirements as it’s only used by pre-commit</p></li>
+</ul>
+</section>
+<section id="th-may-2024-3">
+<span id="id8"></span><h1>1.0.14 - 7th May 2024<a class="headerlink" href="#th-may-2024-3" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p>Removing support for Django &lt; 4.2.0. This project will probably still
+work with Django 3.2+ but I’m now longer going to support it with
+tests.</p></li>
+<li><p>Bumped requirements as well</p></li>
+</ul>
+</section>
+<section id="th-december-2023">
+<h1>1.0.13 - 14th December 2023<a class="headerlink" href="#th-december-2023" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p>Adding Django 4.2 into the matrix of tests replacing 4.2a1</p></li>
+<li><p>Adding Django 5 into the tox runner</p></li>
+</ul>
+</section>
+<section id="th-september-2023">
+<h1>1.0.12 - 20th September 2023<a class="headerlink" href="#th-september-2023" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p>Updating the README file with additional examples.</p></li>
+<li><p>Adding in additional unit tests to improve coverage from 86% to 96%.</p></li>
+<li><p>Adding Django 4.2 into the matrix of tests replacing 4.2a1</p></li>
+<li><p>Adding Django 5 into the tox runner</p></li>
+</ul>
+</section>
+<section id="th-january-2023">
+<h1>1.0.11 - 18th January 2023<a class="headerlink" href="#th-january-2023" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p>Adding Django 4.2a1 into the matrix of tests</p></li>
+</ul>
+</section>
+<section id="th-december-2022">
+<h1>1.0.10 - 15th December 2022<a class="headerlink" href="#th-december-2022" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p>Fixing an issue where <code class="docutils literal notranslate"><span class="pre">ApiGatewayAdditionalRoute</span></code> had a unique
+constraint on the <code class="docutils literal notranslate"><span class="pre">route_key</span></code> when it should have been a composite
+unique constraint on the <code class="docutils literal notranslate"><span class="pre">api_gateway</span></code> and the <code class="docutils literal notranslate"><span class="pre">route_key</span></code></p></li>
+</ul>
+</section>
+<section id="th-december-2022-1">
+<span id="id9"></span><h1>1.0.9 - 12th December 2022<a class="headerlink" href="#th-december-2022-1" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p>Fixing an issue within the dispatch method of the view where the
+route key was missing from the arg. Now continues with the checks.</p></li>
+</ul>
+</section>
+<section id="th-december-2022-2">
+<span id="id10"></span><h1>1.0.8 - 9th December 2022<a class="headerlink" href="#th-december-2022-2" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p>Corrected the examples of the CSRF and Session values on the README
+file.</p></li>
+</ul>
+</section>
+<section id="th-december-2022-3">
+<span id="id11"></span><h1>1.0.7 - 9th December 2022<a class="headerlink" href="#th-december-2022-3" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p>Added in tests for Python 3.11</p></li>
+<li><p>Removed use of CodeCov and moved to use GitHUb actions to store and
+report on the coverage.</p></li>
+<li><p>Actions fail if coverage drops below 85%, this threshold will be
+increased in the future as I add in additional tests</p></li>
+<li><p>Updated requirements and removed legacy tox files</p></li>
+<li><p>Updated version of gitHub Actions</p></li>
+<li><p>Added link to the PyPi site from the readme</p></li>
+</ul>
+</section>
+<section id="th-december-2022-4">
+<span id="id12"></span><h1>1.0.6 - 9th December 2022<a class="headerlink" href="#th-december-2022-4" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p>Updating the listing pages to include whether the additional route
+has been deployed or not</p></li>
+<li><p>Updated the README file</p></li>
+</ul>
+</section>
+<section id="th-december-2022-5">
+<span id="id13"></span><h1>1.0.0 - 1.0.5 - 8th December 2022<a class="headerlink" href="#th-december-2022-5" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p>Added support for additional custom routes for each API. This means
+that you could use one API Gateway for an entire project if you
+wished to using the <code class="docutils literal notranslate"><span class="pre">ApiGatewayAdditionalRoute</span></code> to route requests
+to different URLs within your project. This is extremely useful if
+you have multiple apps that require websockets. The recommendation is
+to have a central view that handles all connections, disconnections
+and the default route. Then to use specific route for each of your
+apps, views or however you require to separate requests.</p></li>
+</ul>
+</section>
+<section id="th-september-2022">
+<h1>0.2.2 - 20th September 2022<a class="headerlink" href="#th-september-2022" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p>Added in additional unit tests. Still requires additional tests for
+full coverage</p></li>
+</ul>
+</section>
+<section id="th-september-2022-1">
+<span id="id14"></span><h1>0.2.1 - 13th September 2022<a class="headerlink" href="#th-september-2022-1" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p>BUG FIX - The <code class="docutils literal notranslate"><span class="pre">_create_domain_name</span></code> method of the <code class="docutils literal notranslate"><span class="pre">ApiGateway</span></code>
+was always setting a hosted zone id even if one was not to be used.</p></li>
+<li><p>Updating the README.md file with the updated IAM policy</p></li>
+</ul>
+</section>
+<section id="th-september-2022-2">
+<span id="id15"></span><h1>0.2.0 - 12th September 2022<a class="headerlink" href="#th-september-2022-2" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p>Updating the packaging of the project as the management command was
+not being bundled with the rest of the code.</p></li>
+</ul>
+</section>
+<section id="th-august-2022">
+<h1>0.1.5 - 4th August 2022<a class="headerlink" href="#th-august-2022" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p>Adding in a supplementary list of headers that are also required, by
+default, but that you may need to blank out when testing from a
+non-AWS deployment such as via na ngrok proxy</p></li>
+<li><p>Adding the management command to stale connections</p></li>
+</ul>
+</section>
+<section id="th-august-2022-1">
+<span id="id16"></span><h1>0.1.4 - 4th August 2022<a class="headerlink" href="#th-august-2022-1" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p>Correcting the name on the license</p></li>
+<li><p>Updating the README setup instructions including the required Django
+settings</p></li>
+<li><p>Adding Exception handling into the Django Admin page so that the
+exceptions are caught and added to Django messages</p></li>
+<li><p>Ensures the trailing / is appended to the target base endpoint.</p></li>
+</ul>
+</section>
+<section id="th-august-2022-2">
+<span id="id17"></span><h1>0.1.3 - 4th August 2022<a class="headerlink" href="#th-august-2022-2" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p>License is now MIT</p></li>
+<li><p>Now considered as in Beta</p></li>
+<li><p>Supports Django 3.2, 4.0 and 4.1</p></li>
+<li><p>Supports Python 3.8 through 3.10</p></li>
+</ul>
+</section>
+<section id="th-june-2022">
+<h1>0.1.2 - 29th June 2022<a class="headerlink" href="#th-june-2022" title="Link to this heading">¶</a></h1>
+<ul>
+<li><p>Updated the dispatch method of WebSocketView to add in the default
+positive response if the handling method that was called does not
+return a response. This means that unless you are returning a
+negative response the handling methods no longer need to return
+anything.</p></li>
+<li><p>Updated the README with examples of writing individual methods to
+handle different types of requests where the type of request is
+determined by the value of the <code class="docutils literal notranslate"><span class="pre">route_selection_key</span></code>.</p></li>
+<li><p>Updated the README with examples of how to send a reply to the
+websocket that made the request as well as how to send a Multicast to
+all connections using the same “channel”.</p></li>
+<li><p class="rubric" id="th-june-2022-1">0.1.1 - 25th June 2022</p>
+</li>
+<li><p>Added debugging list to the base <code class="docutils literal notranslate"><span class="pre">WebSocketView</span></code> to keep track of
+calls if debugging is turned on. The intention is that debug=True can
+be passed into the <code class="docutils literal notranslate"><span class="pre">.as_view()</span></code> method in order to debug issues.
+Then the dispatch method can be overloaded to log the error to the
+logger the user wishes to use.</p></li>
+<li><p>Fixed a bug with the custom QuerySet so that if a <code class="docutils literal notranslate"><span class="pre">GoneException</span></code>
+is raised by boto3 then the websocket session entry is updated to be
+flagged as no longer connected</p></li>
+</ul>
+</section>
+<section id="th-june-2022-2">
+<span id="id18"></span><h1>0.1.0 - 8th June 2022<a class="headerlink" href="#th-june-2022-2" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p>The channel set against the <code class="docutils literal notranslate"><span class="pre">WebSocketSession</span></code> is now determine by
+a new method. The method looks at the QueryString first of all and if
+that it empty it then uses the default_channel_name set against the
+<code class="docutils literal notranslate"><span class="pre">APIGateway</span></code> record that was found</p></li>
+<li><p>Fixed a bug with _check_platform_registered_api_gateways to fix the
+NoneType issue</p></li>
+<li><p>Added the missing <code class="docutils literal notranslate"><span class="pre">__str__</span></code> method into the class as well as
+removing the import that is no longer used</p></li>
+<li><p>Added the missing <code class="docutils literal notranslate"><span class="pre">self.custom_domain_created</span> <span class="pre">=</span> <span class="pre">True</span></code> into the
+<code class="docutils literal notranslate"><span class="pre">create_custom_domain</span></code> method</p></li>
+<li><p>Fixed a bug where formatting had converted the hosted zone id into a
+tuple</p></li>
+<li><p>Fixed a bug around the boto3 client setup as the checks for the
+AWS_ACCESS_KEY were not tight enough so I’ve swapped the order</p></li>
+<li><p>Fixed a bug where method name was typed wrong</p></li>
+<li><p>Fixed a bug where the wrong admin view had the custom actions</p></li>
+<li><p>Added new property to the base View called <code class="docutils literal notranslate"><span class="pre">websocket_session</span></code>
+which stores the websocket session for the request for all non
+connect or disconnect requests</p></li>
+<li><p>Added <code class="docutils literal notranslate"><span class="pre">send_message</span></code> method to the WebSocketSession class in order
+to send a message to the connection</p></li>
+<li><p>Added a new custom queryset class called <code class="docutils literal notranslate"><span class="pre">WebSocketSessionQuerySet</span></code>
+that implements a method to send a message to every object within the
+current filter whilst ensuring it only sends to connections that are
+active</p></li>
+<li><p>Added the model <code class="docutils literal notranslate"><span class="pre">ApiGateway</span></code></p></li>
+<li><p>Updated <code class="docutils literal notranslate"><span class="pre">WebSocketView</span></code> to include validation of the
+<code class="docutils literal notranslate"><span class="pre">aws_api_gateway_id</span></code> property to allow views to be created that
+only allow specific API Gateway endpoints to call them.</p></li>
+<li><p>Updated <code class="docutils literal notranslate"><span class="pre">WebSocketView</span></code> to include validation of the calling API
+Gateway endpoint to check that it’s one of the APIGateway records
+registered with the platform. <strong>Note: Could do with updating to check
+a cache first</strong></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">WebSocketSession</span></code> now stores an FK to <code class="docutils literal notranslate"><span class="pre">ApiGateway</span></code> and is
+populated by the WebSocketView within the connection method</p></li>
+<li><p>The API Gateway ID within the header is now always checked against
+the database to help block unexpected sources.</p></li>
+<li><p>Added two custom Django Admin functions <code class="docutils literal notranslate"><span class="pre">create_api_gateway</span></code> and
+<code class="docutils literal notranslate"><span class="pre">create_custom_domain</span></code> that can be used to create the actual AWS
+API Gateway endpoint and custom domain.</p></li>
+<li><p>Added two management commands <code class="docutils literal notranslate"><span class="pre">createApiGateway</span></code> and
+<code class="docutils literal notranslate"><span class="pre">createCustomDomain</span></code> both of which take one parameter which is the
+PK of the ApiGateway record you wish to run. These management
+commands run the same methods the admin functions added above. They
+have been created to allow this package to be used without Django
+Admin but to still be able to automatically set-up API Gateway</p></li>
+<li><p>Created the initial logic to create the API Gateway and the Custom
+Domain as methods of the ApiGateway model. The intended use is to
+call <code class="docutils literal notranslate"><span class="pre">obj.create_create_gateway()</span></code> first then to call
+<code class="docutils literal notranslate"><span class="pre">obj.create_custom_domain()</span></code> once the SSL certificate is ready.
+These methods will update the record with the details required to
+update Route53</p></li>
+</ul>
+</section>
+<section id="th-jan-2022">
+<h1>0.0.1 - 17th Jan 2022<a class="headerlink" href="#th-jan-2022" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p>Initial build with the base view and base model.</p></li>
+<li><p>Dropped support for Django &lt; 3.1 due to use of PositiveBigInt and
+also drop support of Python &lt; 3.8</p></li>
+</ul>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          
+          <a class="prev-page" href="contributing.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">Contributing</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2021 Steven Mapes
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer no-toc">
+      
+      
+      
+    </aside>
+  </div>
+</div><script src="_static/documentation_options.js?v=350a9c04"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/scripts/furo.js?v=5fa4622c"></script>
+    </body>
+</html>
