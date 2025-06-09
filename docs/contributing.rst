@@ -4,11 +4,12 @@ Contributing
 
 Run the tests
 -------------
- .. code-block:: console
-      coverage erase && \
-      python -W error::DeprecationWarning -W error::PendingDeprecationWarning -m coverage run --parallel -m pytest --ds tests.settings && \
-      coverage combine && \
-      coverage report
+.. code-block::
+
+    coverage erase && \
+    python -W error::DeprecationWarning -W error::PendingDeprecationWarning -m coverage run --parallel -m pytest --ds tests.settings && \
+    coverage combine && \
+    coverage report
 
 Contributing
 ------------
