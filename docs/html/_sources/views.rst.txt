@@ -1,3 +1,0 @@
-Views
-=====
-Coming soon
