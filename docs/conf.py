@@ -9,6 +9,12 @@ import sys
 import tomllib
 from pathlib import Path
 
+try:
+    from .django_settings import *  # noqa
+except ImportError:
+    pass
+
+
 # -- Path setup --------------------------------------------------------------
 
 here = Path(__file__).parent.resolve()
