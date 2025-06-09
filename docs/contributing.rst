@@ -13,8 +13,7 @@ Run the tests
 Contributing
 ------------
 1. Check for `open issues <https://github.com/StevenMapes/django-aws-api-gateway-websockets/issues>`__
-2. Fork the `repository on GitHub <https://github.com/StevenMapes/django-aws-api-gateway-websockets>`__ to start making
-changes.
+2. Fork the `repository on GitHub <https://github.com/StevenMapes/django-aws-api-gateway-websockets>`__ to start making changes.
 3. Initialise pre-commit by running `pre-commit install`
 4. Install requirements from one of the requirement files depending on the versions of Python and Django you wish to use.
 5. Add a test case to show that the bug is fixed or the feature is implemented correctly.
