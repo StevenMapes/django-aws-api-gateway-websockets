@@ -1,4 +1,4 @@
--r ../requirements/py313-django53.txt
+-r ../requirements/requirements.in
 
 furo
 sphinx
