@@ -250,17 +250,17 @@ if __name__ == "__main__":
         )
 
     # Use SED to remove the --extra-index-url lines from every file
-    sed_args = ["sed", "-i", "-e", "s/--extra-index-url .*$//g"]
-    [
-        subprocess.run([*sed_args, x.name])
-        for x in Path(".").iterdir()
-        if not x.is_dir() and ".txt" in x.name
-    ]
-
-    # Remove backports from Python3.10 and Python 3.11
-    sed_args = ["sed", "-i", "-e", "/backports/,/via django/d"]
-    [
-        subprocess.run([*sed_args, x.name])
-        for x in Path(".").iterdir()
-        if not x.is_dir() and ("py310-" in x.name or "py311-" in x.name)
-    ]
+    # sed_args = ["sed", "-i", "-e", "s/--extra-index-url .*$//g"]
+    # [
+    #     subprocess.run([*sed_args, x.name])
+    #     for x in Path(".").iterdir()
+    #     if not x.is_dir() and ".txt" in x.name
+    # ]
+    #
+    # # Remove backports from Python3.10 and Python 3.11
+    # sed_args = ["sed", "-i", "-e", "/backports/,/via django/d"]
+    # [
+    #     subprocess.run([*sed_args, x.name])
+    #     for x in Path(".").iterdir()
+    #     if not x.is_dir() and ("py310-" in x.name or "py311-" in x.name)
+    # ]
