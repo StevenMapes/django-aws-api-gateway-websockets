@@ -16,6 +16,7 @@ if __name__ == "__main__":
         "compile",
         "--generate-hashes",
         "--allow-unsafe",
+        "--no-emit-index-url"
     ] + sys.argv[1:]
 
     if (3, 10, 0) <= py_version < (3, 11, 0):
