@@ -198,7 +198,7 @@ following IAM policy which you can copy and paste into the JSON editor within th
 }
 ```
 
-You will need to edit the permissio and replace the following: 
+You will need to edit the permissions and replace the following: 
 1. ```{AWS-REGION-NANE}``` with the correct AWS region you are using, E.G ```eu-west-1```. If you wish to grant access to all regions then replace this placeholder with an ```*```
 2. ```{AWS-ACCOUNT-NUMBER}``` with your account number E.G: 123456789101 
 
@@ -500,8 +500,8 @@ exampleWS.onmessage = function(event) {
 ```
 
 ### Reconnecting WebSockets
-Websockets can disconnect due top a variety of reasons to work around this here are some links to libraries of proposed
-solutions
+Websockets can disconnect due to a variety of reasons; to work around this here are some links to libraries of proposed
+solutions:
 
 1. [Stack Overflow- WebSocket: How to automatically reconnect after it dies](https://stackoverflow.com/questions/22431751/websocket-how-to-automatically-reconnect-after-it-dies)
 2. [JS library - reconnecting-websocket](https://github.com/joewalnes/reconnecting-websocket)
