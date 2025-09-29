@@ -250,7 +250,7 @@ virtualenv==20.31.2 \
     #   pre-commit
 
 # The following packages are considered to be unsafe in a requirements file:
-pip==25.1 \
-    --hash=sha256:13b4aa0aaad055020a11bec8a1c2a70a2b2d080e12d89b962266029fff0a16ba \
-    --hash=sha256:272bdd1289f80165e9070a4f881e8f9e1001bbb50378561d1af20e49bf5a2200
+pip==25.2 \
+    --hash=sha256:578283f006390f85bb6282dffb876454593d637f5d1be494b5202ce4877e71f2 \
+    --hash=sha256:6d67a2b4e7f14d8b31b8b52648866fa717f45a1eb70e83002f4331d07e953717
     # via -r requirements.in
