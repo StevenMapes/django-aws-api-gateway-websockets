@@ -1,3 +1,12 @@
+# 2.0.0-alpha - In Progress
+- route_selection_key is going to be *deprecated* and is being replaced by handler_selection_key which is a more 
+accurate name and will have a new default value of "handler" rather than "action".
+This is because the "action" related to the actual route selection on AWS API Gateway and is closer tied to the
+Additional Routes logic where as the "handler" is more related to the actual handler method that is being called.
+
+This work is in progress. The code is backeward compatible as long as you don't use a key of handler for what used to
+be handle by the key of route.
+
 # 1.4.1 - 8th June 2025
 - Introduce two Django CBV mixins to speed up development for projects using this library.
 - ```AddWebSocketRouteToContextMixin``` this mixin can vbe added to CBV views that need to connect to and send message

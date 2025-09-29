@@ -1,4 +1,5 @@
 import json
+import warnings
 from typing import Union
 
 from django.conf import settings
@@ -18,7 +19,10 @@ class WebSocketView(View):
 
     debug = False
     debug_log = None
+
+    # todo - The following key is deprecated and should be removed in a future release for handler_selection_key
     route_selection_key = "action"
+    handler_selection_key = "handler"
     model = None
     body = {}
     aws_api_gateway_id = None  # Set to None to allow all
@@ -70,11 +74,20 @@ class WebSocketView(View):
         """Common method for logging and returning the HTTP400 response"""
         return HttpResponseBadRequest(msg)
 
+    @warnings.deprecated("Use handler_selection_key_missing instead")
     def route_selection_key_missing(
         self, request, *args, **kwargs
     ) -> HttpResponseBadRequest:
         """Method for handling missing route_selection_key"""
         msg = f"route_select_key {self.route_selection_key} missing from request body."
+        self._debug(msg)
+        return self._return_bad_request(msg)
+
+    def handler_selection_key_missing(
+        self, request, *args, **kwargs
+    ) -> HttpResponseBadRequest:
+        """Method for handling missing handler_selection_key"""
+        msg = f"handler_selection_key {self.handler_selection_key} missing from request body."
         self._debug(msg)
         return self._return_bad_request(msg)
 
@@ -198,11 +211,17 @@ class WebSocketView(View):
         )
 
     def dispatch(self, request, *args, **kwargs):
-        """Determine the correct method to call. The method will map to the route_selection_key or default.
+        """Determine the correct method to call.
+
+        If the body contains a key identified by self.handler_selection_key and that value is a method on the
+        view then that method will be called.
+        ELSE IF the body contains a key identified by self.route_selection_key and that value is a method on the
+        view then that method will be called.
+        ELSE the default method will be called
 
         Checks for the expected headers.
-        Tries to dispatch to the right method; if a method doesn't exist defer to the default handler.
-        If the Route Selection Key is missing defer to the route selection error handler.
+        Tries to dispatch to the right method; if a method doesn't exist, defer to the default handler.
+        If the Handler Selection Key is missing defer to the route selection error handler.
         If the request method isn't on the approved list then defer to the normal error handler .
         """
         if self._expected_headers(request) and self._allowed_apigateway(request):
@@ -215,18 +234,21 @@ class WebSocketView(View):
                     else:
                         handler = self.disconnect
                         self._add_user_to_request(request)
-                elif self.route_selection_key in self.body:
+                elif self.handler_selection_key in self.body or self.route_selection_key in self.body:
                     self._load_session(request)
 
-                    handler = getattr(
-                        self, self.body[self.route_selection_key], self.default
-                    )
+                    handler = self.default
+                    if self.body.get(self.handler_selection_key):
+                        handler = getattr(self, self.body[self.handler_selection_key], self.default)
+                    if handler == self.default and self.body.get(self.route_selection_key):
+                        handler = getattr(self, self.body[self.route_selection_key], self.default)
+
                     if not self._expected_useragent(request, *args, **kwargs):
                         handler = self.invalid_useragent
                     else:
                         self._add_user_to_request(request)
                 else:
-                    handler = self.route_selection_key_missing
+                    handler = self.handler_selection_key
             else:
                 handler = self.http_method_not_allowed
         else:
