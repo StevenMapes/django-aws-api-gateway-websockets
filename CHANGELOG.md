@@ -1,8 +1,8 @@
 # 3.* - ??? April 2026 - NOT RELEASED
 The `route_selection_key` property has been removed as per the warning in version 2.0.0. Please update your integration
 
-# 2.0.2 - 30th September 2025 - NOT RELEASED
-Adding support for Python 3.14 and Django 6.0a1 into the text suite
+# 2.0.2 - 30th September 2025
+Adding support for Python 3.14 and Django 6.0a1 into the test suite
 
 # 2.0.1 - 30th September 2025
 - route_selection_key is going to be *deprecated* and is being replaced by handler_selection_key which is a more 

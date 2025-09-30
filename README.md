@@ -39,8 +39,7 @@ It may work with other versions of Django from 4.2 up and Python 3.9+ but they w
 | 3.14              | N        | N       | Y***    | Y***    | Y***    |
 
 * *Python 3.11 only works with Django 4.1.3+
-* **Django 5.0 is no longer being tested for support since May 2025 due to the final version having security issues 
-* ***Python 3.14 should work but pytest will fail due to a bug with it's dependency pluggy
+* **Django 5.0 is no longer being tested for support since May 2025 due to the final version having security issues
 
 # Installation
 You can install this package from pip using
