@@ -9,7 +9,7 @@
 project = "Django-AWS-API-Gateway-WebSockets"
 copyright = "2025, Steven Mapes"
 author = "Steven Mapes"
-release = "1.4.1"
+release = "2.0.0"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

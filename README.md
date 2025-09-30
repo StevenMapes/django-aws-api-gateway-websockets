@@ -57,9 +57,9 @@ you will need to define.
 
 #### Using the IAM role of the instance
 If you are running this package on an EC2 Instance that has an IAM profile then you only need to specifc the region to
-connect to by setting the ```AWS_REGION_NAME``` in ```settings.py```.
+connect to by setting the ```AWS_GATEWAY_REGION_NAME``` in ```settings.py``` (falls back to ```AWS_REGION_NAME```).
 
-E.G. ```AWS_REGION_NAME="eu-west-1"``` will mean this package will connect to the Ireland region using the IAM profile
+E.G. ```AWS_GATEWAY_REGION_NAME="eu-west-1"``` will mean this package will connect to the Ireland region using the IAM profile
 of the machine
 
 #### Named Profiles (AWS_IAM_PROFILE) 
@@ -76,7 +76,7 @@ three following ```settings.py``` values.
 ```
 AWS_ACCESS_KEY_ID="My-Key-Here"
 AWS_SECRET_ACCESS_KEY="My-Secret-Key-Here"
-AWS_REGION_NAME="region-to-use"
+AWS_GATEWAY_REGION_NAME="region-to-use"
 ```
 
 The order above is the recommended order to use. As with all custom Django settings it's advisable to store the real

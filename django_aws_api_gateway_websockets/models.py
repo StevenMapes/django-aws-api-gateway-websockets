@@ -6,6 +6,18 @@ from django.conf import settings
 from django.db import models
 
 
+def get_region_name():
+    """Returns the AWS region name from settings.py. Uses AWS_GATEWAY_REGION_NAME first and falls back to
+    AWS_REGION_NAME for backwards compatibility.
+    """
+    if hasattr(settings, "AWS_GATEWAY_REGION_NAME") and settings.AWS_GATEWAY_REGION_NAME:
+        return settings.AWS_GATEWAY_REGION_NAME
+    elif hasattr(settings, "AWS_REGION_NAME") and settings.AWS_REGION_NAME:
+        return settings.AWS_REGION_NAME
+    else:
+        raise RuntimeError("AWS_GATEWAY_REGION_NAME or AWS_REGION_NAME must be set within settings.py")
+
+
 def get_boto3_client(service: str = "apigatewayv2", **kwargs):
     """Returns the boto3 client to use.
 
@@ -20,7 +32,7 @@ def get_boto3_client(service: str = "apigatewayv2", **kwargs):
     if hasattr(settings, "AWS_IAM_PROFILE") and settings.AWS_IAM_PROFILE:
         # Used a named profile where credentials are stored within .aws folder
         session = boto3.Session(profile_name=settings.AWS_IAM_PROFILE)
-        client = session.client(service)
+        client = session.client(service, **kwargs)
     elif (
         hasattr(settings, "AWS_ACCESS_KEY_ID")
         and settings.AWS_ACCESS_KEY_ID
@@ -28,21 +40,19 @@ def get_boto3_client(service: str = "apigatewayv2", **kwargs):
         and settings.AWS_SECRET_ACCESS_KEY
     ):
         # Use specific access and secret keys
-        if not hasattr(settings, "AWS_REGION_NAME") or not settings.AWS_REGION_NAME:
-            raise RuntimeError("AWS_REGION_NAME must be set within settings.py")
+        region = get_region_name()
 
         client = boto3.client(
             service,
             aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
             aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-            region_name=settings.AWS_REGION_NAME,
+            region_name=region,
             **kwargs,
         )
     else:
         # Use the IAM Role of the machine
-        if not hasattr(settings, "AWS_REGION_NAME") or not settings.AWS_REGION_NAME:
-            raise RuntimeError("AWS_REGION_NAME must be set within settings.py")
-        client = boto3.client(service, region_name=settings.AWS_REGION_NAME, **kwargs)
+        region = get_region_name()
+        client = boto3.client(service, region_name=region, **kwargs)
 
     return client
 
@@ -346,6 +356,7 @@ class WebSocketSessionQuerySet(models.QuerySet):
         )
         """
         client = None
+        region = get_region_name()
         msg = json.dumps(data)
         res = []
         for obj in self.filter(connected=True):
@@ -354,7 +365,7 @@ class WebSocketSessionQuerySet(models.QuerySet):
                     "apigatewaymanagementapi",
                     endpoint_url=(
                         f"https://{obj.api_gateway.api_id}.execute-api."
-                        f"{settings.AWS_REGION_NAME}.amazonaws.com/{obj.api_gateway.stage_name}"
+                        f"{region}.amazonaws.com/{obj.api_gateway.stage_name}"
                     ),
                 )
             try:
@@ -384,11 +395,13 @@ class WebSocketSession(models.Model):
 
     def send_message(self, data: dict):
         """Sends a message containing the given data to connection"""
+        region = get_region_name()
+
         client = get_boto3_client(
             "apigatewaymanagementapi",
             endpoint_url=(
                 f"https://{self.api_gateway.api_id}.execute-api."
-                f"{settings.AWS_REGION_NAME}.amazonaws.com/{self.api_gateway.stage_name}"
+                f"{region}.amazonaws.com/{self.api_gateway.stage_name}"
             ),
         )
         try:

@@ -19,7 +19,7 @@ class GetBoto3ClientTestCase(SimpleTestCase):
         AWS_IAM_PROFILE=None,
         AWS_ACCESS_KEY_ID=None,
         AWS_SECRET_ACCESS_KEY=None,
-        AWS_REGION_NAME="",
+        AWS_GATEWAY_REGION_NAME="",
     )
     @patch("django_aws_api_gateway_websockets.models.boto3")
     def test_region_is_required_to_use_machine_iam(self, mock_boto3):
@@ -30,13 +30,13 @@ class GetBoto3ClientTestCase(SimpleTestCase):
         """
         with self.assertRaises(RuntimeError) as re:
             get_boto3_client("s3")
-            self.assertEqual("AWS_REGION_NAME must be set within settings.py", str(re))
+            self.assertEqual("AWS_GATEWAY_REGION_NAME must be set within settings.py", str(re))
 
     @override_settings(
         AWS_IAM_PROFILE="FakeIAMProfile",
         AWS_ACCESS_KEY_ID=None,
         AWS_SECRET_ACCESS_KEY=None,
-        AWS_REGION_NAME=None,
+        AWS_GATEWAY_REGION_NAME=None,
     )
     @patch("django_aws_api_gateway_websockets.models.boto3")
     def test_boto3_connection_support_named_profiles(self, mock_boto3):
@@ -54,10 +54,10 @@ class GetBoto3ClientTestCase(SimpleTestCase):
     @override_settings(
         AWS_ACCESS_KEY_ID=None,
         AWS_SECRET_ACCESS_KEY=None,
-        AWS_REGION_NAME="eu-west-1",
+        AWS_GATEWAY_REGION_NAME="eu-west-1",
     )
     @patch("django_aws_api_gateway_websockets.models.boto3")
-    def test_connection_made_if_aws_region_name_given_but_no_other_credentials(
+    def test_connection_made_if_AWS_GATEWAY_REGION_NAME_given_but_no_other_credentials(
         self, mock_boto3
     ):
         """This would be an example of the project running on an EC2 instance with a IAM profile assigned to it
@@ -73,7 +73,7 @@ class GetBoto3ClientTestCase(SimpleTestCase):
     @override_settings(
         AWS_ACCESS_KEY_ID=None,
         AWS_SECRET_ACCESS_KEY=None,
-        AWS_REGION_NAME="eu-west-1",
+        AWS_GATEWAY_REGION_NAME="eu-west-1",
     )
     @patch("django_aws_api_gateway_websockets.models.boto3")
     def test_additional_kwargs_are_passed_into_the_connection(self, mock_boto3):
@@ -92,7 +92,7 @@ class GetBoto3ClientTestCase(SimpleTestCase):
     @override_settings(
         AWS_ACCESS_KEY_ID="my-access-key",
         AWS_SECRET_ACCESS_KEY="my-secret-key",
-        AWS_REGION_NAME="eu-west-1",
+        AWS_GATEWAY_REGION_NAME="eu-west-1",
     )
     @patch("django_aws_api_gateway_websockets.models.boto3")
     def test_access_key_and_secret_key_used(self, mock_boto3):
@@ -107,7 +107,7 @@ class GetBoto3ClientTestCase(SimpleTestCase):
             "s3",
             aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
             aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-            region_name=settings.AWS_REGION_NAME,
+            region_name=settings.AWS_GATEWAY_REGION_NAME,
         )
 
         self.assertEqual(res, mock_boto3.client.return_value)
@@ -115,7 +115,7 @@ class GetBoto3ClientTestCase(SimpleTestCase):
     @override_settings(
         AWS_ACCESS_KEY_ID="my-access-key",
         AWS_SECRET_ACCESS_KEY="my-secret-key",
-        AWS_REGION_NAME="eu-west-1",
+        AWS_GATEWAY_REGION_NAME="eu-west-1",
     )
     @patch("django_aws_api_gateway_websockets.models.boto3")
     def test_service_defaults_to_apigatewayv2(self, mock_boto3):
@@ -129,7 +129,7 @@ class GetBoto3ClientTestCase(SimpleTestCase):
             "apigatewayv2",
             aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
             aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-            region_name=settings.AWS_REGION_NAME,
+            region_name=settings.AWS_GATEWAY_REGION_NAME,
         )
 
         self.assertEqual(res, mock_boto3.client.return_value)
@@ -137,7 +137,7 @@ class GetBoto3ClientTestCase(SimpleTestCase):
     @override_settings(
         AWS_ACCESS_KEY_ID="my-access-key",
         AWS_SECRET_ACCESS_KEY="my-secret-key",
-        AWS_REGION_NAME="",
+        AWS_GATEWAY_REGION_NAME="",
     )
     @patch("django_aws_api_gateway_websockets.models.boto3")
     def test_region_name_is_required(self, mock_boto3):
@@ -151,7 +151,7 @@ class GetBoto3ClientTestCase(SimpleTestCase):
             get_boto3_client("s3")
 
         self.assertEqual(
-            str(e.exception), "AWS_REGION_NAME must be set within settings.py"
+            str(e.exception), "AWS_GATEWAY_REGION_NAME or AWS_REGION_NAME must be set within settings.py"
         )
 
 
@@ -868,7 +868,7 @@ class WebSocketSessionIntegrationTestCase(TestCase):
         )
 
     @patch("django_aws_api_gateway_websockets.models.get_boto3_client")
-    @override_settings(AWS_REGION_NAME="eu-west-1")
+    @override_settings(AWS_GATEWAY_REGION_NAME="eu-west-1")
     def test_send_message_return_response_on_success(self, mocked_get_boto3_client):
         """The return of post_to_connection should be returned on a positive send_message"""
         obj = WebSocketSession.objects.create(
@@ -885,7 +885,7 @@ class WebSocketSessionIntegrationTestCase(TestCase):
             "apigatewaymanagementapi",
             endpoint_url=(
                 f"https://{obj.api_gateway.api_id}.execute-api."
-                f"{settings.AWS_REGION_NAME}.amazonaws.com/{obj.api_gateway.stage_name}"
+                f"{settings.AWS_GATEWAY_REGION_NAME}.amazonaws.com/{obj.api_gateway.stage_name}"
             ),
         )
         mocked_get_boto3_client.return_value.post_to_connection.assert_called_with(
@@ -896,7 +896,7 @@ class WebSocketSessionIntegrationTestCase(TestCase):
         )
 
     @patch("django_aws_api_gateway_websockets.models.get_boto3_client")
-    @override_settings(AWS_REGION_NAME="eu-west-1")
+    @override_settings(AWS_GATEWAY_REGION_NAME="eu-west-1")
     def test_send_message_boto3_gone_away(self, mocked_get_boto3_client):
         """When a GoneException is raised by Boto3 then an exception is not bubbled but the connected property is set
         to False
@@ -922,7 +922,7 @@ class WebSocketSessionIntegrationTestCase(TestCase):
             "apigatewaymanagementapi",
             endpoint_url=(
                 f"https://{obj.api_gateway.api_id}.execute-api."
-                f"{settings.AWS_REGION_NAME}.amazonaws.com/{obj.api_gateway.stage_name}"
+                f"{settings.AWS_GATEWAY_REGION_NAME}.amazonaws.com/{obj.api_gateway.stage_name}"
             ),
         )
         mocked_get_boto3_client.return_value.post_to_connection.assert_called_with(
@@ -930,7 +930,7 @@ class WebSocketSessionIntegrationTestCase(TestCase):
         )
 
     @patch("django_aws_api_gateway_websockets.models.get_boto3_client")
-    @override_settings(AWS_REGION_NAME="eu-west-1")
+    @override_settings(AWS_GATEWAY_REGION_NAME="eu-west-1")
     def test_send_message_raises_other_boto3_exceptions(self, mocked_get_boto3_client):
         """When a GoneException is raised by Boto3 then an exception is not bubbled but the connected property is set
         to False
@@ -957,7 +957,7 @@ class WebSocketSessionIntegrationTestCase(TestCase):
             "apigatewaymanagementapi",
             endpoint_url=(
                 f"https://{obj.api_gateway.api_id}.execute-api."
-                f"{settings.AWS_REGION_NAME}.amazonaws.com/{obj.api_gateway.stage_name}"
+                f"{settings.AWS_GATEWAY_REGION_NAME}.amazonaws.com/{obj.api_gateway.stage_name}"
             ),
         )
 

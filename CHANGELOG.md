@@ -1,11 +1,25 @@
-# 2.0.0-alpha - In Progress
+# 2.0.1 - ??? April 2026 - NOT RELEASED
+The `route_selection_key` property has been removed as per the warning in version 2.0.0. Please update your integration
+
+# 2.0.0 - 30th September 2025
 - route_selection_key is going to be *deprecated* and is being replaced by handler_selection_key which is a more 
 accurate name and will have a new default value of "handler" rather than "action".
 This is because the "action" related to the actual route selection on AWS API Gateway and is closer tied to the
 Additional Routes logic where as the "handler" is more related to the actual handler method that is being called.
 
-This work is in progress. The code is backeward compatible as long as you don't use a key of handler for what used to
-be handle by the key of route.
+The code is backward compatible as long as you don't use a key of "handler" within your 
+payload for any other purpose. 
+
+Support will be kept in place until March 2026, after that point it will be removed.
+
+For clarity the Django Setting used to determine the region has been changed from ```AWS_REGION_NAME``` to 
+```AWS_GATEWAY_REGION_NAME```. If the new setting is not found or is not set then the old setting will be used.
+
+This is to allow Django Storage uses to use separate AWS Regions. Further changes will come related to this to add
+support for different AWS Regions per API Gateway.
+
+BUG FIX - Fixed the bug whereby using profiles rather than set AWS credentials resulted in the wrong request build the
+boto3 client.
 
 # 1.4.1 - 8th June 2025
 - Introduce two Django CBV mixins to speed up development for projects using this library.

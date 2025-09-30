@@ -70,15 +70,16 @@ class WebSocketView(View):
         self.body = json.loads(request.body) if request.body else {}
         self._debug("Setup completed")
 
-    def _return_bad_request(self, msg):
+    def _return_bad_request(self, msg: str):
         """Common method for logging and returning the HTTP400 response"""
         return HttpResponseBadRequest(msg)
 
-    @warnings.deprecated("Use handler_selection_key_missing instead")
     def route_selection_key_missing(
         self, request, *args, **kwargs
     ) -> HttpResponseBadRequest:
         """Method for handling missing route_selection_key"""
+        warnings.warn("Deprecated: Use handler_selection_key_missing instead. Will be removed in March 2026", DeprecationWarning, stacklevel=2)
+
         msg = f"route_select_key {self.route_selection_key} missing from request body."
         self._debug(msg)
         return self._return_bad_request(msg)
@@ -248,11 +249,13 @@ class WebSocketView(View):
                     else:
                         self._add_user_to_request(request)
                 else:
-                    handler = self.handler_selection_key
+                    handler = self.handler_selection_key_missing
             else:
                 handler = self.http_method_not_allowed
         else:
             handler = self.missing_headers
+
+        print(f"The handler is {handler} of type {type(handler)}")
         res = handler(request, *args, **kwargs)
         return res if res else JsonResponse({})
 

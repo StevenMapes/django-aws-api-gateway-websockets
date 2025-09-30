@@ -103,12 +103,18 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
     def test_route_selection_key_missing(self):
         """Ensure the expected response is generated when the route selection key is missing"""
         obj = views.WebSocketView()
-        res = obj.route_selection_key_missing(None)
+        with self.assertRaises(DeprecationWarning):
+            res = obj.route_selection_key_missing(None)
+
+    def test_handler_selection_key_missing_missing(self):
+        """Ensure the expected response is generated when the handler selection key is missing"""
+        obj = views.WebSocketView()
+        res = obj.handler_selection_key_missing(None)
 
         self.assertIsInstance(res, HttpResponseBadRequest)
         self.assertEqual(400, res.status_code)
         self.assertEqual(
-            b"route_select_key action missing from request body.", res.content
+            b"handler_selection_key handler missing from request body.", res.content
         )
 
     def test_missing_headers(self):
@@ -1309,13 +1315,17 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
     @patch("django_aws_api_gateway_websockets.views.WebSocketView.disconnect")
     @patch("django_aws_api_gateway_websockets.views.WebSocketView._load_session")
     @patch(
+        "django_aws_api_gateway_websockets.views.WebSocketView.handler_selection_key_missing"
+    )
+    @patch(
         "django_aws_api_gateway_websockets.views.WebSocketView.route_selection_key_missing"
     )
     @patch("django_aws_api_gateway_websockets.views.JsonResponse")
-    def test_dispatch__route_selection_key_missing(
+    def test_dispatch__handler_selection_key_missing(
         self,
         MockJsonResponse,
         mocked_route_selection_key_missing,
+        mocked_handler_selection_key_missing,
         mocked__load_session,
         mocked_disconnect,
         mock_invalid_useragent,
@@ -1356,9 +1366,9 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
         request.user = user
         res = SubClassedView.as_view()(request, route="chat")
 
-        self.assertEqual(res, mocked_route_selection_key_missing.return_value)
+        self.assertEqual(res, mocked_handler_selection_key_missing.return_value)
 
-        mocked_route_selection_key_missing.assert_called_with(request, route="chat")
+        mocked_handler_selection_key_missing.assert_called_with(request, route="chat")
 
         self.assertEqual(0, mocked__load_session.call_count)
         self.assertEqual(0, mocked__expected_useragent.call_count)
