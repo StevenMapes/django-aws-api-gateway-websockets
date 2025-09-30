@@ -31,12 +31,12 @@ It may work with other versions of Django from 4.2 up and Python 3.9+ but they w
 
 | **Python/Django** | **4.2**  | **5.0** | **5.1** | **5.2** | **6.0** |
 |-------------------|----------|---------|---------|---------|---------|
-| 3.9               | Y        | N/A     | N/A     | N/A      | N/A     |
+| 3.9               | Y        | N/A     | N/A     | N/A     | N/A     |
 | 3.10              | Y        | Y**     | Y       | Y       | N/A     |
 | 3.11*             | Y        | Y**     | Y       | Y       | N/A     |
 | 3.12              | Y        | Y**     | Y       | Y       | Y       |
 | 3.13              | Y        | Y**     | Y       | Y       | Y       |
-| 3.14              | N        | N       | Y***    | Y***    | Y***    |
+| 3.14              | N        | N       | Y       | Y       | Y       |
 
 * *Python 3.11 only works with Django 4.1.3+
 * **Django 5.0 is no longer being tested for support since May 2025 due to the final version having security issues
