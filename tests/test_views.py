@@ -103,9 +103,12 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
     def test_route_selection_key_missing(self):
         """Ensure the expected response is generated when the route selection key is missing"""
         obj = views.WebSocketView()
-        with self.assertRaises(DeprecationWarning):
-            res = obj.route_selection_key_missing(None)
-
+        res = obj.route_selection_key_missing(None)
+        self.assertIsInstance(res, HttpResponseBadRequest)
+        self.assertEqual(400, res.status_code)
+        self.assertEqual(
+            b"route_select_key action missing from request body.", res.content
+        )
     def test_handler_selection_key_missing_missing(self):
         """Ensure the expected response is generated when the handler selection key is missing"""
         obj = views.WebSocketView()
