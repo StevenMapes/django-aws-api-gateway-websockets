@@ -255,7 +255,6 @@ class WebSocketView(View):
         else:
             handler = self.missing_headers
 
-        print(f"The handler is {handler} of type {type(handler)}")
         res = handler(request, *args, **kwargs)
         return res if res else JsonResponse({})
 

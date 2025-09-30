@@ -1,7 +1,7 @@
-# 2.0.1 - ??? April 2026 - NOT RELEASED
+# 2.0.2 - ??? April 2026 - NOT RELEASED
 The `route_selection_key` property has been removed as per the warning in version 2.0.0. Please update your integration
 
-# 2.0.0 - 30th September 2025
+# 2.0.1 - 30th September 2025
 - route_selection_key is going to be *deprecated* and is being replaced by handler_selection_key which is a more 
 accurate name and will have a new default value of "handler" rather than "action".
 This is because the "action" related to the actual route selection on AWS API Gateway and is closer tied to the
@@ -20,6 +20,9 @@ support for different AWS Regions per API Gateway.
 
 BUG FIX - Fixed the bug whereby using profiles rather than set AWS credentials resulted in the wrong request build the
 boto3 client.
+
+# 2.0.0 - 30th September 2025 - YANKED
+Removed from Pypi due to inclusion of a erroneous debugging print statement.
 
 # 1.4.1 - 8th June 2025
 - Introduce two Django CBV mixins to speed up development for projects using this library.
