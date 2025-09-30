@@ -159,6 +159,21 @@ if __name__ == "__main__":
             check=True,
             capture_output=True,
         )
+        subprocess.run(
+            [
+                "python",
+                *common_args,
+                "-P",
+                "Django>=6.0a1,<6.1",
+                "-P",
+                "urllib3>=2.2.2",
+                "-o",
+                "py312-django60.txt",
+            ],
+            check=True,
+            capture_output=True,
+        )
+    if (3, 13, 0) <= py_version < (3, 15, 0):
         # Python 3.13
         subprocess.run(
             [
@@ -200,6 +215,20 @@ if __name__ == "__main__":
                 "urllib3>=2.2.2",
                 "-o",
                 "py313-django52.txt",
+            ],
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            [
+                "python",
+                *common_args,
+                "-P",
+                "Django>=6.0a1,<6.1",
+                "-P",
+                "urllib3>=2.2.2",
+                "-o",
+                "py313-django60.txt",
             ],
             check=True,
             capture_output=True,
@@ -249,19 +278,17 @@ if __name__ == "__main__":
             check=True,
             capture_output=True,
         )
-
-    # Use SED to remove the --extra-index-url lines from every file
-    # sed_args = ["sed", "-i", "-e", "s/--extra-index-url .*$//g"]
-    # [
-    #     subprocess.run([*sed_args, x.name])
-    #     for x in Path(".").iterdir()
-    #     if not x.is_dir() and ".txt" in x.name
-    # ]
-    #
-    # # Remove backports from Python3.10 and Python 3.11
-    # sed_args = ["sed", "-i", "-e", "/backports/,/via django/d"]
-    # [
-    #     subprocess.run([*sed_args, x.name])
-    #     for x in Path(".").iterdir()
-    #     if not x.is_dir() and ("py310-" in x.name or "py311-" in x.name)
-    # ]
+        subprocess.run(
+            [
+                "python",
+                *common_args,
+                "-P",
+                "Django>=6.0a1,<6.1",
+                "-P",
+                "urllib3>=2.2.2",
+                "-o",
+                "py314-django60.txt",
+            ],
+            check=True,
+            capture_output=True,
+        )
