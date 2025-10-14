@@ -283,7 +283,7 @@ class ApiGatewayAdditionalRoute(models.Model):
     """Stores the additional route keys"""
 
     class Meta:
-        # Once version 4 is the minimum supported vewrsion then swap to use this
+        # Once version 4 is the minimum supported version then swap to use this
         # constraints = [
         #     models.UniqueConstraint("api_gateway", 'name', name='unique_name_per_gateway')
         # ]
