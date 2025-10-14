@@ -16,3 +16,9 @@ repos:
   - id: isort
     args: ["--profile", "black", "--filter-files"]
     language_version: python3.12
+
+#-   repo: https://github.com/adamchainz/django-upgrade
+#    rev: "1.29.0"
+#    hooks:
+#    -   id: django-upgrade
+#        args: [--target-version, "6.0"]
