@@ -26,7 +26,7 @@ already been added as a class decorator on the base view but if you overload the
 it back to avoid receiving CSRF Token failures.
 
 # Python and Django Support
-This project only actively supports current Python and Django versions, Python 3.10 to 3.14, and Django 4.2, 5.1 and 5.2.
+This project only actively supports current Python and Django versions, Python 3.10-3.14, and Django 4.2, 5.1, 5.2 & 6.0.
 It may work with other versions of Django from 4.2 up and Python 3.9+ but they will no longer be tested.
 
 | **Python/Django** | **4.2**  | **5.0** | **5.1** | **5.2** | **6.0** |
