@@ -22,7 +22,7 @@ Please refer to the installation notes and Getting Start Guides.
 
 # Security Concerns
 **IMPORTANT:**: In order to work the dispatch method requires the ```csrf_exempt``` decorator to be added. This has
-already been added as a class decorator on the base view but if you overload the dispatch method you will need to add
+already been added as a class decorator on the base view, if you overload the dispatch method you will need to add
 it back to avoid receiving CSRF Token failures.
 
 # Python and Django Support
