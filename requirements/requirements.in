@@ -8,4 +8,5 @@ pip==25.3
 pre-commit
 # setuptools
 hatchling
+sqlparse>=0.5.4
 virtualenv>=20.28.1     # Set by pre-commit
