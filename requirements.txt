@@ -1,1 +1,1 @@
--r requirements/py312-django51.txt
+-r requirements/py312-django52.txt
