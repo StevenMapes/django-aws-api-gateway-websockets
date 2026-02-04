@@ -4,8 +4,7 @@ django
 filelock>=3.20.3
 pytest>=8.3.4
 pytest-django>=4.9.0
-#pip<=25.1   # Breaks cache_clear
-pip==25.3
+pip<=24.1   # Breaks cache_clear
 pre-commit
 # setuptools
 hatchling
