@@ -25,6 +25,20 @@ Please refer to the installation notes and Getting Start Guides.
 already been added as a class decorator on the base view, if you overload the dispatch method you will need to add
 it back to avoid receiving CSRF Token failures.
 
+# Restricting access to users
+As of version 2.1.0 you can now use Django Permissions to restrict access to the methods that handle the Websocket 
+request within your views.py.
+
+On the base view class there are two object properties that can be used to set the permissions that are required.
+
+```has_any_permission``` -> User must have ANY of the permissions listed
+
+```has_all_permission``` -> User must have ALL of the permissions listed
+
+These checks will apply during the ```dispatch``` method and will return a 403 response if the user does not have the 
+required permissions. Having permissions at an individual level is not currently supported automatically and will be 
+added in a future release.
+
 # Python and Django Support
 This project only actively supports current Python and Django versions, Python 3.10-3.14, and Django 4.2, 5.1, 5.2 & 6.0.
 It may work with other versions of Django from 4.2 up and Python 3.9+ but they will no longer be tested.

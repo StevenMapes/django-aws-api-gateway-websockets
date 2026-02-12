@@ -3,7 +3,7 @@ import warnings
 from typing import Union
 
 from django.conf import settings
-from django.http import HttpResponseBadRequest, JsonResponse
+from django.http import HttpResponseBadRequest, HttpResponseForbidden, JsonResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
@@ -51,6 +51,9 @@ class WebSocketView(View):
         "Sec-Websocket-Version",
     ]
     expected_useragent_prefix = "AmazonAPIGateway_"
+
+    permissions_required = []       # User must have ANY of these permissions to invoke the method. Default = Allow All
+    all_permissions_required = []   # User must have ALL these permissions to invoke the method. Default = Allow All
 
     def __init__(self, **kwargs):
         self.api_gateway = kwargs.get("api_gateway", False)
@@ -100,6 +103,10 @@ class WebSocketView(View):
         )
         self._debug(msg)
         return self._return_bad_request("Some of the required headers are missing")
+
+    def permission_denied(self, request, *args, **kwargs) -> HttpResponseBadRequest:
+        """Method for handling denied access"""
+        return HttpResponseForbidden("Permission Denied")
 
     def invalid_useragent(self, request, *args, **kwargs) -> HttpResponseBadRequest:
         """Method for handling unexpected useragents"""
@@ -248,6 +255,14 @@ class WebSocketView(View):
                         handler = self.invalid_useragent
                     else:
                         self._add_user_to_request(request)
+
+                        # Use Django Permissiosn to restrict the method
+                        if self.all_permissions_required:
+                            if not self.has_all_permission(request):
+                                handler = self.permission_denied
+                        elif self.permissions_required:
+                            if not self.has_any_permission(request):
+                                handler = self.permission_denied
                 else:
                     handler = self.handler_selection_key_missing
             else:
@@ -310,3 +325,19 @@ class WebSocketView(View):
     def default(self, request, *args, **kwargs) -> JsonResponse:
         """Overload this method if you want to have a default message handler"""
         raise NotImplementedError("This logic needs to be defined within the subclass")
+
+    def has_any_permission(self, request) -> bool:
+        """Test if the user has ANY of the required permissions"""
+        res = True
+        if self.permissions_required:
+            has_perms = [request.user.has_perms([permission]) for permission in self.permission_required]
+            res = any(has_perms)
+        return res
+
+    def has_all_permission(self, request) -> bool:
+        """Test if the user has ALL: of the required permissions"""
+        res = True
+        if self.all_permissions_required:
+            has_perms = [request.user.has_perms([permission]) for permission in self.permission_required]
+            res = all(has_perms)
+        return res

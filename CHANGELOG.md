@@ -1,6 +1,19 @@
 # 3.* - ??? April 2026 - NOT RELEASED
 The `route_selection_key` property has been removed as per the warning in version 2.0.0. Please update your integration
 
+# 2.1.0 - 12th February 2026
+- Added support to check Django Permissions before invoking the handler method. This allows the methods to be restricted
+based upon the standard Django Permissions system. You can set a list of permissions whereby if the user has ANY of
+them, they will be allowed to invoke the handler method. Alternatively you can list a set of Permissions that the user
+must have ALL of to invoke the handler method. If nethier are set then all users will be allowed to invoke the handler
+as per the previous behaviour.
+
+```has_any_permission``` -> User must have ANY of the permissions listed
+
+```has_all_permission``` -> User must have ALL of the permissions listed
+
+Overload these methods for custom permission handling.
+
 # 2.0.2 - 30th September 2025
 Adding support for Python 3.14 and Django 6.0a1 into the test suite
 
