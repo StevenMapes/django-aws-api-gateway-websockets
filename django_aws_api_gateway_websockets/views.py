@@ -330,7 +330,7 @@ class WebSocketView(View):
         """Test if the user has ANY of the required permissions"""
         res = True
         if self.permissions_required:
-            has_perms = [request.user.has_perms([permission]) for permission in self.permission_required]
+            has_perms = [request.user.has_perms([permission]) for permission in self.permissions_required]
             res = any(has_perms)
         return res
 
@@ -338,6 +338,6 @@ class WebSocketView(View):
         """Test if the user has ALL: of the required permissions"""
         res = True
         if self.all_permissions_required:
-            has_perms = [request.user.has_perms([permission]) for permission in self.permission_required]
+            has_perms = [request.user.has_perms([permission]) for permission in self.all_permissions_required]
             res = all(has_perms)
         return res

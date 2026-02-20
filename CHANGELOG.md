@@ -1,6 +1,9 @@
 # 3.* - ??? April 2026 - NOT RELEASED
 The `route_selection_key` property has been removed as per the warning in version 2.0.0. Please update your integration
 
+# 2.1.1 - 20th February 2026
+- Bug fix, the Django Permission check was checking the wrong class property.
+
 # 2.1.0 - 12th February 2026
 - Added support to check Django Permissions before invoking the handler method. This allows the methods to be restricted
 based upon the standard Django Permissions system. You can set a list of permissions whereby if the user has ANY of
