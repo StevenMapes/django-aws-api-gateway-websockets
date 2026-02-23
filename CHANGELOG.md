@@ -1,6 +1,10 @@
 # 3.* - ??? April 2026 - NOT RELEASED
 The `route_selection_key` property has been removed as per the warning in version 2.0.0. Please update your integration
 
+# 2.2.0 - 23rd February 2026
+- Updated the AppChannelWebSocketMixin so that you can now set the app_channel_override property on child classes to
+overload the default channel_name from being the name of the app the view exists within.
+
 # 2.1.1 - 20th February 2026
 - Bug fix, the Django Permission check was checking the wrong class property.
 
