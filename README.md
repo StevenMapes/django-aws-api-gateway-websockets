@@ -1,14 +1,14 @@
-[![CI Build Status](https://img.shields.io/github/actions/workflow/status/StevenMapes/django-aws-api-gateway-websockets/main.yml?branch=main&style=for-the-badge)](https://github.com/StevenMapes/django-aws-api-gateway-websockets/actions)
-[![Coverage](https://img.shields.io/badge/Coverage-96%25-success?style=for-the-badge)](https://github.com/StevenMapes/django-aws-api-gateway-websockets/actions?workclow=CI)
-[![PyPi](https://img.shields.io/pypi/v/django-aws-api-gateway-websockets.svg?style=for-the-badge)](https://pypi.org/project/django-aws-api-gateway-websockets/)
+[![CI Build Status](https://img.shields.io/github/actions/workflow/status/StevenMapes/django-aws-api-gateway-WebSockets/main.yml?branch=main&style=for-the-badge)](https://github.com/StevenMapes/django-aws-api-gateway-WebSockets/actions)
+[![Coverage](https://img.shields.io/badge/Coverage-96%25-success?style=for-the-badge)](https://github.com/StevenMapes/django-aws-api-gateway-WebSockets/actions?workclow=CI)
+[![PyPi](https://img.shields.io/pypi/v/django-aws-api-gateway-WebSockets.svg?style=for-the-badge)](https://pypi.org/project/django-aws-api-gateway-WebSockets/)
 ![Code Style](https://img.shields.io/badge/code%20style-black-000000.svg?style=for-the-badge)
 ![Pre-Commit Enabled](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white&style=for-the-badge)
-[![Read The Docs](https://img.shields.io/readthedocs/django-mysql?style=for-the-badge)](https://django-aws-api-gateway-websockets.readthedocs.io/)
+[![Read The Docs](https://img.shields.io/readthedocs/django-mysql?style=for-the-badge)](https://django-aws-api-gateway-WebSockets.readthedocs.io/)
 
-[![PyPi Downloads](https://img.shields.io/pypi/dd/django-aws-api-gateway-websockets)](https://pypistats.org/packages/django-aws-api-gateway-websockets)
+[![PyPi Downloads](https://img.shields.io/pypi/dd/django-aws-api-gateway-WebSockets)](https://pypistats.org/packages/django-aws-api-gateway-WebSockets)
 
-# Django AWS API Gateway Websockets
-It is the aim of this project to create a uniform way to record websocket connections, associate the Django user who established the connection and then retrieve that user within each request.
+# Django AWS API Gateway WebSockets
+It is the aim of this project to create a uniform way to record WebSocket connections, associate the Django user who established the connection and then retrieve that user within each request.
 
 This project is designed to work exclusively with AWS API Gateway.
 
@@ -26,7 +26,7 @@ already been added as a class decorator on the base view, if you overload the di
 it back to avoid receiving CSRF Token failures.
 
 # Restricting access to users
-As of version 2.1.0 you can now use Django Permissions to restrict access to the methods that handle the Websocket 
+As of version 2.1.0 you can now use Django Permissions to restrict access to the methods that handle the WebSocket 
 request within your views.py.
 
 On the base view class there are two object properties that can be used to set the permissions that are required.
@@ -40,36 +40,37 @@ required permissions. Having permissions at an individual level is not currently
 added in a future release.
 
 # Python and Django Support
-This project only actively supports current Python and Django versions, Python 3.10-3.14, and Django 4.2, 5.1, 5.2 & 6.0.
+This project only actively supports current Python and Django versions, Python 3.10-3.15, and Django 4.2, 5.1, 5.2 & 6.0.
 It may work with other versions of Django from 4.2 up and Python 3.9+ but they will no longer be tested.
 
-| **Python/Django** | **4.2**  | **5.0** | **5.1** | **5.2** | **6.0** |
-|-------------------|----------|---------|---------|---------|---------|
-| 3.9               | Y        | N/A     | N/A     | N/A     | N/A     |
-| 3.10              | Y        | Y**     | Y       | Y       | N/A     |
-| 3.11*             | Y        | Y**     | Y       | Y       | N/A     |
-| 3.12              | Y        | Y**     | Y       | Y       | Y       |
-| 3.13              | Y        | Y**     | Y       | Y       | Y       |
-| 3.14              | N        | N       | Y       | Y       | Y       |
+| **Python/Django**  | **4.2**  | **5.0** | **5.1**  | **5.2** | **6.0** |
+|--------------------|----------|---------|----------|---------|---------|
+| 3.9                | Y        | N/A     | N/A      | N/A     | N/A     |
+| 3.10               | Y        | Y**     | Y        | Y       | N/A     |
+| 3.11*              | Y        | Y**     | Y        | Y       | N/A     |
+| 3.12               | Y        | Y**     | Y        | Y       | Y       |
+| 3.13               | Y        | Y**     | Y        | Y       | Y       |
+| 3.14               | N        | N       | Y        | Y       | Y       |
+| 3.15               | N        | N       | N        | Y       | Y       |
 
 * *Python 3.11 only works with Django 4.1.3+
 * **Django 5.0 is no longer being tested for support since May 2025 due to the final version having security issues
 
 # Installation
 You can install this package from pip using
-```
-pip install django-aws-api-gateway-websockets
+```bash
+pip install django-aws-api-gateway-WebSockets
 ```
 
 ## settings.py
-Add ```django_aws_api_gateway_websockets``` into ```INSTALLED_APPS``` 
+Add ```django_aws_api_gateway_WebSockets``` into ```INSTALLED_APPS``` 
 
 ### Decide on AWS Credential Setup
 This package supports differing ways to connect to AWS, depending on the option you require depends on which settings
 you will need to define.
 
 #### Using the IAM role of the instance
-If you are running this package on an EC2 Instance that has an IAM profile then you only need to specifc the region to
+If you are running this package on an EC2 Instance that has an IAM profile then you only need to specific the region to
 connect to by setting the ```AWS_GATEWAY_REGION_NAME``` in ```settings.py``` (falls back to ```AWS_REGION_NAME```).
 
 E.G. ```AWS_GATEWAY_REGION_NAME="eu-west-1"``` will mean this package will connect to the Ireland region using the IAM profile
@@ -99,7 +100,7 @@ values in either a secrets manager or environmental values. I tend to use https:
 If your site is **not** already running cross-origin you will need to update some settings and flush the sessions to ensure the primary domain and subdomain will work.
 
 Because the API Gateway will run from a subdomain you need ensure the cookies are set-up to allow subdomains to read them.
-Assuming your site runs from **www.example.com** and you wanted to use **ws.www.example.com** for websockets you would need to 
+Assuming your site runs from **www.example.com** and you wanted to use **ws.www.example.com** for WebSockets you would need to 
 set the below CSRF and COOKIE settings (Django 4 examples shown)
 ```
 # CSRF
@@ -115,7 +116,7 @@ SESSION_COOKIE_NAME='mysessionid'
 SESSION_COOKIE_DOMAIN='.www.example.com'
 ```
 
-If you wanted to use **www.example.com** for the main site and  **ws.example.com** for websockets you'd need to use 
+If you wanted to use **www.example.com** for the main site and  **ws.example.com** for WebSockets you'd need to use 
 these settings
 
 ```
@@ -133,12 +134,17 @@ SESSION_COOKIE_DOMAIN='.example.com'
 **NOTE:** You need to rename the SESSION cookie. In the example I have renamed if from ```sessionid``` to ```mysessionid```. This will ensure that any old cookies are ignored.
 
 ### Flushing Sessions
-Because you are changing the session cookie you will also need to flush any cached sessions using ```python manage.py clearsessions```.
+Because you are changing the session cookie you will also need to flush any cached sessions using: 
 
-## Clearing Stale Websocket connections
-The websocket connections will become stale over time and some housekeeping is required.  To help there is a management
+```bash
+python manage.py clearsessions
+```.
+
+## Clearing Stale WebSocket connections
+The WebSocket connections will become stale over time and some housekeeping is required.  To help there is a management
 command clearWebSocketSessions that can be run to delete the closed connections from the database.  Simply run
-```
+
+```bash
 python manage.py clearWebSocketSessions
 ``` 
 I recommend setting this as a scheduled task.
@@ -212,7 +218,7 @@ following IAM policy which you can copy and paste into the JSON editor within th
 ```
 
 You will need to edit the permissions and replace the following: 
-1. ```{AWS-REGION-NANE}``` with the correct AWS region you are using, E.G ```eu-west-1```. If you wish to grant access to all regions then replace this placeholder with an ```*```
+1. ```{AWS-REGION-NAME}``` with the correct AWS region you are using, E.G ```eu-west-1```. If you wish to grant access to all regions then replace this placeholder with an ```*```
 2. ```{AWS-ACCOUNT-NUMBER}``` with your account number E.G: 123456789101 
 
 This policy grants permissions to ensure the API Gateway(s) will be created, the custom domain name mapped to the 
@@ -228,11 +234,11 @@ permissions above will allow you to add/edit and API gateway on your account.
 
 The core files within this project are:
 
-1. ```django_aws_api_gateway_websockets.views.WebSocketView``` - The base class-based view from which you should extend
-2. ```django_aws_api_gateway_websockets.models.ApiGateway``` - A model for managing the API Gateway. A Django Admin 
+1. ```django_aws_api_gateway_WebSockets.views.WebSocketView``` - The base class-based view from which you should extend
+2. ```django_aws_api_gateway_WebSockets.models.ApiGateway``` - A model for managing the API Gateway. A Django Admin 
 page is included along with custom actions to create the API Gateway and configure a Custom Domain.  For those with
 projects not using Django Admin there are two management commands that perform the same actions. 
-3. ```django_aws_api_gateway_websockets.models.WebSocketSession``` - The websocket session store. Every connection 
+3. ```django_aws_api_gateway_WebSockets.models.WebSocketSession``` - The WebSocket session store. Every connection 
 writes to this model which contains a method to send a message to the connection.  The QuerySet of the objects model 
 manager has been extended to include a method to send messages to all records included within a queryset.  
 
@@ -244,23 +250,23 @@ $disconnect
 
 E.G. 
 ```
-path("ws/<slug:route>", ExampleWebSocketView.as_view(), name="example_websocket")
+path("ws/<slug:route>", ExampleWebSocketView.as_view(), name="example_WebSocket")
 ```
 
 ### Creating the Views
 Subclass the ```WebSocketView``` and implement methods where the name of the method is the name of the route the 
 API Gateway has been setup to use. There are already methods for $connect and $disconnect you just need to implement
 a method for ```default``` along with any other custom routes you have created.  The methods are selected dynamically
-via the ```dispatch``` method with any leading dollar sign being remove.
+via the ```dispatch``` method with any leading dollar sign being removed.
 
 The methods take the ```request``` parameter and only needs to return a response if you wish to return a negative HTTP
 response such as a HttpResponseBadRequest otherwise there is no need to return anything.
 
-```
-from django_aws_api_gateway_websockets.views import WebSocketView
+```python
+from django_aws_api_gateway_WebSockets.views import WebSocketView
 
 class ExampleWebSocketView(WebSocketView):
-    """Custom Websocket view."""
+    """Custom WebSocket view."""
 
     def default(self, request, *args, **kwargs) -> JsonResponse:
         """Add the logic you wish to make here when you receive a message.
@@ -270,34 +276,34 @@ class ExampleWebSocketView(WebSocketView):
 
 ```
 
-If you want to send a response to the websocket that made the request then you need to call the ```send_message()``` on
+If you want to send a response to the WebSocket that made the request then you need to call the ```send_message()``` on
 the WebSocketSession that is being used. See the example below
 
-```
-from django_aws_api_gateway_websockets.views import WebSocketView
+```python
+from django_aws_api_gateway_WebSockets.views import WebSocketView
 
 class ExampleWebSocketView(WebSocketView):
-    """Custom Websocket view."""
+    """Custom WebSocket view."""
 
     def default(self, request, *args, **kwargs) -> JsonResponse:
         # Do stuff 
         ...        
         
         # Send a message back to the client - i.e unicast
-        self.websocket_session.send_message({"key1": "value1", "key2": "value2"})
+        self.WebSocket_session.send_message({"key1": "value1", "key2": "value2"})
 
 ```
 
 If you are using the "channels" to group WebSocket connections together for multicasting, that is one-to-many 
 communication then you can use the following example
 
-```
-from django_aws_api_gateway_websockets.models import WebSocketSession
-from django_aws_api_gateway_websockets.views import WebSocketView
+```python
+from django_aws_api_gateway_WebSockets.models import WebSocketSession
+from django_aws_api_gateway_WebSockets.views import WebSocketView
 
 
 class ExampleWebSocketView(WebSocketView):
-    """Custom Websocket view."""
+    """Custom WebSocket view."""
 
     def default(self, request, *args, **kwargs) -> JsonResponse:
         # Do stuff 
@@ -305,16 +311,16 @@ class ExampleWebSocketView(WebSocketView):
         
         # Multicast a message to ALL CONNECTED clients on the same "channel"
         WebSocketSession.objects.filter(
-            channel_name=self.websocket_session.channel_name
-        ).send_message({"key": "value})
+            channel_name=self.WebSocket_session.channel_name
+        ).send_message({"key": "value"})
 
         # Multicast a message to ALL CONNECTED clients who are with the 
         # channel_nme "my-example-channel"
         WebSocketSession.objects.filter(
-            channel_name=my-example-channel
+            channel_name="my-example-channel"
         ).send_message(
             {
-                "key": "value
+                "key": "value"
             }
         )
 
@@ -331,25 +337,25 @@ Assume that two series of sends are made to the WebSocket. The first with the pa
 ```{"action": "test", "value": "hello world"}``` and the second ```{"action": "help", "value": "Help Me"}```. You can
 either handle these within the catch-all ```default``` method or you can write individual methods for each action
 
-```
-from django_aws_api_gateway_websockets.models import WebSocketSession
-from django_aws_api_gateway_websockets.views import WebSocketView
+```python
+from django_aws_api_gateway_WebSockets.models import WebSocketSession
+from django_aws_api_gateway_WebSockets.views import WebSocketView
 
 
 class ExampleWebSocketView(WebSocketView):
-    """Custom Websocket view."""
+    """Custom WebSocket view."""
 
     def test(self, request, *args, **kwargs) -> JsonResponse:
-        print(self.body.get("value")
+        print(self.body.get("value"))
         # Prints "hello world" 
 
     def help(self, request, *args, **kwargs) -> JsonResponse:
-        print(self.body.get("value")
+        print(self.body.get("value"))
         # Prints "Help Me" 
 ```
 
 **Remember**: The "action" key is the default ```route_selection_key```, if you chose to use a different one when 
-setting up the websocket make sure to update the ```route_selection_key``` class property to use the same value
+setting up the WebSocket make sure to update the ```route_selection_key``` class property to use the same value
 
 
 ### Debugging the View
@@ -359,7 +365,7 @@ in a string. By default this method will update a list property called ```debug_
 you may wish to simply overload the method and call your logger.
 
 E.G.
-```
+```python
 def _debug(self, msg: str):
     if self.debug:
         logger.debug(msg)
@@ -374,7 +380,7 @@ To send a message to a specific connection simple load its ```WebSocketSession``
 
 ### Sending a message to one connection
 ```python
-from django_aws_api_gateway_websockets.models import WebSocketSession
+from django_aws_api_gateway_WebSockets.models import WebSocketSession
 
 obj = WebSocketSession.objects.get(pk=1)
 obj.send_message({"type": "example", "msg": "This is a message"})
@@ -382,7 +388,7 @@ obj.send_message({"type": "example", "msg": "This is a message"})
 
 ### Sending a message to ALL active connections associated with the same channel 
 ```python
-from django_aws_api_gateway_websockets.models import WebSocketSession
+from django_aws_api_gateway_WebSockets.models import WebSocketSession
 
 WebSocketSession.objects.filter(channel_name="Chatroom 1").send_message(
     {"msg": "This is a a sample message"}
@@ -402,7 +408,7 @@ Using the Django Admin page create a new API Gateway record using the following 
 
 1. **API Name** - The human friendly API Name
 2. **API Description** - Optional
-3. **Default channel name** - Fill this in if you want all connections to this Websocket to also be associated with 
+3. **Default channel name** - Fill this in if you want all connections to this WebSocket to also be associated with 
 the same "channel" otherwise leave it blank. "Channels" are groups of web socket connections and nothing more.
 4. **Target base Endpoint** - This is the full URL path to the view you wish to use to handle the requests **excluding**
 the ```route``` slug portion that will be automatically appended.
@@ -467,11 +473,11 @@ wish to match.
 
 
 ## Gotchas and debugging
-### Failure to connect to websockets
+### Failure to connect to WebSockets
 #### Differing required headers
-The most common reasons for the websocket failing to connect is due to different required headers. The base view is 
+The most common reasons for the WebSocket failing to connect is due to different required headers. The base view is 
 set-up with two lists of expected headers. ```required_headers``` and ```additional_required_headers```. If you are 
-deploying to an EC2 server then you shouldn't have to change these but if you are deploying else where or are testing
+deploying to an EC2 server then you shouldn't have to change these but if you are deploying elsewhere or are testing
 locally you may find that you need to change some of these. During development of this library I was using an
 [NGROK](https://ngrok.com/) network edge tunnel and found that the "X-Real-Ip" and "Connection" headers were being lost
 during which is why they were moved to the additional_required_headers. If you find this is the case for you then simply
@@ -483,7 +489,7 @@ This section will guide you through two common ways of connecting to and using t
 
 ### Basic Integration
 Below is a very basic integration using the WebSockets API built into browsers. It does not handle reconnecting dropped
-websockets, see the next section for that.
+WebSockets, see the next section for that.
 
 **WARNING**: This method will create a WebSocket that will timeout after around 10 minutes. 
 
@@ -513,17 +519,17 @@ exampleWS.onmessage = function(event) {
 ```
 
 ### Reconnecting WebSockets
-Websockets can disconnect due to a variety of reasons; to work around this here are some links to libraries of proposed
+WebSockets can disconnect due to a variety of reasons; to work around this here are some links to libraries of proposed
 solutions:
 
-1. [Stack Overflow- WebSocket: How to automatically reconnect after it dies](https://stackoverflow.com/questions/22431751/websocket-how-to-automatically-reconnect-after-it-dies)
-2. [JS library - reconnecting-websocket](https://github.com/joewalnes/reconnecting-websocket)
+1. [Stack Overflow- WebSocket: How to automatically reconnect after it dies](https://stackoverflow.com/questions/22431751/WebSocket-how-to-automatically-reconnect-after-it-dies)
+2. [JS library - reconnecting-WebSocket](https://github.com/joewalnes/reconnecting-WebSocket)
 
 The below example is using the JS library. Note you just include the lib and then use the 
 ```ReconnectingWebSocket``` class rather than ```WebSocket```:
 
 ```html
-<script src="https://cdnjs.cloudflare.com/ajax/libs/reconnecting-websocket/1.0.0/reconnecting-websocket.min.js" integrity="sha512-B4skI5FiLurS86aioJx9VfozI1wjqrn6aTdJH+YQUmCZum/ZibPBTX55k5d9XM6EsKePDInkLVrN7vPmJxc1qA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/reconnecting-WebSocket/1.0.0/reconnecting-WebSocket.min.js" integrity="sha512-B4skI5FiLurS86aioJx9VfozI1wjqrn6aTdJH+YQUmCZum/ZibPBTX55k5d9XM6EsKePDInkLVrN7vPmJxc1qA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script>
 let wss_url = 'wss://ws.example.com';
 let exampleWS = new ReconnectingWebSocket(wss_url);
@@ -566,10 +572,10 @@ value being assigned to **bob**. The ```dispatch``` method of the view will then
 Please refer to the [official AWS documentation](https://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request-public.html)
 
 # Found a Bug?
-Issues are tracked via GitHub issues at the [project issue page](https://github.com/StevenMapes/django-aws-api-gateway-websockets/issues)
+Issues are tracked via GitHub issues at the [project issue page](https://github.com/StevenMapes/django-aws-api-gateway-WebSockets/issues)
 
 # Have A Feature Request?
-Feature requests can be raised by creating an issue within the [project issue page](https://github.com/StevenMapes/django-aws-api-gateway-websockets/issues), but please create the issue with "Feature Request -" at the start of the issue
+Feature requests can be raised by creating an issue within the [project issue page](https://github.com/StevenMapes/django-aws-api-gateway-WebSockets/issues), but please create the issue with "Feature Request -" at the start of the issue
 
 # Testing
 To run the tests use
@@ -594,8 +600,8 @@ This project uses hatchling
 # tox
 
 # Contributing
-- [Check for open issues](https://github.com/StevenMapes/django-aws-api-gateway-websockets/issues) at the project issue page or open a new issue to start a discussion about a feature or bug.
-- Fork the [repository on GitHub](https://github.com/StevenMapes/django-aws-api-gateway-websockets) to start making changes.
+- [Check for open issues](https://github.com/StevenMapes/django-aws-api-gateway-WebSockets/issues) at the project issue page or open a new issue to start a discussion about a feature or bug.
+- Fork the [repository on GitHub](https://github.com/StevenMapes/django-aws-api-gateway-WebSockets) to start making changes.
 - Clone the repository
 - Initialise pre-commit by running ```pre-commit install```
 - Install requirements from one of the requirement files depending on the versions of Python and Django you wish to use.
