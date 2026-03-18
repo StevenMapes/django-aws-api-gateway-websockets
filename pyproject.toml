@@ -10,7 +10,7 @@ skip = [
 
 [project]
 name = "django-aws-api-gateway-websockets"
-version = "2.2.0"
+version = "2.2.1"
 description = "Created to allow Django projects to be used as a HTTP backend for AWS API Gateway websockets"
 readme = "README.md"
 authors = [
@@ -43,6 +43,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
 ]
 dependencies = [
     "Django>=4.2.27",
