@@ -1,6 +1,10 @@
-# 3.* - ??? April 2026 - NOT RELEASED
+n# 3.* - ??? April 2026 - NOT RELEASED
 The `route_selection_key` property has been removed as per the warning in version 2.0.0. Please update your integration
 
+# 2.2.2 - 26th March 2026
+- Dropped "Connection" from the default ```additional_required_headers``` list as it is no longer always coming through.
+Issue found with a combination of AWS ALB, Pytohon 3.14, Django 6 and Nginx 1.29.7
+ 
 # 2.2.1 - 18th March 2026
 - Updated to add in support for Python 3.15
  

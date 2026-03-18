@@ -38,7 +38,6 @@ class WebSocketView(View):
         "X-Amzn-Apigateway-Api-Id",
     ]
     additional_required_headers = [
-        "Connection",
         "X-Amzn-Trace-Id",
         "X-Forwarded-Port",
         "X-Real-Ip",
