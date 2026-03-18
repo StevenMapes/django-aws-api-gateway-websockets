@@ -115,7 +115,7 @@ required permissions. Having permissions at an individual level is not currently
 added in a future release.
 
 # Python and Django Support
-This project only actively supports current Python and Django versions: Python 3.10-3.14, and Django 4.2, 5.1, 5.2 & 6.0.
+This project only actively supports current Python and Django versions: Python 3.10-3.15, and Django 4.2, 5.1, 5.2 & 6.0.
 It may work with other versions of Django from 4.2 up and Python 3.9+, but they are no longer tested.
 
 | **Python/Django** | **4.2**  | **5.0** | **5.1**  | **5.2** | **6.0** |
@@ -126,6 +126,7 @@ It may work with other versions of Django from 4.2 up and Python 3.9+, but they 
 | 3.12              | Y        | Y**     | Y        | Y       | Y       |
 | 3.13              | Y        | Y**     | Y        | Y       | Y       |
 | 3.14              | N        | N       | Y        | Y       | Y       |
+| 3.15              | N        | N       | Y        | Y       | Y       |
 
 * *Python 3.11 only works with Django 4.1.3+
 * **Django 5.0 is no longer being tested for support since May 2025 due to the final version having security issues
