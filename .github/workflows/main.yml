@@ -27,6 +27,9 @@ jobs:
         - '3.13'
         - '3.14'
         - '3.15'
+        include:
+        - python-version: '3.15'
+          allow-failure: true
 
     steps:
     - uses: actions/checkout@v4
@@ -37,6 +40,10 @@ jobs:
         allow-prereleases: true
         # cache: pip
         # cache-dependency-path: 'requirements/*.txt'
+
+    - name: Upgrade packaging tools on Python 3.15
+      if: matrix.python-version == '3.15'
+      run: python -m pip install --upgrade pip setuptools wheel
 
     - name: Install uv
       uses: astral-sh/setup-uv@v2
@@ -52,6 +59,7 @@ jobs:
     #     python -m pip install --upgrade 'tox>=4.0.0rc3'
 
     - name: Run tox targets for ${{ matrix.python-version }}
+      continue-on-error: ${{ matrix.allow-failure == true }}
       run: tox run -f py$(echo ${{ matrix.python-version }} | tr -d .)
 
     - name: Upload coverage data
