@@ -292,3 +292,33 @@ if __name__ == "__main__":
             check=True,
             capture_output=True,
         )
+
+        # Python 3.15
+        subprocess.run(
+            [
+                "python",
+                *common_args,
+                "-P",
+                "Django>=5.2.12,<6.0",
+                "-P",
+                "urllib3>=2.6.0",
+                "-o",
+                "py315-django52.txt",
+            ],
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            [
+                "python",
+                *common_args,
+                "-P",
+                "Django>=6,<6.1",
+                "-P",
+                "urllib3>=2.6.0",
+                "-o",
+                "py315-django60.txt",
+            ],
+            check=True,
+            capture_output=True,
+        )
