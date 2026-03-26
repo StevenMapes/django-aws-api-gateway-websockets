@@ -32,7 +32,6 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
     def test_additional_required_headers(self):
         self.assertEqual(
             [
-                "Connection",
                 "X-Amzn-Trace-Id",
                 "X-Forwarded-Port",
                 "X-Real-Ip",
