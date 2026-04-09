@@ -6,6 +6,9 @@ from django.conf import settings
 from django.db import models
 
 
+MAX_MESSAGE_SIZE = 1024 * 128  # 128KB (AWS limit is 128KB)
+
+
 def get_region_name():
     """Returns the AWS region name from settings.py. Uses AWS_GATEWAY_REGION_NAME first and falls back to
     AWS_REGION_NAME for backwards compatibility.
@@ -396,6 +399,10 @@ class WebSocketSession(models.Model):
     def send_message(self, data: dict):
         """Sends a message containing the given data to connection"""
         region = get_region_name()
+        message_data = json.dumps(data)
+
+        if len(message_data.encode('utf-8')) > MAX_MESSAGE_SIZE:
+            raise ValueError(f"Message too large: {len(message_data)} bytes")
 
         client = get_boto3_client(
             "apigatewaymanagementapi",
@@ -406,7 +413,7 @@ class WebSocketSession(models.Model):
         )
         try:
             return client.post_to_connection(
-                Data=json.dumps(data), ConnectionId=self.connection_id
+                Data=message_data, ConnectionId=self.connection_id
             )
         except ClientError as error:
             if error.response["Error"]["Code"] == "GoneException":

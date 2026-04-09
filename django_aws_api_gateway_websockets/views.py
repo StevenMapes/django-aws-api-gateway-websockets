@@ -1,8 +1,11 @@
 import json
+import re
 import warnings
 from typing import Union
 
 from django.conf import settings
+from django.db import transaction
+from django.db.models import F
 from django.http import HttpResponseBadRequest, HttpResponseForbidden, JsonResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
@@ -19,6 +22,43 @@ class WebSocketView(View):
 
     debug = False
     debug_log = None
+
+    MAX_BODY_SIZE = 1024 * 128  # 128KB
+
+    MAX_CHANNEL_NAME_LENGTH = 191
+    CHANNEL_NAME_PATTERN = re.compile(r'^[a-zA-Z0-9_-]+$')
+
+    # ALLOWED_HANDLERS = {"default"}
+    ALLOWED_HANDLERS = {}   # Will be used in V3 to restrict the methods that can be invoked
+
+    # Will be replaced in V3 with ALLOWED_HANDLERS
+    DISALLOWED_HANDLERS = {
+        "__init__",
+        "_debug",
+        "setup",
+        "_return_bad_request",
+        "route_selection_key_missing",
+        "handler_selection_key_missing",
+        "missing_headers",
+        "permission_denied",
+        "invalid_useragent",
+        "_expected_headers",
+        "_allowed_apigateway",
+        "_check_platform_registered_api_gateways",
+        "_expected_useragent",
+        "_check_allowed_hosts",
+        "_check_host_is_in_origin",
+        "_expected_connection_headers",
+        "_add_user_to_request",
+        "_get_channel_name",
+        "_load_session",
+        "dispatch",
+        "connect",
+        "_additional_connection_checks",
+        "disconnect",
+        "has_any_permission",
+        "has_all_permission"
+    }
 
     # todo - The following key is deprecated and should be removed in a future release for handler_selection_key
     route_selection_key = "action"
@@ -69,7 +109,18 @@ class WebSocketView(View):
         """Converts the request.body string back into a dictionary and assign to the objects body property for ease"""
         super().setup(request, *args, **kwargs)
         self._debug("Within setup")
-        self.body = json.loads(request.body) if request.body else {}
+
+        if request.body and len(request.body) > self.MAX_BODY_SIZE:
+            self.body = {}
+            self._debug("Request body too large")
+            return  # Early exit
+
+        try:
+            self.body = json.loads(request.body) if request.body else {}
+        except json.JSONDecodeError:
+            self._debug("Body is invalid JSON")
+            self.body = {}
+
         self._debug("Setup completed")
 
     def _return_bad_request(self, msg: str):
@@ -80,7 +131,7 @@ class WebSocketView(View):
         self, request, *args, **kwargs
     ) -> HttpResponseBadRequest:
         """Method for handling missing route_selection_key"""
-        warnings.warn("Deprecated: Use handler_selection_key_missing instead. Will be removed in March 2026", DeprecationWarning, stacklevel=2)
+        warnings.warn("Deprecated: Use handler_selection_key_missing instead. Will be removed in version 3", DeprecationWarning, stacklevel=2)
 
         msg = f"route_select_key {self.route_selection_key} missing from request body."
         self._debug(msg)
@@ -96,12 +147,10 @@ class WebSocketView(View):
 
     def missing_headers(self, request, *args, **kwargs) -> HttpResponseBadRequest:
         """Method for handling missing headers"""
-        msg = (
-            f"Some of the required headers are missing; Expected {self.required_headers}, "
-            f"Received {request.headers.keys()}"
-        )
-        self._debug(msg)
-        return self._return_bad_request("Some of the required headers are missing")
+        if self.debug:
+            msg = f"Expected {self.required_headers}, Received {request.headers.keys()}"
+            self._debug(msg)
+        return self._return_bad_request("Invalid request headers")
 
     def permission_denied(self, request, *args, **kwargs) -> HttpResponseBadRequest:
         """Method for handling denied access"""
@@ -185,15 +234,26 @@ class WebSocketView(View):
 
         return all(h in request_headers for h in self.required_connection_headers)
 
+    def _validate_connection_id(self, connection_id: str) -> bool:
+        # AWS connection IDs are alphanumeric
+        return bool(re.match(r'^[A-Za-z0-9_=-]{1,128}$', connection_id))
+
     def _add_user_to_request(self, request):
         """Fetch the user from the model and append it back into the request variable"""
-        wss = WebSocketSession.objects.get(
-            connection_id=request.headers["Connectionid"]
-        )
-        if wss.user:
-            request.user = wss.user
-        wss.request_count += 1
-        wss.save()
+        connection_id = request.headers["Connectionid"]
+        if self._validate_connection_id(request.headers["Connectionid"]):
+            try:
+                with transaction.atomic():
+                    wss = WebSocketSession.objects.select_for_update().get(
+                        connection_id=connection_id
+                    )
+                    if wss.user:
+                        request.user = wss.user
+                    wss.request_count = F('request_count') + 1
+                    wss.save(update_fields=['request_count'])
+            except WebSocketSession.DoesNotExist:
+                self._debug(f"Session not found: {request.headers['Connectionid']}")
+                # Handle gracefully
 
     def _get_channel_name(self, request) -> str:
         """Returns the name of the channel to use
@@ -203,6 +263,13 @@ class WebSocketView(View):
         string is returned
         """
         channel_name = request.GET.get("channel", "")
+
+        if channel_name:
+            if len(channel_name) > self.MAX_CHANNEL_NAME_LENGTH:
+                raise ValueError("Channel name too long")
+            if not self.CHANNEL_NAME_PATTERN.match(channel_name):
+                raise ValueError("Invalid channel name format")
+
         if (
             not channel_name
             and self.api_gateway
@@ -246,9 +313,16 @@ class WebSocketView(View):
 
                     handler = self.default
                     if self.body.get(self.handler_selection_key):
-                        handler = getattr(self, self.body[self.handler_selection_key], self.default)
+                        if self.ALLOWED_HANDLERS and self.body[self.handler_selection_key] in self.ALLOWED_HANDLERS:
+                            handler = getattr(self, self.body[self.handler_selection_key], self.default)
+                        elif not self.ALLOWED_HANDLERS and self.body.get(self.handler_selection_key) not in self.DISALLOWED_HANDLERS:
+                            handler = getattr(self, self.body[self.handler_selection_key], self.default)
+
                     if handler == self.default and self.body.get(self.route_selection_key):
-                        handler = getattr(self, self.body[self.route_selection_key], self.default)
+                        if self.ALLOWED_HANDLERS and self.body.get(self.route_selection_key) in self.ALLOWED_HANDLERS:
+                            handler = getattr(self, self.body[self.route_selection_key], self.default)
+                        elif not self.ALLOWED_HANDLERS and self.body.get(self.route_selection_key) not in self.DISALLOWED_HANDLERS:
+                            handler = getattr(self, self.body[self.route_selection_key], self.default)
 
                     if not self._expected_useragent(request, *args, **kwargs):
                         handler = self.invalid_useragent

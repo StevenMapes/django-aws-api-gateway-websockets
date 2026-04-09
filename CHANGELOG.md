@@ -1,6 +1,22 @@
-n# 3.* - ??? April 2026 - NOT RELEASED
-The `route_selection_key` property has been removed as per the warning in version 2.0.0. Please update your integration
+# 3.* - ??? 2026 - NOT RELEASED **BREAKING CHANGES**
+- The `route_selection_key` property has been removed as per the warning in version 2.0.0. Please update your integration
+- Dropped the temporary DISALLOWED_HANDLERS and forced ALLOWED_HANDLERS usage which defaults to "default". This is a 
+major BREAKING change as it will mean that you MUST update your CBV subclasses to define the methods that can be invoked
+by the client
 
+# 2.3.0 - 9th April 2026 **BREAKING CHANGES**
+Introduced security improvements including:
+ 
+- Channel Names are now limited to 191 characters
+- Channel names are now restricted to the following characters a-zA-Z0-9_- to help prevent SQL injection.
+- Missing headers no longer return the headers that were missing outside of debug being turned on. This stops 
+potential exposure of headers
+- Added in the ```ALLOWED_HANDLERS``` to allow users to control which methods are exposed to the client. This should be
+used for all projects ASAP and should be defined at the subclass level of WebSocketView.
+- Added the DISALLOWED_HANDLERS property which is a temporary security improvement to prevent the messages from calling
+specific private methods. This will be replaced in Version 3 by using ```ALLOWED_HANDLERS``` property.
+- Added limited to inbound and outbound messages to 128KB which is the hard limit set by AWS API Gateway.
+ 
 # 2.2.2 - 26th March 2026
 - Dropped "Connection" from the default ```additional_required_headers``` list as it is no longer always coming through.
 Issue found with a combination of AWS ALB, Pytohon 3.14, Django 6 and Nginx 1.29.7
