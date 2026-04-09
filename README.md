@@ -21,7 +21,7 @@ The project will keep track of which users created which WebSockets, which ones 
 Please refer to the installation notes and Getting Start Guides.
 
 # Architecture
-See the [Architecture](architecture.md) page.
+See the [Architecture](ARCHITECTURE.md) page.
 
 # Security Concerns
 **IMPORTANT:**: In order to work the dispatch method requires the ```csrf_exempt``` decorator to be added. This has
