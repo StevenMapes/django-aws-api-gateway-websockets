@@ -192,7 +192,9 @@ This Django package enables WebSocket functionality using AWS API Gateway with c
    - User authentication required for token generation
    - Session validation
    - Django permissions support (`permissions_required`, `all_permissions_required`)
-   - Method-level access control via `ALLOWED_HANDLERS` whitelist
+   - Method-level access defaults to just the subclasses methods with additional whitelist being available via
+```ADDITIONAL_ALLOWED_HANDLERS``` to allow for multiple levels of subclassing.
+   - Alternatively explicit method-level access can be granted via `ALLOWED_HANDLERS` whitelist 
 
 5. **Header Validation Layer**
    - Required headers verification

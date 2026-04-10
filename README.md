@@ -30,7 +30,7 @@ See the [Architecture](ARCHITECTURE.md) page.
   - Session validation
 2. Authorization Layer
   - Django permissions support (has_any_permission, has_all_permission)
-  - Method-level access control via ALLOWED_HANDLERS
+  - Method-level access control via ALLOWED_HANDLERS and ADDITIONAL_ALLOWED_HANDLERS for extending automatic access
 3. Input Validation Layer
   - Request body size limits (128KB)
   - JSON parsing with error handling
