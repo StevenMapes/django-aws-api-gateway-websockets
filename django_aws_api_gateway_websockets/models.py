@@ -6,34 +6,56 @@ from django.conf import settings
 from django.db import models
 
 
+MAX_MESSAGE_SIZE = 1024 * 128  # 128KB (AWS limit is 128KB)
+
+
+def get_region_name():
+    """Returns the AWS region name from settings.py. Uses AWS_GATEWAY_REGION_NAME first and falls back to
+    AWS_REGION_NAME for backwards compatibility.
+    """
+    if hasattr(settings, "AWS_GATEWAY_REGION_NAME") and settings.AWS_GATEWAY_REGION_NAME:
+        return settings.AWS_GATEWAY_REGION_NAME
+    elif hasattr(settings, "AWS_REGION_NAME") and settings.AWS_REGION_NAME:
+        return settings.AWS_REGION_NAME
+    else:
+        raise RuntimeError("AWS_GATEWAY_REGION_NAME or AWS_REGION_NAME must be set within settings.py")
+
+
 def get_boto3_client(service: str = "apigatewayv2", **kwargs):
     """Returns the boto3 client to use.
 
-    :param str servivce: apigatewayv2 | apigatewaymanagementapi
+    When running within AWS, if you are using an IAM Role with the service, E.G. on an EC2 instance, you need to
+    set AWS_REGION_NAME within settings.py
 
-    If you are using an IAM Role then you just need to set AWS_REGION_NAME within settings.py otherwise you need to
-    set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY as well with the correct values
+    Otherwise you can either use a named profile using settings.AWS_IAM_PROFILE or you can set the credentials
+    using both AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY.
+
+    :param str service: apigatewayv2 | apigatewaymanagementapi
     """
-    if (
+    if hasattr(settings, "AWS_IAM_PROFILE") and settings.AWS_IAM_PROFILE:
+        # Used a named profile where credentials are stored within .aws folder
+        session = boto3.Session(profile_name=settings.AWS_IAM_PROFILE)
+        client = session.client(service, **kwargs)
+    elif (
         hasattr(settings, "AWS_ACCESS_KEY_ID")
         and settings.AWS_ACCESS_KEY_ID
         and hasattr(settings, "AWS_SECRET_ACCESS_KEY")
         and settings.AWS_SECRET_ACCESS_KEY
     ):
-        if not hasattr(settings, "AWS_REGION_NAME") or not settings.AWS_REGION_NAME:
-            raise RuntimeError("AWS_REGION_NAME must be set within settings.py")
+        # Use specific access and secret keys
+        region = get_region_name()
 
         client = boto3.client(
             service,
             aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
             aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-            region_name=settings.AWS_REGION_NAME,
+            region_name=region,
             **kwargs,
         )
     else:
-        if not hasattr(settings, "AWS_REGION_NAME") or not settings.AWS_REGION_NAME:
-            raise RuntimeError("AWS_REGION_NAME must be set within settings.py")
-        client = boto3.client(service, region_name=settings.AWS_REGION_NAME, **kwargs)
+        # Use the IAM Role of the machine
+        region = get_region_name()
+        client = boto3.client(service, region_name=region, **kwargs)
 
     return client
 
@@ -264,7 +286,7 @@ class ApiGatewayAdditionalRoute(models.Model):
     """Stores the additional route keys"""
 
     class Meta:
-        # Once version 4 is the minium then swap to use this
+        # Once version 4 is the minimum supported version then swap to use this
         # constraints = [
         #     models.UniqueConstraint("api_gateway", 'name', name='unique_name_per_gateway')
         # ]
@@ -337,6 +359,7 @@ class WebSocketSessionQuerySet(models.QuerySet):
         )
         """
         client = None
+        region = get_region_name()
         msg = json.dumps(data)
         res = []
         for obj in self.filter(connected=True):
@@ -345,7 +368,7 @@ class WebSocketSessionQuerySet(models.QuerySet):
                     "apigatewaymanagementapi",
                     endpoint_url=(
                         f"https://{obj.api_gateway.api_id}.execute-api."
-                        f"{settings.AWS_REGION_NAME}.amazonaws.com/{obj.api_gateway.stage_name}"
+                        f"{region}.amazonaws.com/{obj.api_gateway.stage_name}"
                     ),
                 )
             try:
@@ -375,16 +398,22 @@ class WebSocketSession(models.Model):
 
     def send_message(self, data: dict):
         """Sends a message containing the given data to connection"""
+        region = get_region_name()
+        message_data = json.dumps(data)
+
+        if len(message_data.encode('utf-8')) > MAX_MESSAGE_SIZE:
+            raise ValueError(f"Message too large: {len(message_data)} bytes")
+
         client = get_boto3_client(
             "apigatewaymanagementapi",
             endpoint_url=(
                 f"https://{self.api_gateway.api_id}.execute-api."
-                f"{settings.AWS_REGION_NAME}.amazonaws.com/{self.api_gateway.stage_name}"
+                f"{region}.amazonaws.com/{self.api_gateway.stage_name}"
             ),
         )
         try:
             return client.post_to_connection(
-                Data=json.dumps(data), ConnectionId=self.connection_id
+                Data=message_data, ConnectionId=self.connection_id
             )
         except ClientError as error:
             if error.response["Error"]["Code"] == "GoneException":

@@ -1,4 +1,6 @@
 import os
+import random
+import string
 
 import django
 
@@ -6,7 +8,8 @@ BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 DEBUG = False
 TEMPLATE_DEBUG = DEBUG
 
-SECRET_KEY = "TH1Sr3allyISn0tAsecretKETbut1SonlyUSEDforTeSTING"
+characters = string.ascii_letters + string.digits
+SECRET_KEY = "".join(random.choice(characters) for i in range(48))
 
 DATABASES = {
     "default": {
@@ -53,5 +56,4 @@ TEMPLATES = [
 
 AUTH_USER_MODEL = "auth.User"
 
-if django.VERSION >= (3, 2):
-    DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
+DEFAULT_AUTO_FIELD = "django.db.models.AutoField"

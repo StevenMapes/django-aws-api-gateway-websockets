@@ -16,52 +16,20 @@ if __name__ == "__main__":
         "compile",
         "--generate-hashes",
         "--allow-unsafe",
+        "--no-emit-index-url"
     ] + sys.argv[1:]
 
-    if (3, 8, 0) <= py_version < (3, 10, 0):
-        subprocess.run(
-            [
-                "python",
-                *common_args,
-                "-P",
-                "Django>=4.2.14,<5",
-                "-P",
-                "urllib3>=1.26.19,<2.0.0",
-                "-P",
-                "sqlparse==0.5.0",
-                "-o",
-                "py38-django42.txt",
-            ],
-            check=True,
-            capture_output=True,
-        )
-        subprocess.run(
-            [
-                "python",
-                *common_args,
-                "-P",
-                "Django>=4.2.14,<5",
-                "-P",
-                "urllib3>=1.26.19,<2.0.0",
-                "-P",
-                "sqlparse==0.5.0",
-                "-o",
-                "py39-django42.txt",
-            ],
-            check=True,
-            capture_output=True,
-        )
     if (3, 10, 0) <= py_version < (3, 11, 0):
         subprocess.run(
             [
                 "python",
                 *common_args,
                 "-P",
-                "Django>=4.2.14,<5",
+                "Django>=4.2.29,<5",
                 "-P",
-                "urllib3>=2.2.2",
+                "urllib3>=2.6.0",
                 "-P",
-                "sqlparse==0.5.0",
+                "sqlparse>=0.5.4",
                 "-o",
                 "py310-django42.txt",
             ],
@@ -73,13 +41,11 @@ if __name__ == "__main__":
                 "python",
                 *common_args,
                 "-P",
-                "Django>=5.0.7,<5.1",
+                "Django>=5.1.14,<5.2",
                 "-P",
-                "urllib3>=2.2.2",
-                "-P",
-                "sqlparse==0.5.0",
+                "urllib3>=2.6.0",
                 "-o",
-                "py310-django50.txt",
+                "py310-django51.txt",
             ],
             check=True,
             capture_output=True,
@@ -89,11 +55,11 @@ if __name__ == "__main__":
                 "python",
                 *common_args,
                 "-P",
-                "Django>=5.1b1,<5.2",
+                "Django>=5.2.12,<6.0",
                 "-P",
-                "urllib3>=2.2.2",
+                "urllib3>=2.6.0",
                 "-o",
-                "py310-django51.txt",
+                "py310-django52.txt",
             ],
             check=True,
             capture_output=True,
@@ -104,11 +70,11 @@ if __name__ == "__main__":
                 "python",
                 *common_args,
                 "-P",
-                "Django>=4.2.14,<5",
+                "Django>=4.2.29,<5",
                 "-P",
-                "urllib3>=2.2.2",
+                "urllib3>=2.6.0",
                 "-P",
-                "sqlparse==0.5.0",
+                "sqlparse>=0.5.4",
                 "-o",
                 "py311-django42.txt",
             ],
@@ -121,13 +87,13 @@ if __name__ == "__main__":
                 "python",
                 *common_args,
                 "-P",
-                "Django>=5.0.7,<5.1",
+                "Django>=5.1.14,<5.2",
                 "-P",
-                "urllib3>=2.2.2",
+                "urllib3>=2.6.0",
                 "-P",
-                "sqlparse==0.5.0",
+                "sqlparse>=0.5.4",
                 "-o",
-                "py311-django50.txt",
+                "py311-django51.txt",
             ],
             check=True,
             capture_output=True,
@@ -137,13 +103,13 @@ if __name__ == "__main__":
                 "python",
                 *common_args,
                 "-P",
-                "Django>=5.1b1,<5.2",
+                "Django>=5.2.12,<6.0",
                 "-P",
-                "urllib3>=2.2.2",
+                "urllib3>=2.6.0",
                 "-P",
-                "sqlparse==0.5.0",
+                "sqlparse>=0.5.4",
                 "-o",
-                "py311-django51.txt",
+                "py311-django52.txt",
             ],
             check=True,
             capture_output=True,
@@ -154,11 +120,11 @@ if __name__ == "__main__":
                 "python",
                 *common_args,
                 "-P",
-                "Django>=4.2.14,<5",
+                "Django>=4.2.29,<5",
                 "-P",
-                "urllib3>=2.2.2",
+                "urllib3>=2.6.0",
                 "-P",
-                "sqlparse==0.5.0",
+                "sqlparse>=0.5.4",
                 "-o",
                 "py312-django42.txt",
             ],
@@ -170,13 +136,11 @@ if __name__ == "__main__":
                 "python",
                 *common_args,
                 "-P",
-                "Django>=5.0.7,<5.1",
+                "Django>=5.1.14,<5.2",
                 "-P",
-                "urllib3>=2.2.2",
-                "-P",
-                "sqlparse==0.5.0",
+                "urllib3>=2.6.0",
                 "-o",
-                "py312-django50.txt",
+                "py312-django51.txt",
             ],
             check=True,
             capture_output=True,
@@ -186,27 +150,175 @@ if __name__ == "__main__":
                 "python",
                 *common_args,
                 "-P",
-                "Django>=5.1b1,<5.2",
+                "Django>=5.2.12,<6.0",
                 "-P",
-                "urllib3>=2.2.2",
+                "urllib3>=2.6.0",
                 "-o",
-                "py312-django51.txt",
+                "py312-django52.txt",
             ],
             check=True,
             capture_output=True,
         )
-    # Use SED to remove the --extra-index-url lines from every file
-    sed_args = ["sed", "-i", "-e", "s/--extra-index-url .*$//g"]
-    [
-        subprocess.run([*sed_args, x.name])
-        for x in Path(".").iterdir()
-        if not x.is_dir() and ".txt" in x.name
-    ]
+        subprocess.run(
+            [
+                "python",
+                *common_args,
+                "-P",
+                "Django>=6.0,<6.1",
+                "-P",
+                "urllib3>=2.6.0",
+                "-o",
+                "py312-django60.txt",
+            ],
+            check=True,
+            capture_output=True,
+        )
+    if (3, 13, 0) <= py_version < (3, 15, 0):
+        # Python 3.13
+        subprocess.run(
+            [
+                "python",
+                *common_args,
+                "-P",
+                "Django>=4.2.29,<5",
+                "-P",
+                "urllib3>=2.6.0",
+                "-P",
+                "sqlparse>=0.5.4",
+                "-o",
+                "py313-django42.txt",
+            ],
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            [
+                "python",
+                *common_args,
+                "-P",
+                "Django>=5.1.14,<5.2",
+                "-P",
+                "urllib3>=2.6.0",
+                "-o",
+                "py313-django51.txt",
+            ],
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            [
+                "python",
+                *common_args,
+                "-P",
+                "Django>=5.2.12,<6.0",
+                "-P",
+                "urllib3>=2.6.0",
+                "-o",
+                "py313-django52.txt",
+            ],
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            [
+                "python",
+                *common_args,
+                "-P",
+                "Django>=6.0,<6.1",
+                "-P",
+                "urllib3>=2.6.0",
+                "-o",
+                "py313-django60.txt",
+            ],
+            check=True,
+            capture_output=True,
+        )
+        # Python 3.14
+        subprocess.run(
+            [
+                "python",
+                *common_args,
+                "-P",
+                "Django>=4.2.29,<5",
+                "-P",
+                "urllib3>=2.6.0",
+                "-P",
+                "sqlparse>=0.5.4",
+                "-o",
+                "py314-django42.txt",
+            ],
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            [
+                "python",
+                *common_args,
+                "-P",
+                "Django>=5.1.14,<5.2",
+                "-P",
+                "urllib3>=2.6.0",
+                "-o",
+                "py314-django51.txt",
+            ],
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            [
+                "python",
+                *common_args,
+                "-P",
+                "Django>=5.2.12,<6.0",
+                "-P",
+                "urllib3>=2.6.0",
+                "-o",
+                "py314-django52.txt",
+            ],
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            [
+                "python",
+                *common_args,
+                "-P",
+                "Django>=6,<6.1",
+                "-P",
+                "urllib3>=2.6.0",
+                "-o",
+                "py314-django60.txt",
+            ],
+            check=True,
+            capture_output=True,
+        )
 
-    # Remove backports from Python3.10 and Python 3.11
-    sed_args = ["sed", "-i", "-e", "/backports/,/via django/d"]
-    [
-        subprocess.run([*sed_args, x.name])
-        for x in Path(".").iterdir()
-        if not x.is_dir() and ("py310-" in x.name or "py311-" in x.name)
-    ]
+        # Python 3.15
+        subprocess.run(
+            [
+                "python",
+                *common_args,
+                "-P",
+                "Django>=5.2.12,<6.0",
+                "-P",
+                "urllib3>=2.6.0",
+                "-o",
+                "py315-django52.txt",
+            ],
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            [
+                "python",
+                *common_args,
+                "-P",
+                "Django>=6,<6.1",
+                "-P",
+                "urllib3>=2.6.0",
+                "-o",
+                "py315-django60.txt",
+            ],
+            check=True,
+            capture_output=True,
+        )

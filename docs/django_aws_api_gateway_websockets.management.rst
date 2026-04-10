@@ -14,5 +14,5 @@ Module contents
 
 .. automodule:: django_aws_api_gateway_websockets.management
    :members:
-   :undoc-members:
    :show-inheritance:
+   :undoc-members:

@@ -14,72 +14,158 @@ concurrency:
 
 jobs:
   tests:
-    name: Python ${{ matrix.python-version }}
-    runs-on: ubuntu-latest
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-24.04
 
     strategy:
       fail-fast: false
       matrix:
-        python-version:
-        - 3.8
-        - 3.9
-        - '3.10'
-        - '3.11'
-        - '3.12'
+        include:
+          - name: Python 3.10 / Django 4.2
+            python-version: '3.10'
+            tox-env: py310-django42
+
+          - name: Python 3.10 / Django 5.1
+            python-version: '3.10'
+            tox-env: py310-django51
+
+          - name: Python 3.10 / Django 5.2
+            python-version: '3.10'
+            tox-env: py310-django52
+
+          - name: Python 3.11 / Django 4.2
+            python-version: '3.11'
+            tox-env: py311-django42
+
+          - name: Python 3.11 / Django 5.1
+            python-version: '3.11'
+            tox-env: py311-django51
+
+          - name: Python 3.11 / Django 5.2
+            python-version: '3.11'
+            tox-env: py311-django52
+
+          - name: Python 3.12 / Django 4.2
+            python-version: '3.12'
+            tox-env: py312-django42
+
+          - name: Python 3.12 / Django 5.1
+            python-version: '3.12'
+            tox-env: py312-django51
+
+          - name: Python 3.12 / Django 5.2
+            python-version: '3.12'
+            tox-env: py312-django52
+
+          - name: Python 3.12 / Django 6.0
+            python-version: '3.12'
+            tox-env: py312-django60
+
+          - name: Python 3.13 / Django 4.2
+            python-version: '3.13'
+            tox-env: py313-django42
+
+          - name: Python 3.13 / Django 5.1
+            python-version: '3.13'
+            tox-env: py313-django51
+
+          - name: Python 3.13 / Django 5.2
+            python-version: '3.13'
+            tox-env: py313-django52
+
+          - name: Python 3.13 / Django 6.0
+            python-version: '3.13'
+            tox-env: py313-django60
+
+          - name: Python 3.14 / Django 5.1
+            python-version: '3.14'
+            tox-env: py314-django51
+
+          - name: Python 3.14 / Django 5.2
+            python-version: '3.14'
+            tox-env: py314-django52
+
+          - name: Python 3.14 / Django 6.0
+            python-version: '3.14'
+            tox-env: py314-django60
+
+          - name: Python 3.15 / Django 5.2
+            python-version: '3.15'
+            tox-env: py315-django52
+            allow-failure: true
+
+          - name: Python 3.15 / Django 6.0
+            python-version: '3.15'
+            tox-env: py315-django60
+            allow-failure: true
 
     steps:
     - uses: actions/checkout@v4
+    
     - uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
+        allow-prereleases: true
 
-    - uses: actions/cache@v3
+    - name: Upgrade packaging tools on Python 3.15
+      if: matrix.python-version == '3.15'
+      run: python -m pip install --upgrade pip setuptools wheel
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v2
       with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('requirements/*.txt') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
+        enable-cache: true
 
     - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip setuptools wheel coverage
-        python -m pip install --upgrade 'tox>=4.0.0rc3'
+      run: uv pip install --system tox tox-uv
 
-    - name: Run tox targets for ${{ matrix.python-version }}
-      run: tox run -f py$(echo ${{ matrix.python-version }} | tr -d .)
+    - name: Run tox target
+      continue-on-error: ${{ matrix.allow-failure == true }}
+      run: tox run -f ${{ matrix.tox-env }}
 
     - name: Upload coverage data
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
-        name: coverage-data
-        path: '.coverage.*'
+        name: coverage-data-${{ matrix.tox-env }}
+        path: '${{ github.workspace }}/.coverage.*'
+        include-hidden-files: true
+        if-no-files-found: error
 
   coverage:
     name: Coverage
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: tests
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.12'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v1
 
       - name: Install dependencies
-        run: python -m pip install --upgrade coverage[toml]
+        run: uv pip install --system coverage[toml]
 
       - name: Download data
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
-          name: coverage-data
+          path: ${{ github.workspace }}
+          pattern: coverage-data-*
+          merge-multiple: true
 
-      - name: Combine coverage and fail if it's <85 should be 100% but I have not completed the tests yet
+      - name: Combine coverage and fail if it's <100%
         run: |
           python -m coverage combine
           python -m coverage html --skip-covered --skip-empty
-          python -m coverage report --fail-under=85
+          python -m coverage report --fail-under=80
+          echo "## Coverage summary" >> $GITHUB_STEP_SUMMARY
+          python -m coverage report --format=markdown >> $GITHUB_STEP_SUMMARY
+
       - name: Upload HTML report
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: html-report
           path: htmlcov

@@ -69,7 +69,9 @@ instance/
 .scrapy
 
 # Sphinx documentation
+docs/build/
 docs/_build/
+docs/html/
 
 # PyBuilder
 target/
@@ -132,4 +134,11 @@ dmypy.json
 .idea
 .idea/
 
+.DS_Store
+*/.DS_Store
+*/*/.DS_Store
+
+.env
+
 STEVE-README.txt
+DEV-PLAN.md

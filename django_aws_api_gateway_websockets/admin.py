@@ -5,6 +5,9 @@ from django.contrib.admin import ModelAdmin, TabularInline
 from django_aws_api_gateway_websockets import models
 
 
+@admin.action(
+    description="Create API Gateway"
+)
 def create_api_gateway(modeladmin, request, queryset):
     """Creates the API Gateway record if one does not already exist"""
     for obj in queryset:
@@ -20,9 +23,11 @@ def create_api_gateway(modeladmin, request, queryset):
                 )
 
 
-create_api_gateway.short_description = "Create API Gateway"
 
 
+@admin.action(
+    description="Create Custom Domain record for the API"
+)
 def create_custom_domain(modeladmin, request, queryset):
     """Creates the Custom Domain record if one does not already exist"""
     for obj in queryset:
@@ -39,7 +44,6 @@ def create_custom_domain(modeladmin, request, queryset):
                 )
 
 
-create_custom_domain.short_description = "Create Custom Domain record for the API"
 
 
 class ApiGatewayAdditionalRouteInline(TabularInline):

@@ -7,5 +7,4 @@ django-aws-api-gateway-websockets
    django_aws_api_gateway_websockets
    make_migrations
    make_migrations_settings
-   setup
    tests

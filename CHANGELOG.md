@@ -1,5 +1,155 @@
-- # 1.0.20 - 15th July 2024
-- Updating setuptools to 70.0.0 for the security fix
+# 3.* - ??? 2026 - NOT RELEASED **BREAKING CHANGES**
+- The `route_selection_key` property has been removed as per the warning in version 2.0.0. Please update your integration
+- Dropped the temporary DISALLOWED_HANDLERS and forced ALLOWED_HANDLERS usage which defaults to "default". This is a 
+major BREAKING change as it will mean that you MUST update your CBV subclasses to define the methods that can be invoked
+by the client
+
+# 2.3.0 - 9th April 2026 **BREAKING CHANGES**
+Introduced security improvements including:
+ 
+- Channel Names are now limited to 191 characters
+- Channel names are now restricted to the following characters a-zA-Z0-9_- to help prevent SQL injection.
+- Missing headers no longer return the headers that were missing outside of debug being turned on. This stops 
+potential exposure of headers
+- Added in the ```ALLOWED_HANDLERS``` to allow users to control which methods are exposed to the client. This should be
+used for all projects ASAP and should be defined at the subclass level of WebSocketView.
+- Added the DISALLOWED_HANDLERS property which is a temporary security improvement to prevent the messages from calling
+specific private methods. This will be replaced in Version 3 by using ```ALLOWED_HANDLERS``` property.
+- Added limited to inbound and outbound messages to 128KB which is the hard limit set by AWS API Gateway.
+ 
+# 2.2.2 - 26th March 2026
+- Dropped "Connection" from the default ```additional_required_headers``` list as it is no longer always coming through.
+Issue found with a combination of AWS ALB, Pytohon 3.14, Django 6 and Nginx 1.29.7
+ 
+# 2.2.1 - 18th March 2026
+- Updated to add in support for Python 3.15
+ 
+# 2.2.0 - 23rd February 2026
+- Updated the AppChannelWebSocketMixin so that you can now set the app_channel_override property on child classes to
+overload the default channel_name from being the name of the app the view exists within.
+
+# 2.1.1 - 20th February 2026
+- Bug fix, the Django Permission check was checking the wrong class property.
+
+# 2.1.0 - 12th February 2026
+- Added support to check Django Permissions before invoking the handler method. This allows the methods to be restricted
+based upon the standard Django Permissions system. You can set a list of permissions whereby if the user has ANY of
+them, they will be allowed to invoke the handler method. Alternatively you can list a set of Permissions that the user
+must have ALL of to invoke the handler method. If nethier are set then all users will be allowed to invoke the handler
+as per the previous behaviour.
+
+```has_any_permission``` -> User must have ANY of the permissions listed
+
+```has_all_permission``` -> User must have ALL of the permissions listed
+
+Overload these methods for custom permission handling.
+
+# 2.0.2 - 30th September 2025
+Adding support for Python 3.14 and Django 6.0a1 into the test suite
+
+# 2.0.1 - 30th September 2025
+- route_selection_key is going to be *deprecated* and is being replaced by handler_selection_key which is a more 
+accurate name and will have a new default value of "handler" rather than "action".
+This is because the "action" related to the actual route selection on AWS API Gateway and is closer tied to the
+Additional Routes logic where as the "handler" is more related to the actual handler method that is being called.
+
+The code is backward compatible as long as you don't use a key of "handler" within your 
+payload for any other purpose. 
+
+Support will be kept in place until March 2026, after that point it will be removed.
+
+For clarity the Django Setting used to determine the region has been changed from ```AWS_REGION_NAME``` to 
+```AWS_GATEWAY_REGION_NAME```. If the new setting is not found or is not set then the old setting will be used.
+
+This is to allow Django Storage uses to use separate AWS Regions. Further changes will come related to this to add
+support for different AWS Regions per API Gateway.
+
+BUG FIX - Fixed the bug whereby using profiles rather than set AWS credentials resulted in the wrong request build the
+boto3 client.
+
+# 2.0.0 - 30th September 2025 - YANKED
+Removed from Pypi due to inclusion of a erroneous debugging print statement.
+
+# 1.4.1 - 8th June 2025
+- Introduce two Django CBV mixins to speed up development for projects using this library.
+- ```AddWebSocketRouteToContextMixin``` this mixin can vbe added to CBV views that need to connect to and send message
+to the server via Websockets. It allows you to specific the ```route_key``` to use to idnetify the WebSocket route you
+created (defaulting to the "default" route), as well as adding a class property and context key of "channel_name" that
+can be used within the HTML templates to connect to the channel intended to be used by the view.
+- ```AppChannelWebSocketMixin``` this mixin extends the first with the intention of being used by CBVs where the both
+the ```route_key``` and ```channel_name``` are the same and *BOTH* are the same names as the app. This is useful in the
+design paradigm where you are going to have one WebSocket endpoint per app handling the server-side requests. This way
+you can create the route key to match the Django app name and then use this mixin to extend the CBVs that render the
+client facing HTML.
+
+For example if you have the app *blog* with the following CBV defined within the views.py
+
+```
+class IndexView(AppChannelWebSocketMixin, TemplateView):
+    template_name = "blog/index.htm"
+```
+Then you create an ```ApiGatewayAdditionalRoute``` entry with a ```route_key``` of **blog** so that the you can then
+create a Django template such as the below which can be included on any page on your project that requires websocket
+connectivity to define the connection
+
+```html
+<script src="js/reconnecting-websocket.min.js"" crossorigin="anonymous"></script>
+{% with api_gateway_route.api_gateway as websocket %}
+<script
+    data-wss-url="wss://{{ websocket.domain_name }}"
+    data-ws-channel="{{ channel_name }}"
+    data-ws-route-key="{{ api_gateway_route.route_key }}"
+>
+{% endwith %}
+let window.scWebSocketConnected = false;
+let scriptData = document.currentScript.dataset;
+let pageWebSocket = new ReconnectingWebSocket(
+    `${scriptData.wssUrl}?channel=${scriptData.wsChannel}`, null, {debug:false, reconnectInterval:3000}
+);
+```
+
+Full examples of how to use this project with re-usable JS for the client and CBVs for the server will be published
+soon.
+
+# 1.4.0 - 8th June 2025
+Yanked to bugs - do not use
+
+# 1.3.0 - 26th May 2025
+- Added in support for AWS Profiles
+- Updated the documentation to include examples of how to configure settings.py
+
+# 1.2.1 - 12th May 2025
+- 1.2.0 was built using an older version so the package had the wrong name, it's been yanked, so use 1.2.1 instead
+
+# 1.2.0 - 12th May 2025 - yanked
+- Dropped support for Django 5.0
+- This package should still work with those combinations but they are no longer being tested
+
+# 1.1.3 - 7th May 2025
+- Updated pyproject.toml to show Django 5.2 support, also updated the pre-commit-config and requirements or testings 
+
+# 1.1.2 - 17th March 2025
+- Removed Python 3.8 support
+
+# 1.1.1 - 20th November 2024
+- Updated the tox tests to include support for Django 5.2a.1 with Python 3.10, 3.11, 3.12, 3.13 and 3.14 
+ 
+# 1.1.0 - 19th November 2024
+- Fixes possible security issue #17 to remove the direct use of headers being passed into the Bad Request Response.
+- Changed the response send by the bad request response
+- Updating requirements
+
+# 1.0.22 - 21st October 2024
+- Updated github actions to collect and display coverage reports
+- Updated tox to include tests for Python 3.13 with Django 4.2, 5.0 and 5.1
+- Updated tox to include tests for Python 3.14.0-alpha1 with Django 5.1
+- Updated main.yml to use [UV](https:/yes/github.com/astral-sh/uv) for faster testing
+
+# 1.0.21 - 4th August 2024
+- Includes the PR for .github/workflows/main.yml as well as updating to show support for Django 5.1
+
+# 1.0.20 - 15th July 2024
+- Dependency update for security fix 
 
 # 1.0.19 - 11th July 2024
 - Updating the requirements for the pipline to use Django 5.0.7 or Django 4.2.14

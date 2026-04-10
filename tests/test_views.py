@@ -1,5 +1,5 @@
 import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, PropertyMock
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import HttpResponseBadRequest, HttpResponseNotAllowed, JsonResponse
@@ -32,7 +32,6 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
     def test_additional_required_headers(self):
         self.assertEqual(
             [
-                "Connection",
                 "X-Amzn-Trace-Id",
                 "X-Forwarded-Port",
                 "X-Real-Ip",
@@ -100,15 +99,28 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
         self.assertIsInstance(res, HttpResponseBadRequest)
         self.assertEqual(400, res.status_code)
 
-    def test_route_selection_key_missing(self):
+    @patch("django_aws_api_gateway_websockets.views.warnings")
+    def test_route_selection_key_missing(self, mock_warnings):
         """Ensure the expected response is generated when the route selection key is missing"""
         obj = views.WebSocketView()
         res = obj.route_selection_key_missing(None)
 
+        mock_warnings.warn.assert_called_with("Deprecated: Use handler_selection_key_missing instead. Will be removed in version 3", DeprecationWarning, stacklevel=2)
         self.assertIsInstance(res, HttpResponseBadRequest)
         self.assertEqual(400, res.status_code)
         self.assertEqual(
             b"route_select_key action missing from request body.", res.content
+        )
+
+    def test_handler_selection_key_missing_missing(self):
+        """Ensure the expected response is generated when the handler selection key is missing"""
+        obj = views.WebSocketView()
+        res = obj.handler_selection_key_missing(None)
+
+        self.assertIsInstance(res, HttpResponseBadRequest)
+        self.assertEqual(400, res.status_code)
+        self.assertEqual(
+            b"handler_selection_key handler missing from request body.", res.content
         )
 
     def test_missing_headers(self):
@@ -123,13 +135,7 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
 
         self.assertIsInstance(res, HttpResponseBadRequest)
         self.assertEqual(400, res.status_code)
-        self.assertEqual(
-            (
-                f"Some of the required headers are missing; Expected {obj.required_headers}, "
-                f"Received {request.headers.keys()}"
-            ).encode("utf-8"),
-            res.content,
-        )
+        self.assertEqual(b"Invalid request headers", res.content)
 
     def test_invalid_useragent(self):
         """Ensure the expected response is generated when the useragent is invalid"""
@@ -146,13 +152,7 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
 
         self.assertIsInstance(res, HttpResponseBadRequest)
         self.assertEqual(400, res.status_code)
-        self.assertEqual(
-            (
-                f"Unexpected Useragent; Expected {obj.expected_useragent_prefix}{obj.aws_api_gateway_id}, "
-                f"Received {request.headers['User-Agent']}"
-            ).encode("utf-8"),
-            res.content,
-        )
+        self.assertEqual(b"Unexpected Useragent", res.content)
 
     def test__expected_headers(self):
         """Ensure the methods returns True when all headers are present otherwise should return False"""
@@ -602,18 +602,23 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
                     headers["name"],
                 )
 
+    @patch("django_aws_api_gateway_websockets.views.transaction")
+    @patch("django_aws_api_gateway_websockets.views.F")
     @patch("django_aws_api_gateway_websockets.views.WebSocketSession")
     def test__add_user_to_request_raises_when_object_not_found(
-        self, MockWebSocketSession
+            self, MockWebSocketSession, mock_F, mock_transaction
     ):
         """An exception should be raised if the object can not be found"""
-        MockWebSocketSession.objects.get.side_effect = ObjectDoesNotExist(
-            "no match found"
+        # Setup DoesNotExist exception
+        MockWebSocketSession.DoesNotExist = ObjectDoesNotExist
+        MockWebSocketSession.objects.select_for_update.return_value.get.side_effect = (
+            ObjectDoesNotExist("no match found")
         )
 
-        con_id = "12345"
+        con_id = "ABC123xyz_-="
 
         obj = views.WebSocketView()
+        obj.debug = True
         request = self.factory.post(
             "",
             data=json.dumps({}),
@@ -622,18 +627,29 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
         )
 
         self.assertFalse(hasattr(request, "user"))
-        with self.assertRaises(ObjectDoesNotExist):
-            obj._add_user_to_request(request)
 
-            MockWebSocketSession.objects.get.assert_called_with(
-                connection_id=request.headers["Connectionid"]
-            )
+        # Should not raise exception - it's caught and handled
+        obj._add_user_to_request(request)
 
-            self.assertFalse(hasattr(request, "user"))
+        MockWebSocketSession.objects.select_for_update.assert_called_with()
+        MockWebSocketSession.objects.select_for_update.return_value.get.assert_called_with(
+            connection_id=con_id
+        )
 
+        self.assertFalse(hasattr(request, "user"))
+        # Debug log should contain the error message
+        self.assertIn(f"Session not found: {con_id}", obj.debug_log)
+
+    @patch("django_aws_api_gateway_websockets.views.transaction")
+    @patch("django_aws_api_gateway_websockets.views.F")
     @patch("django_aws_api_gateway_websockets.views.WebSocketSession")
-    def test__add_user_to_request_when_session_found(self, MockWebSocketSession):
+    def test__add_user_to_request_when_session_found(
+            self, MockWebSocketSession, mock_F, mock_transaction
+    ):
         """When a WebSocketSession is found then the user will be added to the request IF it's set against the session"""
+        # Set up DoesNotExist exception properly
+        MockWebSocketSession.DoesNotExist = type('DoesNotExist', (Exception,), {})
+
         mocked_user = MagicMock(pk=12)
         configs = [
             {"name": "No User in session", "user": None},
@@ -643,7 +659,7 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
         for config in configs:
             with self.subTest(config=config):
                 wss = MagicMock(user=config["user"], request_count=0)
-                MockWebSocketSession.objects.get.return_value = wss
+                MockWebSocketSession.objects.select_for_update.return_value.get.return_value = wss
                 con_id = "12345"
 
                 obj = views.WebSocketView()
@@ -657,17 +673,19 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
                 self.assertFalse(hasattr(request, "user"))
                 obj._add_user_to_request(request)
 
-                MockWebSocketSession.objects.get.assert_called_with(
+                MockWebSocketSession.objects.select_for_update.assert_called_with()
+                MockWebSocketSession.objects.select_for_update.return_value.get.assert_called_with(
                     connection_id=request.headers["Connectionid"]
                 )
 
                 if config["user"]:
                     self.assertTrue(hasattr(request, "user"))
                     self.assertEqual(mocked_user, request.user)
-                    self.assertEqual(1, wss.request_count)
                 else:
                     self.assertFalse(hasattr(request, "user"))
-                    self.assertEqual(1, wss.request_count)
+
+                wss.save.assert_called_with(update_fields=['request_count'])
+
 
     def test__get_channel_name(self):
         """Ensure the method returns the channel either from the GET string of set against the API Gateway"""
@@ -826,14 +844,7 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
         self.assertEqual(MockHttpResponseBadRequest.return_value, res)
         self.assertEqual(0, MockWebSocketSession.objects.create.call_count)
         self.assertEqual(0, MockJsonResponse.call_count)
-        MockHttpResponseBadRequest.assert_called_with(
-            (
-                "Missing headers; Expected ['Cookie', 'Origin', 'Sec-Websocket-Extensions', 'Sec-Websocket-Key', "
-                "'Sec-Websocket-Version'], Received {'Cookie': 'some-cookie', 'Content-Length': '2', "
-                "'Content-Type': 'application/json', 'Connectionid': '1234', 'Origin': 'https://www.example.com', "
-                "'Host': 'www.example.com'}"
-            )
-        )
+        MockHttpResponseBadRequest.assert_called_with("Missing 3 headers")
 
     @override_settings(ALLOWED_HOSTS=["www.example.com"])
     @patch("django_aws_api_gateway_websockets.views.WebSocketSession")
@@ -866,7 +877,7 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
         self.assertEqual(0, MockWebSocketSession.objects.create.call_count)
         self.assertEqual(0, MockJsonResponse.call_count)
         MockHttpResponseBadRequest.assert_called_with(
-            (f"Host www.spoofed.com not in AllowedHosts ['www.example.com']")
+            (f"Host is not in AllowedHosts ['www.example.com']")
         )
 
     @override_settings(ALLOWED_HOSTS=["www.example.com"])
@@ -898,9 +909,7 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
 
         self.assertEqual(MockHttpResponseBadRequest.return_value, res)
         self.assertEqual(0, MockWebSocketSession.objects.create.call_count)
-        MockHttpResponseBadRequest.assert_called_with(
-            "Host www.example.com not in Origin https://www.spoofed.com"
-        )
+        MockHttpResponseBadRequest.assert_called_with("Host is not in Origin")
         self.assertEqual(0, MockJsonResponse.call_count)
 
     @override_settings(ALLOWED_HOSTS=["www.example.com"])
@@ -968,12 +977,7 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
         res = obj.dispatch(request)
 
         MockHttpResponseBadRequest.assert_called_with(
-            (
-                "Some of the required headers are missing; Expected ['Host', 'X-Forwarded-For', 'X-Forwarded-Proto', "
-                "'Content-Length', 'Connectionid', 'User-Agent', 'X-Amzn-Apigateway-Api-Id'], Received "
-                "KeysView({'Cookie': 'some-cookie', 'Content-Length': '2', 'Content-Type': 'application/json', "
-                "'Connectionid': '1234', 'Origin': 'https://www.example.com', 'Host': 'www.example.com'})"
-            ),
+            "Invalid request headers"
         )
         self.assertEqual(MockHttpResponseBadRequest.return_value, res)
         self.assertEqual(0, MockJsonResponse.call_count)
@@ -1335,13 +1339,17 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
     @patch("django_aws_api_gateway_websockets.views.WebSocketView.disconnect")
     @patch("django_aws_api_gateway_websockets.views.WebSocketView._load_session")
     @patch(
+        "django_aws_api_gateway_websockets.views.WebSocketView.handler_selection_key_missing"
+    )
+    @patch(
         "django_aws_api_gateway_websockets.views.WebSocketView.route_selection_key_missing"
     )
     @patch("django_aws_api_gateway_websockets.views.JsonResponse")
-    def test_dispatch__route_selection_key_missing(
+    def test_dispatch__handler_selection_key_missing(
         self,
         MockJsonResponse,
         mocked_route_selection_key_missing,
+        mocked_handler_selection_key_missing,
         mocked__load_session,
         mocked_disconnect,
         mock_invalid_useragent,
@@ -1382,9 +1390,9 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
         request.user = user
         res = SubClassedView.as_view()(request, route="chat")
 
-        self.assertEqual(res, mocked_route_selection_key_missing.return_value)
+        self.assertEqual(res, mocked_handler_selection_key_missing.return_value)
 
-        mocked_route_selection_key_missing.assert_called_with(request, route="chat")
+        mocked_handler_selection_key_missing.assert_called_with(request, route="chat")
 
         self.assertEqual(0, mocked__load_session.call_count)
         self.assertEqual(0, mocked__expected_useragent.call_count)
