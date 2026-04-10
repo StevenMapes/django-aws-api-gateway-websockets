@@ -57,8 +57,8 @@ See the [Architecture](ARCHITECTURE.md) page.
   - Detailed logging for administrators
   - No stack trace exposure
 
-# Security Concerns
-**IMPORTANT:**: In order to work the dispatch method requires the ```csrf_exempt``` decorator to be added. This has
+# Security Note
+**IMPORTANT:**: In order forthe dispatch method to work it requires the ```csrf_exempt``` decorator to be added. This has
 already been added as a class decorator on the base view, if you overload the dispatch method you will need to add
 it back to avoid receiving CSRF Token failures. Due to this the project implements support for a short-lived 
 "websocket token" that should be generated and sent with the connection request. The token is request with the CSRF
