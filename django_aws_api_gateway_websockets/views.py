@@ -69,6 +69,7 @@ class WebSocketView(View):
     CHANNEL_NAME_PATTERN = re.compile(r'^[a-zA-Z0-9_-]+$')
 
     ALLOWED_HANDLERS = set()
+    ADDITIONAL_ALLOWED_HANDLERS = list()
     USE_WS_TOKEN = True
     RATE_LIMIT_ENABLED = True
     RATE_LIMIT_MAX_ATTEMPTS = 20  # Max connection attempts
@@ -115,7 +116,7 @@ class WebSocketView(View):
         self.debug_log = []
 
         if not self.ALLOWED_HANDLERS:
-            self.ALLOWED_HANDLERS = set(["default" ] + self._get_current_class_methods())
+            self.ALLOWED_HANDLERS = set(["default"] + self.ADDITIONAL_ALLOWED_HANDLERS + self._get_current_class_methods())
 
         super().__init__(**kwargs)
 
