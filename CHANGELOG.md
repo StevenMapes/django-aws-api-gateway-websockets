@@ -1,22 +1,70 @@
-# 3.* - ??? 2026 - NOT RELEASED **BREAKING CHANGES**
+# 4.* - ??? 2026 - NOT RELEASED **BREAKING CHANGES**
 - The `route_selection_key` property has been removed as per the warning in version 2.0.0. Please update your integration
-- Dropped the temporary DISALLOWED_HANDLERS and forced ALLOWED_HANDLERS usage which defaults to "default". This is a 
-major BREAKING change as it will mean that you MUST update your CBV subclasses to define the methods that can be invoked
-by the client
 
-# 2.3.0 - 9th April 2026 **BREAKING CHANGES**
-Introduced security improvements including:
- 
-- Channel Names are now limited to 191 characters
-- Channel names are now restricted to the following characters a-zA-Z0-9_- to help prevent SQL injection.
+# 3.0.0 - ??? 2026 **SECURITY RELEASE - Breaking Changes**
+This is a major release that introduces a number of security improvements and breaking changes.
+
+**Ensure you run migrations after updating to this version!**
+
+To enable backward compatibility with previous versions edit your subclasses of ```WebSocketView``` and set this class 
+properties to False
+```
+    USE_WS_TOKEN = False
+    RATE_LIMIT_ENABLED = False
+```
+This will turn off the need to use WS Token as well as to disable the rate limiting.
+
+Introduced major security improvements:
+
+**Critical Security Fixes:**
+- **ALLOWED_HANDLERS Enforcement**: Replaced dynamic method invocation vulnerability with strict whitelist validation
+  - Added in the ```ALLOWED_HANDLERS``` to allow users to control which methods are exposed to the client. By default all
+  methods that are defined within the current class are exposed. To restrict this simply set the property to a list of
+  methods that you wish to expose to end-users.
+  - Private methods (starting with `_`) are blocked
+  - Prevents arbitrary method invocation attacks
+- **Strengthened Connection ID Validation**: Improved regex validation with length checks to prevent injection
+- **XSS Prevention**: All debug output is now HTML-escaped and length-limited
+
+**High Priority Security Improvements:**
+- **CSRF Protection for WebSocket Connections**: New `WebSocketToken` model provides one-time tokens
+  - `WebSocketTokenView` generates time-limited tokens (60s default)
+  - Tokens are single-use and session-bound
+  - Set `USE_WS_TOKEN = True` to enable (will be default in 4.0)
+- **Rate Limiting**: New `ConnectionRateLimit` model tracks connection attempts
+  - IP-based and user-based rate limiting
+  - Configurable via `RATE_LIMIT_MAX_ATTEMPTS` and `RATE_LIMIT_WINDOW_MINUTES`
+  - Set `RATE_LIMIT_ENABLED = False` to disable
+- **Input Validation**: Added validation to `ApiGateway` model fields
+  - Domain name format validation
+  - API name character restrictions
+  - URL validation for endpoints
+
+**Medium Priority Security Improvements:**
 - Missing headers no longer return the headers that were missing outside of debug being turned on. This stops 
 potential exposure of headers
-- Added in the ```ALLOWED_HANDLERS``` to allow users to control which methods are exposed to the client. This should be
-used for all projects ASAP and should be defined at the subclass level of WebSocketView.
-- Added the DISALLOWED_HANDLERS property which is a temporary security improvement to prevent the messages from calling
-specific private methods. This will be replaced in Version 3 by using ```ALLOWED_HANDLERS``` property.
-- Added limited to inbound and outbound messages to 128KB which is the hard limit set by AWS API Gateway.
- 
+- **Reduced Information Disclosure**: Generic error messages in production
+- **Message Size Validation**: Enhanced validation before sending to AWS
+- **Audit Logging**: Administrative actions are now logged via Python logging
+- **Channel Name Validation**: Atomic validation of length and format
+- Channel Names are now limited to 191 characters
+
+**New Management Commands:**
+- `cleanupWebSocketTokens`: Cleanup expired tokens and old rate limit records
+  - `--token-age`: Seconds before tokens are deleted (default: 300)
+  - `--rate-limit-age`: Days before rate limit records are deleted (default: 7)
+
+**New Models:**
+- `WebSocketToken`: One-time use tokens for CSRF protection
+- `ConnectionRateLimit`: Track connection attempts for rate limiting
+
+**Recommendations:**
+- Enable `USE_WS_TOKEN = True` for CSRF protection
+- Run `cleanupWebSocketTokens` via cron/celery every 5-15 minutes
+- Review and customize `ALLOWED_HANDLERS` for your views
+- Configure rate limiting thresholds based on your usage patterns
+- Enable audit logging in production
+
 # 2.2.2 - 26th March 2026
 - Dropped "Connection" from the default ```additional_required_headers``` list as it is no longer always coming through.
 Issue found with a combination of AWS ALB, Pytohon 3.14, Django 6 and Nginx 1.29.7

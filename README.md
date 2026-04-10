@@ -23,10 +23,52 @@ Please refer to the installation notes and Getting Start Guides.
 # Architecture
 See the [Architecture](ARCHITECTURE.md) page.
 
+# 🔒 SECURITY FEATURES IMPLEMENTED (v3.0.0 onwards)
+## Defense in Depth
+1. Authentication Layer
+  - User authentication required for token generation
+  - Session validation
+2. Authorization Layer
+  - Django permissions support (has_any_permission, has_all_permission)
+  - Method-level access control via ALLOWED_HANDLERS
+3. Input Validation Layer
+  - Request body size limits (128KB)
+  - JSON parsing with error handling
+  - Connection ID validation
+  - Channel name validation
+  - IP address validation
+  - Domain name validation
+  - Message size validation
+  - Rate Limiting Layer
+  - Token generation rate limiting (10/min per user)
+  - Connection attempt rate limiting (20 per 5min per IP/user)
+  - Configurable thresholds
+4. CSRF Protection Layer
+  - One-time WebSocket tokens
+  - Session-bound validation
+  - Time-limited tokens (60s)
+  - Atomic single-use enforcement
+5. Audit & Monitoring Layer
+  - Admin action logging
+  - Connection attempt tracking
+  - Debug mode with sanitized output
+6. Error Handling Layer
+  - Generic error messages to users
+  - Detailed logging for administrators
+  - No stack trace exposure
+
 # Security Concerns
 **IMPORTANT:**: In order to work the dispatch method requires the ```csrf_exempt``` decorator to be added. This has
 already been added as a class decorator on the base view, if you overload the dispatch method you will need to add
-it back to avoid receiving CSRF Token failures.
+it back to avoid receiving CSRF Token failures. Due to this the project implements support for a short-lived 
+"websocket token" that should be generated and sent with the connection request. The token is request with the CSRF
+Token in order to validate the user, then the returned token is used within the WS connection request to ensure the
+user is authenticated and is the same user. It's short lived so connection requests shold be made as soon as the token
+is fetched. You can disabled the use of the tokens by turning off the ```USE_WS_TOKEN``` within the WebSocketView class.
+
+This project also supports rate-limiting with the default allowing 10 requests per minute per user. You can configure
+the thresholds by setting the ```RATE_LIMIT_ENABLED``` and ```RATE_LIMIT_MAX_ATTEMPTS``` 
+and ```RATE_LIMIT_WINDOW_MINUTES``` within the WebSocketView class.
 
 # Quick Start
 
@@ -222,6 +264,14 @@ WebSocket connections can become stale over time, so some housekeeping is requir
 python manage.py clearWebSocketSessions
 ``` 
 I recommend setting this as a scheduled task.
+
+### Clean stable Tokens and Rate Limit
+Ths management command ```cleanupWebSocketTokens``` will remove all expired tokens and rate limit tokens and should be
+run frequently. We recommend running this command every 5 minutes.
+
+```crontab
+*/5 * * * * cd /path/to/project && python manage.py cleanupWebSocketTokens
+```
 
 # AWS Setup
 In order for this package to create the API Gateway, it's routes, integration, custom domain and to publish messages
@@ -552,7 +602,172 @@ overload the class property and set it to an empty list.
 
 
 # Client Side Integration (Javascript)
-This section will guide you through two common ways of connecting to and using this project from a webpage.
+This section will guide you through connecting to and using this project from a webpage.
+
+## Security: CSRF Protection with WebSocket Tokens (Version 3.0+)
+
+**Important:** As of version 3.0, WebSocket connections require a one-time use token for CSRF protection. This token 
+must be obtained before establishing the WebSocket connection.
+That is unless you turn off the use of tokens
+
+### Step 1: Add the Token Generation URL
+
+Add the `WebSocketTokenView` to your `urls.py`:
+
+```python
+from django.urls import path
+from django_aws_api_gateway_websockets.views import WebSocketTokenView
+
+urlpatterns = [
+    # ... your other URLs ...
+    path('api/ws-token/', WebSocketTokenView.as_view(), name='websocket_token'),
+]
+```
+
+### Step 2: Client-Side Token Retrieval and Connetion
+Using Fetch API and Reconnecing Websocket
+
+```html
+<script src="https://cdnjs.cloudflare.com/ajax/libs/reconnecting-websocket/1.0.0/reconnecting-websocket.min.js" 
+        integrity="sha512-B4skI5FiLurS86aioJx9VfozI1wjqrn6aTdJH+YQUmCZum/ZibPBTX55k5d9XM6EsKePDInkLVrN7vPmJxc1qA==" 
+        crossorigin="anonymous" 
+        referrerpolicy="no-referrer"></script>
+<script>
+    // Configuration
+    const WS_BASE_URL = 'wss://ws.example.com';
+    const CHANNEL_NAME = 'my-example-channel';
+    const TOKEN_ENDPOINT = '/api/ws-token/';
+    
+    let exampleWS = null;
+    
+    // Function to get CSRF token from cookie
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    // Function to fetch a new WebSocket token
+    async function getWebSocketToken() {
+        const csrfToken = getCookie('csrftoken');
+        
+        try {
+            const response = await fetch(TOKEN_ENDPOINT, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'same-origin'  // Include cookies
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Token request failed: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            return data.token;
+        } catch (error) {
+            console.error('Failed to get WebSocket token:', error);
+            return null;
+        }
+    }
+    
+    // Function to connect or reconnect the WebSocket
+    async function connectWebSocket() {
+        const token = await getWebSocketToken();
+        
+        if (!token) {
+            console.error('Could not obtain WebSocket token');
+            // Retry after 5 seconds
+            setTimeout(connectWebSocket, 5000);
+            return;
+        }
+        
+        // Build WebSocket URL with token and channel
+        const wsUrl = `${WS_BASE_URL}?ws_token=${token}&channel=${encodeURIComponent(CHANNEL_NAME)}`;
+        
+        // Create ReconnectingWebSocket instance
+        exampleWS = new ReconnectingWebSocket(wsUrl, null, {
+            debug: false,
+            reconnectInterval: 3000,
+            maxReconnectInterval: 10000,
+            reconnectDecay: 1.5,
+            timeoutInterval: 5000,
+            maxReconnectAttempts: null  // Retry indefinitely
+        });
+        
+        exampleWS.onopen = function(event) {
+            console.log('WebSocket connected');
+        };
+        
+        exampleWS.onmessage = function(event) {
+            console.log('Message received:', event.data);
+            const msg = JSON.parse(event.data);
+            // Handle your message here
+            console.log('Parsed message:', msg);
+        };
+        
+        exampleWS.onerror = function(event) {
+            console.error('WebSocket error:', event);
+        };
+        
+        exampleWS.onclose = function(event) {
+            console.log('WebSocket closed:', event.code, event.reason);
+            
+            // If the token expired (close code could be 1000 or 1006), get a new token
+            // The ReconnectingWebSocket library will handle reconnection
+            // but we need to get a fresh token
+            setTimeout(async () => {
+                if (exampleWS.readyState === WebSocket.CLOSED || 
+                    exampleWS.readyState === WebSocket.CLOSING) {
+                    exampleWS.close();  // Ensure it's fully closed
+                    await connectWebSocket();  // Get new token and reconnect
+                }
+            }, 3000);
+        };
+    }
+    
+    // Function to send messages
+    function sendMessage(action, data) {
+        if (exampleWS && exampleWS.readyState === WebSocket.OPEN) {
+            exampleWS.send(JSON.stringify({
+                action: action,
+                ...data
+            }));
+        } else {
+            console.error('WebSocket is not connected');
+        }
+    }
+    
+    // Initialize connection when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        connectWebSocket();
+    });
+    
+    // Example: Send a message
+    // sendMessage('custom', { message: 'Hello from the browser' });
+</script>
+```
+
+### Important Notes:
+1. **Token Expiration:** Tokens expire after 60 seconds. The connection must be established within this time.
+2. **Token Reuse:** Tokens are single-use only. Each new connection requires a fresh token.
+3. **Reconnection Strategy:** When the WebSocket disconnects, always fetch a new token before reconnecting.
+4. **Rate Limiting:** Token generation is rate-limited to 10 tokens per minute per user by default.
+5. **Authentication:** The token endpoint requires user authentication. Ensure users are logged in.
+
+## Legacy Integration (Pre-3.0)
+If you're using version 2.x or have disabled token authentication (USE_WS_TOKEN = False), you can connect directly:
 
 ### Basic Integration
 Below is a very basic integration using the WebSockets API built into browsers. It does not handle reconnecting dropped
@@ -632,6 +847,39 @@ exampleWS.send(JSON.stringify({"action": "bob", "message": "What is this"}))
 API Gateway will route this to the endpoint set for the "bob" route. This will be calling your view with the route slugs
 value being assigned to **bob**. The ```dispatch``` method of the view will then look for a method on the class called
 ```bob```. If one is found then it will be invoked otherwise the ```default``` method will be called.
+
+## Automated Cleanup (Version 3.0+)
+
+To prevent database bloat from expired tokens and old rate limit records, schedule the cleanup management command:
+
+### Using Cron
+
+```bash
+# Run every 5 minutes
+*/5 * * * * cd /path/to/project && /path/to/venv/bin/python manage.py cleanupWebSocketTokens --token-age=300 --rate-limit-age=7
+```
+
+### Using Django-Celery-Beat
+
+```python
+# In your settings.py
+from celery.schedules import crontab
+
+CELERY_BEAT_SCHEDULE = {
+    'cleanup-websocket-tokens': {
+        'task': 'yourapp.tasks.cleanup_websocket_data',
+        'schedule': crontab(minute='*/5'),  # Every 5 minutes
+    },
+}
+
+# In yourapp/tasks.py
+from celery import shared_task
+from django.core.management import call_command
+
+@shared_task
+def cleanup_websocket_data():
+    call_command('cleanupWebSocketTokens', '--token-age=300', '--rate-limit-age=7')
+```
 
 # Appendix
 
