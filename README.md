@@ -20,7 +20,7 @@ The project will keep track of which users created which WebSockets, which ones 
 
 Please refer to the installation notes and Getting Start Guides.
 
-# Architecture
+# Architecture and process flow
 See the [Architecture](ARCHITECTURE.md) page.
 
 # 🔒 SECURITY FEATURES IMPLEMENTED (v3.0.0 onwards)
@@ -57,8 +57,22 @@ See the [Architecture](ARCHITECTURE.md) page.
   - Detailed logging for administrators
   - No stack trace exposure
 
-# Security Note
-**IMPORTANT:**: In order forthe dispatch method to work it requires the ```csrf_exempt``` decorator to be added. This has
+## COMPLIANCE STATUS
+OWASP Top 10 (2021)
+- ✅ A01:2021 - Broken Access Control - MITIGATED (permissions + ALLOWED_HANDLERS)
+- ✅ A02:2021 - Cryptographic Failures - N/A (uses Django/AWS crypto)
+- ✅ A03:2021 - Injection - MITIGATED (input validation + parameterized queries)
+- ✅ A04:2021 - Insecure Design - MITIGATED (defense in depth)
+- ✅ A05:2021 - Security Misconfiguration - MITIGATED (secure defaults)
+- ✅ A06:2021 - Vulnerable Components - N/A (depends on user's Django/Python versions)
+- ✅ A07:2021 - Identification/Authentication Failures - MITIGATED (CSRF tokens)
+- ✅ A08:2021 - Software/Data Integrity - MITIGATED (single-use tokens)
+- ✅ A09:2021 - Security Logging Failures - MITIGATED (comprehensive logging)
+- ✅ A10:2021 - Server-Side Request Forgery - N/A (not applicable)
+
+## Why the CSRF Excempt Decorator?
+The ```csrf_exempt``` decorator is now required on the base view class.
+**IMPORTANT:**: In order for the dispatch method to work it requires the ```csrf_exempt``` decorator to be added. This has
 already been added as a class decorator on the base view, if you overload the dispatch method you will need to add
 it back to avoid receiving CSRF Token failures. Due to this the project implements support for a short-lived 
 "websocket token" that should be generated and sent with the connection request. The token is request with the CSRF
@@ -66,7 +80,7 @@ Token in order to validate the user, then the returned token is used within the 
 user is authenticated and is the same user. It's short lived so connection requests shold be made as soon as the token
 is fetched. You can disabled the use of the tokens by turning off the ```USE_WS_TOKEN``` within the WebSocketView class.
 
-This project also supports rate-limiting with the default allowing 10 requests per minute per user. You can configure
+This project also supports rate-limiting with the default allowing 20 connection attempts per 5 minute per user. You can configure
 the thresholds by setting the ```RATE_LIMIT_ENABLED``` and ```RATE_LIMIT_MAX_ATTEMPTS``` 
 and ```RATE_LIMIT_WINDOW_MINUTES``` within the WebSocketView class.
 
