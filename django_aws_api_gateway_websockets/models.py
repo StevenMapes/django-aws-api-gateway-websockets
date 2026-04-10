@@ -8,7 +8,7 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.core.validators import RegexValidator
-from django.db import models
+from django.db import models, transaction
 from django.utils import timezone
 
 
@@ -529,16 +529,17 @@ class WebSocketToken(models.Model):
         """Validate token and mark as used (single-use)"""
         try:
             cutoff_time = timezone.now() - timedelta(seconds=max_age_seconds)
-            token_obj = cls.objects.select_for_update().get(
-                token=token_value,
-                session_key=session_key,
-                used=False,
-                created_at__gte=cutoff_time
-            )
-            # Mark as used immediately
-            token_obj.used = True
-            token_obj.save(update_fields=['used'])
-            return token_obj.user
+            with transaction.atomic():
+                token_obj = cls.objects.select_for_update().get(
+                    token=token_value,
+                    session_key=session_key,
+                    used=False,
+                    created_at__gte=cutoff_time
+                )
+                # Mark as used immediately
+                token_obj.used = True
+                token_obj.save(update_fields=['used'])
+                return token_obj.user
         except cls.DoesNotExist:
             return None
 
