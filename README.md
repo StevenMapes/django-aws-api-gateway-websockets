@@ -23,68 +23,7 @@ Please refer to the installation notes and Getting Start Guides.
 # Architecture and process flow
 See the [Architecture](ARCHITECTURE.md) page.
 
-# 🔒 SECURITY FEATURES IMPLEMENTED (v3.0.0 onwards)
-## Defense in Depth
-1. Authentication Layer
-  - User authentication required for token generation
-  - Session validation
-2. Authorization Layer
-  - Django permissions support (has_any_permission, has_all_permission)
-  - Method-level access control via ALLOWED_HANDLERS and ADDITIONAL_ALLOWED_HANDLERS for extending automatic access
-3. Input Validation Layer
-  - Request body size limits (128KB)
-  - JSON parsing with error handling
-  - Connection ID validation
-  - Channel name validation
-  - IP address validation
-  - Domain name validation
-  - Message size validation
-  - Rate Limiting Layer
-  - Token generation rate limiting (10/min per user)
-  - Connection attempt rate limiting (20 per 5min per IP/user)
-  - Configurable thresholds
-4. CSRF Protection Layer
-  - One-time WebSocket tokens
-  - Session-bound validation
-  - Time-limited tokens (60s)
-  - Atomic single-use enforcement
-5. Audit & Monitoring Layer
-  - Admin action logging
-  - Connection attempt tracking
-  - Debug mode with sanitized output
-6. Error Handling Layer
-  - Generic error messages to users
-  - Detailed logging for administrators
-  - No stack trace exposure
-
-## COMPLIANCE STATUS
-OWASP Top 10 (2021)
-- ✅ A01:2021 - Broken Access Control - MITIGATED (permissions + ALLOWED_HANDLERS)
-- ✅ A02:2021 - Cryptographic Failures - N/A (uses Django/AWS crypto)
-- ✅ A03:2021 - Injection - MITIGATED (input validation + parameterized queries)
-- ✅ A04:2021 - Insecure Design - MITIGATED (defense in depth)
-- ✅ A05:2021 - Security Misconfiguration - MITIGATED (secure defaults)
-- ✅ A06:2021 - Vulnerable Components - N/A (depends on user's Django/Python versions)
-- ✅ A07:2021 - Identification/Authentication Failures - MITIGATED (CSRF tokens)
-- ✅ A08:2021 - Software/Data Integrity - MITIGATED (single-use tokens)
-- ✅ A09:2021 - Security Logging Failures - MITIGATED (comprehensive logging)
-- ✅ A10:2021 - Server-Side Request Forgery - N/A (not applicable)
-
-## Why the CSRF Excempt Decorator?
-The ```csrf_exempt``` decorator is now required on the base view class.
-**IMPORTANT:**: In order for the dispatch method to work it requires the ```csrf_exempt``` decorator to be added. This has
-already been added as a class decorator on the base view, if you overload the dispatch method you will need to add
-it back to avoid receiving CSRF Token failures. Due to this the project implements support for a short-lived 
-"websocket token" that should be generated and sent with the connection request. The token is request with the CSRF
-Token in order to validate the user, then the returned token is used within the WS connection request to ensure the
-user is authenticated and is the same user. It's short lived so connection requests shold be made as soon as the token
-is fetched. You can disabled the use of the tokens by turning off the ```USE_WS_TOKEN``` within the WebSocketView class.
-
-This project also supports rate-limiting with the default allowing 20 connection attempts per 5 minute per user. You can configure
-the thresholds by setting the ```RATE_LIMIT_ENABLED``` and ```RATE_LIMIT_MAX_ATTEMPTS``` 
-and ```RATE_LIMIT_WINDOW_MINUTES``` within the WebSocketView class.
-
-# Quick Start
+# Getting Started
 
 This project lets you handle AWS API Gateway WebSocket events from a Django view while keeping track of active connections and the Django user associated with each one.
 
@@ -159,6 +98,7 @@ self.websocket_session.send_message({ "type": "example", "message": "Hello from 
 If you are using the Django Admin integration, create the API Gateway record and then run the custom domain setup. If you are not using the admin UI, use the equivalent management commands instead.
 
 ---
+
 # Restricting access to users
 As of version 2.1.0 you can now use Django Permissions to restrict access to the methods that handle the WebSocket 
 request within your views.py.
@@ -894,6 +834,71 @@ from django.core.management import call_command
 def cleanup_websocket_data():
     call_command('cleanupWebSocketTokens', '--token-age=300', '--rate-limit-age=7')
 ```
+
+---
+
+# 🔒 SECURITY FEATURES IMPLEMENTED (v3.0.0 onwards)
+## Defense in Depth
+1. Authentication Layer
+  - User authentication required for token generation
+  - Session validation
+2. Authorization Layer
+  - Django permissions support (has_any_permission, has_all_permission)
+  - Method-level access control via ALLOWED_HANDLERS and ADDITIONAL_ALLOWED_HANDLERS for extending automatic access
+3. Input Validation Layer
+  - Request body size limits (128KB)
+  - JSON parsing with error handling
+  - Connection ID validation
+  - Channel name validation
+  - IP address validation
+  - Domain name validation
+  - Message size validation
+  - Rate Limiting Layer
+  - Token generation rate limiting (10/min per user)
+  - Connection attempt rate limiting (20 per 5min per IP/user)
+  - Configurable thresholds
+4. CSRF Protection Layer
+  - One-time WebSocket tokens
+  - Session-bound validation
+  - Time-limited tokens (60s)
+  - Atomic single-use enforcement
+5. Audit & Monitoring Layer
+  - Admin action logging
+  - Connection attempt tracking
+  - Debug mode with sanitized output
+6. Error Handling Layer
+  - Generic error messages to users
+  - Detailed logging for administrators
+  - No stack trace exposure
+
+## COMPLIANCE STATUS
+OWASP Top 10 (2021)
+- ✅ A01:2021 - Broken Access Control - MITIGATED (permissions + ALLOWED_HANDLERS)
+- ✅ A02:2021 - Cryptographic Failures - N/A (uses Django/AWS crypto)
+- ✅ A03:2021 - Injection - MITIGATED (input validation + parameterized queries)
+- ✅ A04:2021 - Insecure Design - MITIGATED (defense in depth)
+- ✅ A05:2021 - Security Misconfiguration - MITIGATED (secure defaults)
+- ✅ A06:2021 - Vulnerable Components - N/A (depends on user's Django/Python versions)
+- ✅ A07:2021 - Identification/Authentication Failures - MITIGATED (CSRF tokens)
+- ✅ A08:2021 - Software/Data Integrity - MITIGATED (single-use tokens)
+- ✅ A09:2021 - Security Logging Failures - MITIGATED (comprehensive logging)
+- ✅ A10:2021 - Server-Side Request Forgery - N/A (not applicable)
+
+## Why the CSRF Excempt Decorator?
+The ```csrf_exempt``` decorator is now required on the base view class.
+**IMPORTANT:**: In order for the dispatch method to work it requires the ```csrf_exempt``` decorator to be added. This has
+already been added as a class decorator on the base view, if you overload the dispatch method you will need to add
+it back to avoid receiving CSRF Token failures. Due to this the project implements support for a short-lived 
+"websocket token" that should be generated and sent with the connection request. The token is request with the CSRF
+Token in order to validate the user, then the returned token is used within the WS connection request to ensure the
+user is authenticated and is the same user. It's short lived so connection requests shold be made as soon as the token
+is fetched. You can disabled the use of the tokens by turning off the ```USE_WS_TOKEN``` within the WebSocketView class.
+
+This project also supports rate-limiting with the default allowing 20 connection attempts per 5 minute per user. You can configure
+the thresholds by setting the ```RATE_LIMIT_ENABLED``` and ```RATE_LIMIT_MAX_ATTEMPTS``` 
+and ```RATE_LIMIT_WINDOW_MINUTES``` within the WebSocketView class.
+
+---
 
 # Appendix
 
