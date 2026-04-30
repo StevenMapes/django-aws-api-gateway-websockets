@@ -54,3 +54,12 @@ Related architecture
    :caption: Related architecture
 
    architecture
+
+Generated API documentation
+---------------------------
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Generated API documentation
+
+   api/index

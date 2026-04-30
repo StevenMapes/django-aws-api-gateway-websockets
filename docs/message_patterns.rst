@@ -1,845 +1,633 @@
-Settings
-========
+Message patterns
+================
 
-This page documents the Django settings and view-level configuration options
-commonly used with Django-AWS-API-Gateway-WebSockets.
+This page describes common messaging patterns used with
+Django-AWS-API-Gateway-WebSockets.
 
-The package uses a combination of:
+The package supports sending messages from Django to connected WebSocket clients
+through AWS API Gateway.
 
-* project-level Django settings;
-* AWS credential settings;
-* normal Django security settings;
-* class attributes on ``WebSocketView`` subclasses;
-* model fields stored in the database.
+Common patterns include:
 
-Project installation
---------------------
+* replying to the current connection;
+* sending to one stored session;
+* sending to all sessions for a user;
+* sending to all sessions in a channel;
+* broadcasting to all connected sessions;
+* sending toast notifications;
+* sending task progress updates;
+* sending lightweight invalidation messages;
+* handling stale connections.
 
-Add the package to ``INSTALLED_APPS``.
+Overview
+--------
 
-.. code-block:: python
+AWS API Gateway owns the WebSocket connection.
 
-   INSTALLED_APPS = [
-       # ...
-       "django_aws_api_gateway_websockets",
-   ]
+Django sends messages back to clients using the API Gateway Management API.
 
-Then run migrations.
+The package provides two main ways to send messages:
 
-.. code-block:: console
+``WebSocketSession.send_message()``
+   Send to one specific WebSocket connection.
 
-   python manage.py migrate
+``WebSocketSession.objects.filter(...).send_message()``
+   Send to all connected sessions in a queryset.
 
-AWS credential settings
------------------------
+The queryset version sends to connected sessions in the queryset.
 
-The package uses Boto3 to interact with AWS.
+Message shape
+-------------
 
-It supports several credential approaches.
+Messages should be JSON-compatible dictionaries.
 
-AWS_GATEWAY_REGION_NAME
-~~~~~~~~~~~~~~~~~~~~~~~
-
-Sets the AWS region used for API Gateway operations.
-
-Example:
-
-.. code-block:: python
-
-   AWS_GATEWAY_REGION_NAME = "eu-west-1"
-
-This is the recommended region setting for this package.
-
-If your application runs on AWS with an attached IAM role, this may be the only
-AWS setting you need.
-
-AWS_REGION_NAME
-~~~~~~~~~~~~~~~
-
-Fallback AWS region setting.
-
-If ``AWS_GATEWAY_REGION_NAME`` is not set, the package can fall back to
-``AWS_REGION_NAME``.
+A useful convention is to include a ``type`` field.
 
 Example:
 
 .. code-block:: python
 
-   AWS_REGION_NAME = "eu-west-1"
+   {
+       "type": "notification",
+       "message": "You have a new notification.",
+   }
 
-Prefer ``AWS_GATEWAY_REGION_NAME`` for new projects because it is more specific
-to this package.
+The frontend can then switch behaviour based on ``type``.
 
-AWS_IAM_PROFILE
-~~~~~~~~~~~~~~~
+Example browser handler:
 
-Use a named AWS profile.
+.. code-block:: javascript
 
-This is useful for local development where credentials are stored in your AWS
-configuration files.
+   socket.onmessage = function (event) {
+       const data = JSON.parse(event.data);
+
+       if (data.type === "notification") {
+           showNotification(data.message);
+           return;
+       }
+
+       if (data.type === "chat_message") {
+           appendChatMessage(data.username, data.message);
+           return;
+       }
+
+       console.log("Unhandled message:", data);
+   };
+
+Recommended message fields
+--------------------------
+
+Common fields include:
+
+``type``
+   The kind of message being sent.
+
+``message``
+   Human-readable text.
+
+``level``
+   Severity or style, such as ``success``, ``info``, ``warning``, or ``error``.
+
+``id``
+   Application object ID.
+
+``created_at``
+   Timestamp.
+
+``channel``
+   Channel or room name.
+
+``payload``
+   Structured data for the client.
+
+Example:
+
+.. code-block:: json
+
+   {
+     "type": "chat_message",
+     "channel": "general",
+     "username": "alice",
+     "message": "Hello everyone",
+     "created_at": "2026-04-30T12:00:00Z"
+   }
+
+Reply to the current connection
+-------------------------------
+
+Use this pattern when the server should respond only to the client that sent the
+message.
+
+Example use cases:
+
+* acknowledgement;
+* validation error;
+* request result;
+* private notification;
+* task status for one user.
 
 Example:
 
 .. code-block:: python
 
-   AWS_IAM_PROFILE = "default"
-
-When this setting is used, Boto3 creates a session with the named profile.
-
-If the profile includes a region, you may not need to set
-``AWS_GATEWAY_REGION_NAME`` separately.
-
-AWS_ACCESS_KEY_ID
-~~~~~~~~~~~~~~~~~
-
-Explicit AWS access key.
-
-Example:
-
-.. code-block:: python
-
-   AWS_ACCESS_KEY_ID = "your-access-key"
-
-Do not commit real access keys to source control.
-
-AWS_SECRET_ACCESS_KEY
-~~~~~~~~~~~~~~~~~~~~~
-
-Explicit AWS secret access key.
-
-Example:
-
-.. code-block:: python
-
-   AWS_SECRET_ACCESS_KEY = "your-secret-key"
-
-Do not commit real secret keys to source control.
-
-Explicit credential example
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: python
-
-   AWS_ACCESS_KEY_ID = "your-access-key"
-   AWS_SECRET_ACCESS_KEY = "your-secret-key"
-   AWS_GATEWAY_REGION_NAME = "eu-west-1"
-
-Credential priority
-~~~~~~~~~~~~~~~~~~~
-
-The package supports the following credential styles:
-
-#. named profile using ``AWS_IAM_PROFILE``;
-#. explicit access key and secret key;
-#. environment or instance role credentials with a configured region.
-
-For production deployments, prefer IAM roles where possible.
-
-See :doc:`aws_iam_setup`.
-
-Required region
-~~~~~~~~~~~~~~~
-
-A region is required when creating Boto3 clients without a named profile that
-already provides one.
-
-If no region can be found, the package raises an error.
-
-Django security settings
-------------------------
-
-ALLOWED_HOSTS
-~~~~~~~~~~~~~
-
-Configure Django's allowed hosts.
-
-Example:
-
-.. code-block:: python
-
-   ALLOWED_HOSTS = [
-       "www.example.com",
-       "example.com",
-   ]
-
-If testing through a tunnel, include the tunnel host.
-
-Example:
-
-.. code-block:: python
-
-   ALLOWED_HOSTS = [
-       "localhost",
-       "127.0.0.1",
-       "example-tunnel.ngrok-free.app",
-   ]
-
-CSRF_TRUSTED_ORIGINS
-~~~~~~~~~~~~~~~~~~~~
-
-Configure trusted origins for CSRF-protected token requests.
-
-Example:
-
-.. code-block:: python
-
-   CSRF_TRUSTED_ORIGINS = [
-       "https://www.example.com",
-   ]
-
-If your site and WebSocket-related token endpoint use subdomains, include the
-required origins.
-
-Example:
-
-.. code-block:: python
-
-   CSRF_TRUSTED_ORIGINS = [
-       "https://www.example.com",
-       "https://ws.example.com",
-   ]
-
-SESSION_COOKIE_DOMAIN
-~~~~~~~~~~~~~~~~~~~~~
-
-If your Django site and WebSocket endpoint use related subdomains, configure the
-session cookie domain carefully.
-
-Example:
-
-.. code-block:: python
-
-   SESSION_COOKIE_DOMAIN = ".example.com"
-
-This allows the session cookie to be shared across subdomains such as:
-
-.. code-block:: text
-
-   www.example.com
-   ws.example.com
-
-Only scope cookies as broadly as required.
-
-CSRF_COOKIE_DOMAIN
-~~~~~~~~~~~~~~~~~~
-
-If CSRF tokens need to be available across related subdomains, configure the
-CSRF cookie domain.
-
-Example:
-
-.. code-block:: python
-
-   CSRF_COOKIE_DOMAIN = ".example.com"
-
-SESSION_COOKIE_SAMESITE
-~~~~~~~~~~~~~~~~~~~~~~~
-
-Controls SameSite behaviour for the session cookie.
-
-Example:
-
-.. code-block:: python
-
-   SESSION_COOKIE_SAMESITE = "Lax"
-
-CSRF_COOKIE_SAMESITE
-~~~~~~~~~~~~~~~~~~~~
-
-Controls SameSite behaviour for the CSRF cookie.
-
-Example:
-
-.. code-block:: python
-
-   CSRF_COOKIE_SAMESITE = "Lax"
-
-SESSION_COOKIE_SECURE
-~~~~~~~~~~~~~~~~~~~~~
-
-For production HTTPS deployments, enable secure session cookies.
-
-.. code-block:: python
-
-   SESSION_COOKIE_SECURE = True
-
-CSRF_COOKIE_SECURE
-~~~~~~~~~~~~~~~~~~
-
-For production HTTPS deployments, enable secure CSRF cookies.
-
-.. code-block:: python
-
-   CSRF_COOKIE_SECURE = True
-
-SESSION_COOKIE_NAME
-~~~~~~~~~~~~~~~~~~~
-
-If changing cookie domain behaviour during an upgrade or deployment, you may
-choose to rename the session cookie so old incompatible cookies are ignored.
-
-Example:
-
-.. code-block:: python
-
-   SESSION_COOKIE_NAME = "mysessionid"
-
-After changing session cookie settings, consider clearing old sessions.
-
-.. code-block:: console
-
-   python manage.py clearsessions
-
-Subdomain example
------------------
-
-If your main site is:
-
-.. code-block:: text
-
-   https://www.example.com
-
-and your WebSocket endpoint is:
-
-.. code-block:: text
-
-   wss://ws.example.com
-
-you may need settings similar to:
-
-.. code-block:: python
-
-   ALLOWED_HOSTS = [
-       "www.example.com",
-   ]
-
-   CSRF_TRUSTED_ORIGINS = [
-       "https://www.example.com",
-       "https://ws.example.com",
-   ]
-
-   CSRF_COOKIE_DOMAIN = ".example.com"
-   SESSION_COOKIE_DOMAIN = ".example.com"
-
-   CSRF_COOKIE_SAMESITE = "Lax"
-   SESSION_COOKIE_SAMESITE = "Lax"
-
-   CSRF_COOKIE_SECURE = True
-   SESSION_COOKIE_SECURE = True
-
-If your WebSocket token endpoint is served from your main Django site rather
-than the WebSocket domain, adjust origins and cookie settings to match your
-actual deployment.
-
-WebSocketView settings
-----------------------
-
-Many runtime options are configured as class attributes on your
-``WebSocketView`` subclass.
-
-USE_WS_TOKEN
-~~~~~~~~~~~~
-
-Controls whether WebSocket token validation is required during connection.
-
-Default:
-
-.. code-block:: python
-
-   USE_WS_TOKEN = True
-
-Recommended for authenticated production connections.
-
-Example:
-
-.. code-block:: python
+   from django.http import JsonResponse
 
    from django_aws_api_gateway_websockets.views import WebSocketView
 
 
-   class NotificationsWebSocketView(WebSocketView):
-       USE_WS_TOKEN = True
-
+   class ExampleWebSocketView(WebSocketView):
        def default(self, request, *args, **kwargs):
-           return None
+           self.websocket_session.send_message(
+               {
+                   "type": "reply",
+                   "message": "Django received your message.",
+               }
+           )
 
-For public or local-only test endpoints, you can disable token validation.
+           return JsonResponse({"ok": True})
 
-.. code-block:: python
+This sends a message only to the current WebSocket connection.
 
-   class PublicWebSocketView(WebSocketView):
-       USE_WS_TOKEN = False
+Send to one stored session
+--------------------------
 
-       def default(self, request, *args, **kwargs):
-           return None
-
-See :doc:`websocket_tokens`.
-
-RATE_LIMIT_ENABLED
-~~~~~~~~~~~~~~~~~~
-
-Controls whether connection attempt rate limiting is enabled.
-
-Default:
-
-.. code-block:: python
-
-   RATE_LIMIT_ENABLED = True
-
-RATE_LIMIT_MAX_ATTEMPTS
-~~~~~~~~~~~~~~~~~~~~~~~
-
-Maximum connection attempts allowed within the configured window.
-
-Default:
-
-.. code-block:: python
-
-   RATE_LIMIT_MAX_ATTEMPTS = 20
-
-RATE_LIMIT_WINDOW_MINUTES
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Time window for connection attempt rate limiting.
-
-Default:
-
-.. code-block:: python
-
-   RATE_LIMIT_WINDOW_MINUTES = 5
+You can also send to a specific stored ``WebSocketSession``.
 
 Example:
 
 .. code-block:: python
 
-   class NotificationsWebSocketView(WebSocketView):
-       RATE_LIMIT_ENABLED = True
-       RATE_LIMIT_MAX_ATTEMPTS = 40
-       RATE_LIMIT_WINDOW_MINUTES = 5
+   from django_aws_api_gateway_websockets.models import WebSocketSession
 
-       def default(self, request, *args, **kwargs):
-           return None
 
-See :doc:`rate_limiting`.
+   session = WebSocketSession.objects.get(pk=1)
 
-MAX_BODY_SIZE
-~~~~~~~~~~~~~
-
-Maximum incoming request body size in bytes.
-
-Default:
-
-.. code-block:: python
-
-   MAX_BODY_SIZE = 1024 * 128
-
-This is 128KB.
-
-MAX_CHANNEL_NAME_LENGTH
-~~~~~~~~~~~~~~~~~~~~~~~
-
-Maximum channel name length.
-
-Example:
-
-.. code-block:: python
-
-   MAX_CHANNEL_NAME_LENGTH = 191
-
-CHANNEL_NAME_PATTERN
-~~~~~~~~~~~~~~~~~~~~
-
-Regular expression used to validate channel names.
-
-The default allows letters, numbers, underscores, and hyphens.
-
-Use simple, safe channel names such as:
-
-.. code-block:: text
-
-   general
-   support
-   tenant_123
-   notifications_user_456
-
-Avoid storing sensitive data directly in channel names.
-
-ALLOWED_HANDLERS
-~~~~~~~~~~~~~~~~
-
-Explicit set of handler methods the client is allowed to request.
-
-Example:
-
-.. code-block:: python
-
-   class ChatWebSocketView(WebSocketView):
-       ALLOWED_HANDLERS = {
-           "default",
-           "send_message",
-           "fetch_history",
+   session.send_message(
+       {
+           "type": "notification",
+           "message": "This message was sent to one connection.",
        }
+   )
 
-       def send_message(self, request, *args, **kwargs):
-           return None
+This is useful when you have stored or looked up a specific session.
 
-       def fetch_history(self, request, *args, **kwargs):
-           return None
+Send to a user's active sessions
+--------------------------------
 
-       def default(self, request, *args, **kwargs):
-           return None
+A user may have multiple active WebSocket sessions, such as multiple browser
+tabs or devices.
 
-Use this to prevent arbitrary method invocation.
+You can send a message to all active sessions for one user.
 
-ADDITIONAL_ALLOWED_HANDLERS
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. code-block:: python
 
-Allows extra handler names to be added to the automatically detected handlers.
+   from django.contrib.auth import get_user_model
 
-This can be useful when subclassing views across multiple layers.
+
+   User = get_user_model()
+
+   user = User.objects.get(username="alice")
+
+   user.websocket_sessions.filter(
+       connected=True,
+   ).send_message(
+       {
+           "type": "notification",
+           "message": "This message was sent to all of Alice's active sessions.",
+       }
+   )
+
+Send to a channel
+-----------------
+
+Channels are used to group WebSocket sessions.
+
+Example use cases:
+
+* chat rooms;
+* dashboards;
+* tenant updates;
+* project updates;
+* document collaboration;
+* notification streams.
 
 Example:
 
 .. code-block:: python
 
-   class BaseChatWebSocketView(WebSocketView):
-       ADDITIONAL_ALLOWED_HANDLERS = [
-           "send_message",
-           "fetch_history",
-       ]
+   from django_aws_api_gateway_websockets.models import WebSocketSession
 
-route_selection_key
-~~~~~~~~~~~~~~~~~~~
 
-Legacy key used to select handlers from the request body.
+   WebSocketSession.objects.filter(
+       channel_name="general",
+   ).send_message(
+       {
+           "type": "chat_message",
+           "channel": "general",
+           "username": "alice",
+           "message": "Hello general room.",
+       }
+   )
 
-Default:
+This sends the message to active sessions in the ``general`` channel.
 
-.. code-block:: python
+Broadcast to all connected sessions
+-----------------------------------
 
-   route_selection_key = "action"
+Broadcasting sends a message to all active WebSocket sessions.
 
-Many examples use ``action`` because it is also commonly used by API Gateway's
-route selection expression.
+Example use cases:
 
-handler_selection_key
-~~~~~~~~~~~~~~~~~~~~~
-
-Preferred key for selecting Django-side handlers from the request body.
-
-Default:
-
-.. code-block:: python
-
-   handler_selection_key = "handler"
-
-For larger projects, you may use:
-
-* ``action`` for API Gateway route selection;
-* ``handler`` for Django handler selection.
-
-Keep the frontend payload, API Gateway route selection expression, and Django
-view configuration aligned.
-
-permissions_required
-~~~~~~~~~~~~~~~~~~~~
-
-List of Django permissions where the user must have at least one permission.
+* maintenance warnings;
+* system-wide announcements;
+* incident notices;
+* global feature flags or reload notices.
 
 Example:
 
 .. code-block:: python
+
+   from django_aws_api_gateway_websockets.models import WebSocketSession
+
+
+   WebSocketSession.objects.filter(
+       connected=True,
+   ).send_message(
+       {
+           "type": "system",
+           "level": "warning",
+           "message": "Maintenance will begin in 5 minutes.",
+       }
+   )
+
+Use broadcast carefully. Large or frequent broadcasts may increase AWS usage and
+application load.
+
+Send a toast notification
+-------------------------
+
+Toast notifications are a common WebSocket pattern.
+
+Server-side example:
+
+.. code-block:: python
+
+   self.websocket_session.send_message(
+       {
+           "type": "toast",
+           "level": "success",
+           "title": "Saved",
+           "message": "Your changes have been saved.",
+       }
+   )
+
+Frontend example:
+
+.. code-block:: javascript
+
+   socket.onmessage = function (event) {
+       const data = JSON.parse(event.data);
+
+       if (data.type === "toast") {
+           showToast(data.level, data.title, data.message);
+           return;
+       }
+   };
+
+   function showToast(level, title, message) {
+       console.log(`[${level}] ${title}: ${message}`);
+   }
+
+Toast payloads commonly include:
+
+* ``type``;
+* ``level``;
+* ``title``;
+* ``message``;
+* optional timeout;
+* optional action URL.
+
+Send task progress
+------------------
+
+WebSockets are useful for showing progress from long-running work.
+
+Example server-side message:
+
+.. code-block:: python
+
+   WebSocketSession.objects.filter(
+       channel_name="task_123",
+   ).send_message(
+       {
+           "type": "task_progress",
+           "task_id": 123,
+           "percent": 75,
+           "message": "Processing records.",
+       }
+   )
+
+Frontend handler:
+
+.. code-block:: javascript
+
+   socket.onmessage = function (event) {
+       const data = JSON.parse(event.data);
+
+       if (data.type === "task_progress") {
+           updateProgressBar(data.task_id, data.percent, data.message);
+           return;
+       }
+   };
+
+For long-running background jobs, a common pattern is:
+
+#. create a channel for the task;
+#. connect the browser to that channel;
+#. send progress updates to the channel;
+#. send a completion message when finished.
+
+Send lightweight invalidation messages
+--------------------------------------
+
+For larger data updates, avoid sending the full data over WebSocket.
+
+Instead, send a small invalidation message and let the browser fetch the updated
+data over HTTPS.
+
+Example:
+
+.. code-block:: python
+
+   WebSocketSession.objects.filter(
+       channel_name="dashboard",
+   ).send_message(
+       {
+           "type": "resource_updated",
+           "resource": "order",
+           "id": 123,
+           "fetch_url": "/api/orders/123/",
+       }
+   )
+
+Frontend:
+
+.. code-block:: javascript
+
+   socket.onmessage = async function (event) {
+       const data = JSON.parse(event.data);
+
+       if (data.type === "resource_updated") {
+           const response = await fetch(data.fetch_url);
+           const resource = await response.json();
+           updatePage(resource);
+       }
+   };
+
+This keeps WebSocket messages small and avoids duplicating normal HTTP API
+behaviour.
+
+Chat room message
+-----------------
+
+A typical chat message pattern is:
+
+#. browser sends a message to Django;
+#. Django validates and stores the message;
+#. Django sends the message to all sessions in the same channel.
+
+Example:
+
+.. code-block:: python
+
+   from django.http import JsonResponse
+
+   from django_aws_api_gateway_websockets.models import WebSocketSession
+   from django_aws_api_gateway_websockets.views import WebSocketView
+
 
    class ChatWebSocketView(WebSocketView):
-       permissions_required = [
-           "chat.can_use_chat",
-       ]
+       def chat_message(self, request, *args, **kwargs):
+           room = self.websocket_session.channel_name
+           text = self.body.get("message", "").strip()
 
-       def default(self, request, *args, **kwargs):
-           return None
+           if not text:
+               return JsonResponse(
+                   {
+                       "ok": False,
+                       "error": "Message cannot be empty.",
+                   },
+                   status=400,
+               )
 
-all_permissions_required
-~~~~~~~~~~~~~~~~~~~~~~~~
+           WebSocketSession.objects.filter(
+               channel_name=room,
+           ).send_message(
+               {
+                   "type": "chat_message",
+                   "room": room,
+                   "username": request.user.get_username(),
+                   "message": text,
+               }
+           )
 
-List of Django permissions where the user must have all permissions.
+           return JsonResponse({"ok": True})
 
-Example:
+See :doc:`example` for a fuller chat room example.
+
+Admin broadcast
+---------------
+
+A systems administrator can broadcast from the Django shell.
+
+.. code-block:: console
+
+   python manage.py shell
+
+Then:
 
 .. code-block:: python
 
-   class ModerationWebSocketView(WebSocketView):
-       all_permissions_required = [
-           "chat.can_use_chat",
-           "chat.can_moderate_chat",
-       ]
+   from django_aws_api_gateway_websockets.models import WebSocketSession
 
-       def default(self, request, *args, **kwargs):
-           return None
+
+   WebSocketSession.objects.filter(
+       connected=True,
+   ).send_message(
+       {
+           "type": "system",
+           "level": "warning",
+           "message": "Maintenance will begin in 5 minutes.",
+       }
+   )
+
+Message size limits
+-------------------
+
+AWS API Gateway WebSocket messages have size limits.
+
+Keep messages compact.
+
+Recommended patterns:
+
+* send IDs instead of full objects;
+* send URLs for the browser to fetch larger data;
+* avoid sending large lists;
+* avoid sending binary data directly;
+* compress or paginate data through normal HTTP APIs if needed.
+
+Good WebSocket message:
+
+.. code-block:: json
+
+   {
+     "type": "report_ready",
+     "report_id": 123,
+     "fetch_url": "/reports/123/"
+   }
+
+Poor WebSocket message:
+
+.. code-block:: json
+
+   {
+     "type": "report_ready",
+     "rows": [
+       "thousands of rows of data"
+     ]
+   }
+
+Handling stale connections
+--------------------------
+
+Clients may disconnect unexpectedly.
+
+When sending a message, AWS may report that a connection is gone.
+
+This can happen when:
+
+* a browser tab closes;
+* a laptop sleeps;
+* a mobile network changes;
+* API Gateway times out the connection;
+* a stale session remains in the database.
+
+Treat stale connections as normal operational behaviour.
+
+Schedule cleanup:
+
+.. code-block:: console
+
+   python manage.py clearWebSocketSessions
+
+See :doc:`cleanup`.
+
+Security considerations
+-----------------------
+
+Validate incoming messages
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Do not trust client payloads.
+
+Validate:
+
+* required fields;
+* string lengths;
+* object IDs;
+* user permissions;
+* channel access;
+* message type;
+* allowed actions or handlers.
+
+Do not trust channel names
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A client can request a channel name.
+
+Always check whether the user is allowed to use that channel.
+
+Avoid sensitive data in messages
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Only send data the connected user is allowed to see.
+
+If broadcasting or multicasting, confirm that every recipient should receive the
+message.
+
+Use permissions
+~~~~~~~~~~~~~~~
+
+Use Django permissions and object-level checks where needed.
 
 See :doc:`permissions`.
 
-aws_api_gateway_id
-~~~~~~~~~~~~~~~~~~
-
-Optional API Gateway ID restriction.
-
-If set, the view only accepts requests from that specific API Gateway ID.
-
-Example:
-
-.. code-block:: python
-
-   class ProductionWebSocketView(WebSocketView):
-       aws_api_gateway_id = "abc123"
-
-       def default(self, request, *args, **kwargs):
-           return None
-
-required_headers
-~~~~~~~~~~~~~~~~
-
-Headers expected on API Gateway requests.
-
-Most users should not change this.
-
-If testing locally through a tunnel or proxy, some headers may be missing. Only
-relax header checks in development and only when you understand the impact.
-
-additional_required_headers
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Additional headers expected on API Gateway requests.
-
-These may vary in local development depending on proxy or tunnel behaviour.
-
-required_connection_headers
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Headers expected during WebSocket connection.
-
-These are checked during the connect route.
-
-expected_useragent_prefix
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Expected API Gateway user-agent prefix.
-
-Most users should not change this.
-
-Mixin settings
---------------
-
-AddWebSocketRouteToContextMixin
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The template mixin uses these attributes:
-
-``websocket_route_key``
-   Route key used to look up an additional route.
-
-``channel_name``
-   Channel name added to the template context.
-
-Example:
-
-.. code-block:: python
-
-   from django.views.generic import TemplateView
-
-   from django_aws_api_gateway_websockets.mixins import AddWebSocketRouteToContextMixin
-
-
-   class DashboardView(AddWebSocketRouteToContextMixin, TemplateView):
-       template_name = "dashboard.html"
-       websocket_route_key = "dashboard"
-       channel_name = "dashboard"
-
-AppChannelWebSocketMixin
-~~~~~~~~~~~~~~~~~~~~~~~~
-
-This mixin derives the route key and channel name from the Django app name.
-
-It also supports:
-
-``app_channel_override``
-   Override the automatically selected channel name.
-
-Example:
-
-.. code-block:: python
-
-   from django.views.generic import TemplateView
-
-   from django_aws_api_gateway_websockets.mixins import AppChannelWebSocketMixin
-
-
-   class DashboardView(AppChannelWebSocketMixin, TemplateView):
-       template_name = "dashboard.html"
-       app_channel_override = "custom_dashboard_channel"
-
-See :doc:`templates_and_mixins`.
-
-ApiGateway model configuration
-------------------------------
-
-Some important configuration is stored in the ``ApiGateway`` model rather than
-Django settings.
-
-Important fields include:
-
-``api_name``
-   Human-friendly API Gateway name.
-
-``default_channel_name``
-   Default channel name when the client does not specify one.
-
-``domain_name``
-   Custom WebSocket domain, such as ``ws.example.com``.
-
-``target_base_endpoint``
-   Django callback URL excluding the final route slug.
-
-``certificate_arn``
-   AWS Certificate Manager certificate ARN.
-
-``hosted_zone_id``
-   Route 53 hosted zone ID.
-
-``route_selection_expression``
-   API Gateway route selection expression.
-
-``stage_name``
-   API Gateway stage name.
-
-See :doc:`models` and :doc:`api_gateway_setup`.
-
-Recommended production settings
+Recommended message conventions
 -------------------------------
 
-A typical production setup might include:
+A consistent message format makes frontend code easier to maintain.
 
-.. code-block:: python
+Suggested base shape:
 
-   DEBUG = False
+.. code-block:: json
 
-   ALLOWED_HOSTS = [
-       "www.example.com",
-   ]
+   {
+     "type": "message_type",
+     "payload": {}
+   }
 
-   CSRF_TRUSTED_ORIGINS = [
-       "https://www.example.com",
-       "https://ws.example.com",
-   ]
+Example:
 
-   CSRF_COOKIE_DOMAIN = ".example.com"
-   SESSION_COOKIE_DOMAIN = ".example.com"
+.. code-block:: json
 
-   CSRF_COOKIE_SAMESITE = "Lax"
-   SESSION_COOKIE_SAMESITE = "Lax"
+   {
+     "type": "toast",
+     "payload": {
+       "level": "success",
+       "title": "Saved",
+       "message": "Your changes have been saved."
+     }
+   }
 
-   CSRF_COOKIE_SECURE = True
-   SESSION_COOKIE_SECURE = True
+Or, for smaller projects, a flatter shape is fine:
 
-   AWS_GATEWAY_REGION_NAME = "eu-west-1"
+.. code-block:: json
 
-And a WebSocket view might include:
+   {
+     "type": "toast",
+     "level": "success",
+     "title": "Saved",
+     "message": "Your changes have been saved."
+   }
 
-.. code-block:: python
+Choose one convention and use it consistently.
 
-   class ProductionWebSocketView(WebSocketView):
-       USE_WS_TOKEN = True
+Testing message patterns
+------------------------
 
-       RATE_LIMIT_ENABLED = True
-       RATE_LIMIT_MAX_ATTEMPTS = 20
-       RATE_LIMIT_WINDOW_MINUTES = 5
+When testing message patterns:
 
-       ALLOWED_HANDLERS = {
-           "default",
-           "send_message",
-           "fetch_history",
-       }
+* mock AWS API Gateway Management API calls;
+* test unicast sends;
+* test channel sends;
+* test broadcasts;
+* test permission failures;
+* test stale connection handling;
+* test message size behaviour;
+* test frontend handling of each ``type``.
 
-       permissions_required = [
-           "chat.can_use_chat",
-       ]
-
-       def default(self, request, *args, **kwargs):
-           return None
-
-Recommended local settings
---------------------------
-
-For local development with a tunnel:
-
-.. code-block:: python
-
-   DEBUG = True
-
-   ALLOWED_HOSTS = [
-       "localhost",
-       "127.0.0.1",
-       "example-tunnel.ngrok-free.app",
-   ]
-
-   CSRF_TRUSTED_ORIGINS = [
-       "https://example-tunnel.ngrok-free.app",
-   ]
-
-   AWS_IAM_PROFILE = "default"
-   AWS_GATEWAY_REGION_NAME = "eu-west-1"
-
-See :doc:`local_development`.
-
-Security notes
---------------
-
-Do not commit secrets
-~~~~~~~~~~~~~~~~~~~~~
-
-Do not commit:
-
-* AWS access keys;
-* AWS secret keys;
-* production domain secrets;
-* PyPI tokens;
-* unrelated service credentials.
-
-Use environment variables, IAM roles, or a secrets manager.
-
-Prefer IAM roles
-~~~~~~~~~~~~~~~~
-
-For production, prefer IAM roles or task roles over static access keys.
-
-Keep tokens enabled
-~~~~~~~~~~~~~~~~~~~
-
-For authenticated production WebSocket endpoints, keep ``USE_WS_TOKEN`` enabled.
-
-Keep rate limiting enabled
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-For public or authenticated production endpoints, keep rate limiting enabled.
-
-Validate channels
-~~~~~~~~~~~~~~~~~
-
-Do not rely on channel names as authorization.
-
-Check permissions server-side before allowing access to sensitive channels.
+See :doc:`testing`.
 
 Related pages
 -------------
 
 See also:
 
-* :doc:`configuration`;
-* :doc:`aws_iam_setup`;
-* :doc:`api_gateway_setup`;
-* :doc:`websocket_tokens`;
-* :doc:`rate_limiting`;
+* :doc:`client_integration`;
+* :doc:`reconnecting_websocket`;
+* :doc:`models`;
 * :doc:`permissions`;
-* :doc:`templates_and_mixins`;
-* :doc:`deployment`;
-* :doc:`local_development`;
-* :doc:`troubleshooting`.
+* :doc:`security`;
+* :doc:`cleanup`;
+* :doc:`testing`;
+* :doc:`example`.

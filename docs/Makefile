@@ -5,14 +5,24 @@
 # from the environment for the first two.
 SPHINXOPTS    ?=
 SPHINXBUILD   ?= sphinx-build
-SOURCEDIR     = source
-BUILDDIR      = build
+SOURCEDIR     = .
+BUILDDIR      = _build
+
+.PHONY: help Makefile apidoc
 
 # Put it first so that "make" without argument is like "make help".
 help:
 	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
-.PHONY: help Makefile
+apidoc:
+	sphinx-apidoc \
+		--force \
+		--module-first \
+		--separate \
+		--output-dir api \
+		../django_aws_api_gateway_websockets \
+		../django_aws_api_gateway_websockets/migrations \
+		../django_aws_api_gateway_websockets/management
 
 # Catch-all target: route all unknown targets to Sphinx using the new
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).

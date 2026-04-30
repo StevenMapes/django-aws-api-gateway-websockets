@@ -1,6 +1,188 @@
 Changelog
 =========
 
+Changelog
+=========
+
+:tocdepth: 1
+
+4.* - ??? 2026 - NOT RELEASED - Breaking changes
+------------------------------------------------
+
+-  The ``route_selection_key`` property has been removed as per the
+   warning in version 2.0.0. Please update your integration.
+
+3.0.0 - ??? 2026 - Security release - Breaking changes
+------------------------------------------------------
+
+This is a major release that introduces a number of security improvements and
+breaking changes.
+
+Ensure you run migrations after updating to this version.
+
+To enable backward compatibility with previous versions, edit your subclasses of
+``WebSocketView`` and set these class properties to ``False``:
+
+.. code-block:: python
+
+   USE_WS_TOKEN = False
+   RATE_LIMIT_ENABLED = False
+
+This disables the requirement to use WebSocket tokens and disables rate
+limiting.
+
+Critical security fixes
+~~~~~~~~~~~~~~~~~~~~~~~
+
+-  Added ``ALLOWED_HANDLERS`` enforcement, replacing dynamic method
+   invocation with strict whitelist validation.
+-  Added ``ALLOWED_HANDLERS`` so users can control which methods are
+   exposed to the client.
+-  By default, methods defined within the current class are exposed.
+   To restrict this, set ``ALLOWED_HANDLERS`` to the list of methods you
+   want to expose to end users.
+-  Private methods starting with ``_`` are blocked.
+-  Prevents arbitrary method invocation attacks.
+-  Strengthened connection ID validation with improved regular expression
+   validation and length checks.
+-  Added XSS prevention for debug output. Debug output is now HTML-escaped
+   and length-limited.
+
+High priority security improvements
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+-  Added CSRF protection for WebSocket connections using the new
+   ``WebSocketToken`` model.
+-  Added ``WebSocketTokenView`` to generate time-limited tokens.
+-  Tokens are single-use and session-bound.
+-  Added ``USE_WS_TOKEN`` configuration.
+-  Added rate limiting using the new ``ConnectionRateLimit`` model.
+-  Added IP-based and user-based connection attempt tracking.
+-  Added rate limiting configuration via ``RATE_LIMIT_MAX_ATTEMPTS`` and
+   ``RATE_LIMIT_WINDOW_MINUTES``.
+-  Added ``RATE_LIMIT_ENABLED`` to disable rate limiting where required.
+-  Added input validation to ``ApiGateway`` model fields.
+-  Added domain name format validation.
+-  Added API name character restrictions.
+-  Added URL validation for endpoints.
+
+Medium priority security improvements
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+-  Missing headers no longer return the headers that were missing unless
+   debug mode is enabled.
+-  Reduced information disclosure with more generic production error
+   messages.
+-  Added enhanced message size validation before sending to AWS.
+-  Added audit logging for administrative actions.
+-  Added channel name validation for length and format.
+-  Channel names are now limited to 191 characters.
+
+New management commands
+~~~~~~~~~~~~~~~~~~~~~~~
+
+-  Added ``cleanupWebSocketTokens`` to clean up expired tokens and old rate
+   limit records.
+-  Added ``--token-age`` option to control the number of seconds before
+   tokens are deleted. The default is ``300``.
+-  Added ``--rate-limit-age`` option to control the number of days before
+   rate limit records are deleted. The default is ``7``.
+
+New models
+~~~~~~~~~~
+
+-  Added ``WebSocketToken`` for one-time use CSRF protection tokens.
+-  Added ``ConnectionRateLimit`` for connection attempt rate limiting.
+
+Recommendations
+~~~~~~~~~~~~~~~
+
+-  Enable ``USE_WS_TOKEN = True`` for CSRF protection.
+-  Run ``cleanupWebSocketTokens`` via cron or Celery every 5 to 15 minutes.
+-  Review and customise ``ALLOWED_HANDLERS`` for your views.
+-  Configure rate limiting thresholds based on your usage patterns.
+-  Enable audit logging in production.
+
+2.2.2 - 26th March 2026
+-----------------------
+
+-  Dropped ``Connection`` from the default
+   ``additional_required_headers`` list as it is no longer always coming
+   through.
+-  Issue found with a combination of AWS ALB, Python 3.14, Django 6, and
+   Nginx 1.29.7.
+
+2.2.1 - 18th March 2026
+-----------------------
+
+-  Added support for Python 3.15.
+
+2.2.0 - 23rd February 2026
+--------------------------
+
+-  Updated ``AppChannelWebSocketMixin`` so that child classes can now set
+   the ``app_channel_override`` property to override the default
+   ``channel_name`` from being the name of the app the view exists within.
+
+2.1.1 - 20th February 2026
+--------------------------
+
+-  Fixed a bug where the Django permission check was checking the wrong
+   class property.
+
+2.1.0 - 12th February 2026
+--------------------------
+
+-  Added support to check Django permissions before invoking the handler
+   method.
+-  This allows methods to be restricted using Django's standard permissions
+   system.
+-  Added support for a list of permissions where, if the user has any of
+   them, they are allowed to invoke the handler method.
+-  Added support for a list of permissions where the user must have all of
+   them to invoke the handler method.
+-  If neither permission list is set, all users are allowed to invoke the
+   handler, matching the previous behaviour.
+-  Added ``has_any_permission`` for checks where the user must have any of
+   the listed permissions.
+-  Added ``has_all_permission`` for checks where the user must have all of
+   the listed permissions.
+-  These methods can be overridden for custom permission handling.
+
+2.0.2 - 30th September 2025
+---------------------------
+
+-  Added support for Python 3.14 and Django 6.0a1 into the test suite.
+
+2.0.1 - 30th September 2025
+---------------------------
+
+-  ``route_selection_key`` is going to be deprecated and is being replaced
+   by ``handler_selection_key``.
+-  ``handler_selection_key`` is a more accurate name and has a new default
+   value of ``handler`` rather than ``action``.
+-  The change was made because ``action`` relates to route selection on AWS
+   API Gateway and is more closely tied to additional routes, while
+   ``handler`` is more closely related to the handler method being called in
+   Django.
+-  The code is backward compatible as long as you do not use ``handler``
+   within your payload for another purpose.
+-  Support for ``route_selection_key`` will be kept in place until March
+   2026. After that point, it will be removed.
+-  The Django setting used to determine the AWS region has been changed from
+   ``AWS_REGION_NAME`` to ``AWS_GATEWAY_REGION_NAME``.
+-  If ``AWS_GATEWAY_REGION_NAME`` is not found or is not set, the old
+   ``AWS_REGION_NAME`` setting will be used.
+-  This change allows Django Storage users to use separate AWS regions.
+-  Fixed a bug where using profiles rather than explicit AWS credentials
+   resulted in the wrong request building the Boto3 client.
+
+2.0.0 - 30th September 2025 - Yanked
+------------------------------------
+
+-  Removed from PyPI due to inclusion of an erroneous debugging print
+   statement.
+
 1.4.1 - 8th June 2025
 ---------------------
 
@@ -83,10 +265,8 @@ Yanked to bugs - do not use
 -  This package should still work with those combinations but they are
    no longer being tested
 
-.. _th-may-2025-2:
-
 1.1.3 - 7th May 2025
-====================
+---------------------
 
 -  Updated pyproject.toml to show Django 5.2 support, also updated the
    pre-commit-config and requirements or testings
@@ -101,8 +281,6 @@ Yanked to bugs - do not use
 
 -  Updated the tox tests to include support for Django 5.2a.1 with
    Python 3.10, 3.11, 3.12, 3.13 and 3.14
-
-.. _th-november-2024-1:
 
 1.1.0 - 19th November 2024
 ---------------------
@@ -132,8 +310,6 @@ Yanked to bugs - do not use
 ---------------------
 
 -  Dependency update for security fix
-
-.. _th-july-2024-1:
 
 1.0.19 - 11th July 2024
 ---------------------
