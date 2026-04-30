@@ -28,8 +28,10 @@ Documentation
    installation
    configuration
    aws_iam_setup
+   api_gateway_setup
    adding_new_routes
    management_commands/index
+   reconnecting_websocket
    cleanup
    contributing
    changelog

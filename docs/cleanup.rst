@@ -41,7 +41,7 @@ Run the cleanup command manually with:
 
 .. code-block:: console
 
-   python manage.py staleConnections
+   python manage.py clearWebSocketSessions
 
 Scheduling cleanup
 ------------------

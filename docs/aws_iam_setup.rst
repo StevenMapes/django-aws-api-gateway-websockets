@@ -54,53 +54,67 @@ used to post messages back to connected clients.
 Example policy structure
 ------------------------
 
-The following is an intentionally broad example. You should restrict resources
-and actions for your own AWS account and deployment.
+I'm still reviewing the "minimum required permissions" but this project has been tested with the following IAM policy
+which you can copy and paste into the JSON editor within the AWS console and then swap out the following placeholders:
+
+{AWS-REGION-NAME} with the correct AWS region you are using, E.G eu-west-1. If you wish to grant access to all regions then replace this placeholder with an *
+{AWS-ACCOUNT-NUMBER} with your account number E.G: 123456789101
 
 .. code-block:: json
-
-   {
-     "Version": "2012-10-17",
-     "Statement": [
-       {
-         "Effect": "Allow",
-         "Action": [
-           "apigateway:*"
-         ],
-         "Resource": "*"
-       },
-       {
-         "Effect": "Allow",
-         "Action": [
-           "execute-api:ManageConnections"
-         ],
-         "Resource": "*"
-       },
-       {
-         "Effect": "Allow",
-         "Action": [
-           "acm:DescribeCertificate",
-           "acm:ListCertificates"
-         ],
-         "Resource": "*"
-       },
-       {
-         "Effect": "Allow",
-         "Action": [
-           "route53:ChangeResourceRecordSets",
-           "route53:GetHostedZone",
-           "route53:ListHostedZones",
-           "route53:ListResourceRecordSets"
-         ],
-         "Resource": "*"
-       }
-     ]
-   }
+    {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Sid": "DjangoApiGatewayPolicy01",
+                "Effect": "Allow",
+                "Action": [
+                    "apigateway:GET",
+                    "apigateway:PATCH",
+                    "apigateway:POST",
+                    "apigateway:PUT",
+                    "execute-api:*",
+                    "iam:CreateServiceLinkedRole"
+                ],
+                "Resource": [
+                    "arn:aws:apigateway:*::/apis",
+                    "arn:aws:apigateway:*::/apis/*",
+                    "arn:aws:apigateway:*::/apis/*/authorizers",
+                    "arn:aws:apigateway:*::/apis/*/authorizers/*",
+                    "arn:aws:apigateway:*::/apis/*/cors",
+                    "arn:aws:apigateway:*::/apis/*/deployments",
+                    "arn:aws:apigateway:*::/apis/*/deployments/*",
+                    "arn:aws:apigateway:*::/apis/*/exports/*",
+                    "arn:aws:apigateway:*::/apis/*/integrations",
+                    "arn:aws:apigateway:*::/apis/*/integrations/*",
+                    "arn:aws:apigateway:*::/apis/*/integrations/*/integrationresponses",
+                    "arn:aws:apigateway:*::/apis/*/integrations/*/integrationresponses/*",
+                    "arn:aws:apigateway:*::/apis/*/models",
+                    "arn:aws:apigateway:*::/apis/*/models/*",
+                    "arn:aws:apigateway:*::/apis/*/models/*/template",
+                    "arn:aws:apigateway:*::/apis/*/routes",
+                    "arn:aws:apigateway:*::/apis/*/routes/*",
+                    "arn:aws:apigateway:*::/apis/*/routes/*/requestparameters/*",
+                    "arn:aws:apigateway:*::/apis/*/routes/*/routeresponses",
+                    "arn:aws:apigateway:*::/apis/*/routes/*/routeresponses/*",
+                    "arn:aws:apigateway:*::/apis/*/stages",
+                    "arn:aws:apigateway:*::/apis/*/stages/*",
+                    "arn:aws:apigateway:*::/apis/*/stages/*/accesslogsettings",
+                    "arn:aws:apigateway:*::/apis/*/stages/*/cache/authorizers",
+                    "arn:aws:apigateway:*::/apis/*/stages/*/routesettings/*",
+                    "arn:aws:apigateway:{AWS-REGION-NAME}::/domainnames",
+                    "arn:aws:apigateway:{AWS-REGION-NAME}::/domainnames/*/apimappings",
+                    "arn:aws:apigateway:{AWS-REGION-NAME}::/domainnames/*/apimappings/*",
+                    "arn:aws:execute-api:{AWS-REGION-NAME}:{AWS-ACCOUNT-NUMBER}:*/*/*/*",
+                    "arn:aws:iam::{AWS-ACCOUNT-NUMBER}:role/aws-service-role/ops.apigateway.amazonaws.com/AWSServiceRoleForAPIGateway"
+                ]
+            }
+        ]
+    }
 
 Hardening the policy
 --------------------
 
-Before using the policy in production:
+Before using the policy in productionyou may wish to:
 
 * replace wildcard resources with specific ARNs where possible;
 * separate deployment permissions from runtime permissions;
