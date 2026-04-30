@@ -1,9 +1,6 @@
 Changelog
 =========
 
-Changelog
-=========
-
 :tocdepth: 1
 
 4.* - ??? 2026 - NOT RELEASED - Breaking changes
@@ -301,7 +298,7 @@ Yanked to bugs - do not use
    for faster testing
 
 1.0.21 - 4th August 2024
----------------------===
+---------------------
 
 -  Includes the PR for .github/workflows/main.yml as well as updating to
    show support for Django 5.1

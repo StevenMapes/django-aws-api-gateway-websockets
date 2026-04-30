@@ -54,13 +54,21 @@ used to post messages back to connected clients.
 Example policy structure
 ------------------------
 
-I'm still reviewing the "minimum required permissions" but this project has been tested with the following IAM policy
-which you can copy and paste into the JSON editor within the AWS console and then swap out the following placeholders:
+I'm still reviewing the minimum required permissions, but this project has been
+tested with the following IAM policy.
 
-{AWS-REGION-NAME} with the correct AWS region you are using, E.G eu-west-1. If you wish to grant access to all regions then replace this placeholder with an *
-{AWS-ACCOUNT-NUMBER} with your account number E.G: 123456789101
+You can copy and paste it into the JSON editor within the AWS console and then
+replace the following placeholders:
+
+``{AWS-REGION-NAME}``
+   The AWS region you are using, for example ``eu-west-1``. If you want to grant
+   access to all regions, replace this placeholder with ``*``.
+
+``{AWS-ACCOUNT-NUMBER}``
+   Your AWS account number, for example ``123456789101``.
 
 .. code-block:: json
+
     {
         "Version": "2012-10-17",
         "Statement": [
@@ -114,7 +122,7 @@ which you can copy and paste into the JSON editor within the AWS console and the
 Hardening the policy
 --------------------
 
-Before using the policy in productionyou may wish to:
+Before using the policy in production, you may wish to:
 
 * replace wildcard resources with specific ARNs where possible;
 * separate deployment permissions from runtime permissions;
