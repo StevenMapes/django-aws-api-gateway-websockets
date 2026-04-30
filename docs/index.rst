@@ -50,7 +50,7 @@ Usage
 
    client_integration
    reconnecting_websocket
-   examples
+   example
    management_commands/index
    cleanup
 

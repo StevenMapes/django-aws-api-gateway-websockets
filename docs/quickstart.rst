@@ -461,5 +461,5 @@ After completing the quickstart, continue with:
 * :doc:`api_gateway_setup`;
 * :doc:`websocket_tokens`;
 * :doc:`reconnecting_websocket`;
-* :doc:`examples`.
+* :doc:`example`.
 ```

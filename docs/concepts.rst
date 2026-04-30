@@ -616,5 +616,5 @@ See also:
 * :doc:`websocket_tokens`;
 * :doc:`permissions`;
 * :doc:`adding_new_routes`;
-* :doc:`examples`;
+* :doc:`example`;
 * :doc:`architecture`.

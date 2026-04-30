@@ -547,6 +547,6 @@ See also:
 * :doc:`websocket_tokens`;
 * :doc:`reconnecting_websocket`;
 * :doc:`permissions`;
-* :doc:`examples`;
+* :doc:`example`;
 * :doc:`security`;
 * :doc:`troubleshooting`.

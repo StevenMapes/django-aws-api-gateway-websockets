@@ -564,5 +564,5 @@ See also:
 * :doc:`websocket_tokens`;
 * :doc:`rate_limiting`;
 * :doc:`client_integration`;
-* :doc:`examples`;
+* :doc:`example`;
 * :doc:`troubleshooting`.
