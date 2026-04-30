@@ -304,7 +304,7 @@ Run it manually with:
 
 .. code-block:: console
 
-   python manage.py cleanWebSocketToken
+   python manage.py cleanupWebSocketTokens
 
 You can also pass cleanup options if supported by your installed version.
 
@@ -312,7 +312,7 @@ For example:
 
 .. code-block:: console
 
-   python manage.py cleanWebSocketToken --token-age=300 --rate-limit-age=7
+   python manage.py cleanupWebSocketTokens --token-age=300 --rate-limit-age=7
 
 A common production approach is to run this command every few minutes using
 cron, Celery Beat, a container scheduler, or your platform's scheduled task
@@ -322,7 +322,7 @@ Example cron entry:
 
 .. code-block:: text
 
-   */5 * * * * cd /path/to/project && /path/to/venv/bin/python manage.py cleanWebSocketToken --token-age=300 --rate-limit-age=7
+   */5 * * * * cd /path/to/project && /path/to/venv/bin/python manage.py cleanupWebSocketTokens --token-age=300 --rate-limit-age=7
 
 Operational guidance
 --------------------

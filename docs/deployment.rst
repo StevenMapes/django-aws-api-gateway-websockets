@@ -420,13 +420,13 @@ Example commands:
 .. code-block:: console
 
    python manage.py clearWebSocketSessions
-   python manage.py cleanWebSocketToken --token-age=300 --rate-limit-age=7
+   python manage.py cleanupWebSocketTokens --token-age=300 --rate-limit-age=7
 
 Example cron schedule:
 
 .. code-block:: text
 
-   */5 * * * * cd /path/to/project && /path/to/venv/bin/python manage.py cleanWebSocketToken --token-age=300 --rate-limit-age=7
+   */5 * * * * cd /path/to/project && /path/to/venv/bin/python manage.py cleanupWebSocketTokens --token-age=300 --rate-limit-age=7
 
 Choose the scheduling mechanism that fits your platform:
 

@@ -485,7 +485,7 @@ Example:
 
 .. code-block:: console
 
-   python manage.py cleanWebSocketToken --token-age=300 --rate-limit-age=7
+   python manage.py cleanupWebSocketTokens --token-age=300 --rate-limit-age=7
 
 A common production schedule is every five minutes.
 
@@ -493,7 +493,7 @@ Example cron entry:
 
 .. code-block:: text
 
-   */5 * * * * cd /path/to/project && /path/to/venv/bin/python manage.py cleanWebSocketToken --token-age=300 --rate-limit-age=7
+   */5 * * * * cd /path/to/project && /path/to/venv/bin/python manage.py cleanupWebSocketTokens --token-age=300 --rate-limit-age=7
 
 See :doc:`cleanup`.
 

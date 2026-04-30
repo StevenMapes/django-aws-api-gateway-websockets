@@ -479,7 +479,7 @@ Run cleanup commands regularly.
 .. code-block:: console
 
    python manage.py clearWebSocketSessions
-   python manage.py cleanWebSocketToken --token-age=300 --rate-limit-age=7
+   python manage.py cleanupWebSocketTokens --token-age=300 --rate-limit-age=7
 
 You can also clear local test data directly through Django Admin if appropriate.
 

@@ -1,52 +1,109 @@
-Management Commands
-===================
+Django-AWS-API-Gateway-WebSockets
+=================================
 
-The package includes Django management commands for managing AWS API Gateway
-WebSocket resources and session cleanup.
+Django-AWS-API-Gateway-WebSockets helps Django projects receive and send
+messages over AWS API Gateway WebSocket APIs.
 
-Create an API Gateway
----------------------
+It provides Django models, views, mixins, queryset helpers, admin actions, and
+management commands for working with WebSocket connections backed by AWS API
+Gateway.
 
-Use the API Gateway creation command to create the AWS API Gateway resources for
-an existing API Gateway model record.
+The package is designed to make it easier to:
 
-.. code-block:: console
+* receive WebSocket messages in Django class-based views;
+* send a message back to the current connection;
+* send messages to all active sessions in a channel;
+* multicast or broadcast messages to groups of connected clients;
+* maintain WebSocket session state in your Django database;
+* create and manage API Gateway resources from Django.
 
-   python manage.py createApiGateway <api_gateway_pk>
+Getting started
+---------------
 
-Replace ``<api_gateway_pk>`` with the primary key of the API Gateway record.
+.. toctree::
+   :maxdepth: 2
+   :caption: Getting started
 
-Create a custom domain
-----------------------
+   exposition
+   quickstart
+   concepts
+   installation
+   configuration
+   settings
 
-Use the custom domain command after the required certificate and DNS
-configuration are ready.
+AWS setup
+---------
 
-.. code-block:: console
+.. toctree::
+   :maxdepth: 2
+   :caption: AWS setup
 
-   python manage.py createCustomDomain <api_gateway_pk>
+   aws_iam_setup
+   api_gateway_setup
+   adding_new_routes
 
-Replace ``<api_gateway_pk>`` with the primary key of the API Gateway record.
+Usage
+-----
 
-Clean stale WebSocket sessions
-------------------------------
+.. toctree::
+   :maxdepth: 2
+   :caption: Usage
 
-Use the stale-session cleanup command to remove or mark old disconnected
-sessions.
+   client_integration
+   reconnecting_websocket
+   templates_and_mixins
+   message_patterns
+   example
+   management_commands/index
+   cleanup
 
-.. code-block:: console
+Security and operations
+-----------------------
 
-   python manage.py staleConnections
+.. toctree::
+   :maxdepth: 2
+   :caption: Security and operations
 
-This command is useful when scheduled from cron, a container scheduler, a
-platform task runner, or another periodic job system.
+   security
+   websocket_tokens
+   permissions
+   rate_limiting
+   deployment
+   local_development
+   troubleshooting
+   testing
+   upgrade_guide
 
-When to use management commands
--------------------------------
+Project
+-------
 
-Management commands are useful when:
+.. toctree::
+   :maxdepth: 2
+   :caption: Project
 
-* Django Admin is not enabled;
-* API Gateway setup is part of deployment automation;
-* cleanup tasks need to run on a schedule;
-* infrastructure changes need to be repeatable.
+   architecture
+   contributing
+   changelog
+   release_process
+   faq
+   license
+
+API reference
+-------------
+
+.. toctree::
+   :maxdepth: 2
+   :caption: API reference
+
+   modules
+   models
+   views
+   mixins
+   admin
+
+Indices and tables
+------------------
+
+* :ref:`genindex`
+* :ref:`modindex`
+* :ref:`search`

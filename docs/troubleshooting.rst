@@ -702,7 +702,7 @@ Run cleanup manually first.
 .. code-block:: console
 
    python manage.py clearWebSocketSessions
-   python manage.py cleanWebSocketToken --token-age=300 --rate-limit-age=7
+   python manage.py cleanupWebSocketTokens --token-age=300 --rate-limit-age=7
 
 Then schedule the commands using cron, Celery Beat, a container scheduler, or
 your platform's scheduled task system.
