@@ -66,6 +66,40 @@ The best frequency depends on your application traffic.
 As a starting point, consider running cleanup every 5 to 15 minutes for busy
 applications, or hourly for low-volume applications.
 
+Cleaning up rate limit records
+------------------------------
+
+Rate limit checks use database records. Old records should be cleaned up
+regularly to avoid unnecessary database growth.
+
+The project includes a cleanup command for old WebSocket token and rate limit
+records.
+
+Run it manually with:
+
+.. code-block:: console
+
+   python manage.py cleanWebSocketToken
+
+You can also pass cleanup options if supported by your installed version.
+
+For example:
+
+.. code-block:: console
+
+   python manage.py cleanWebSocketToken --token-age=300 --rate-limit-age=7
+
+A common production approach is to run this command every few minutes using
+cron, Celery Beat, a container scheduler, or your platform's scheduled task
+system.
+
+Example cron entry:
+
+.. code-block:: text
+
+   */5 * * * * cd /path/to/project && /path/to/venv/bin/python manage.py cleanWebSocketToken --token-age=300 --rate-limit-age=7
+
+
 Operational notes
 -----------------
 

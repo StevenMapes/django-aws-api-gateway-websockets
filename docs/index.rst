@@ -17,31 +17,78 @@ The package is designed to make it easier to:
 * maintain WebSocket session state in your Django database;
 * create and manage API Gateway resources from Django.
 
-Documentation
--------------
+Getting started
+---------------
 
 .. toctree::
    :maxdepth: 2
-   :caption: User guide
+   :caption: Getting started
 
    exposition
+   quickstart
+   concepts
    installation
    configuration
+
+AWS setup
+---------
+
+.. toctree::
+   :maxdepth: 2
+   :caption: AWS setup
+
    aws_iam_setup
    api_gateway_setup
    adding_new_routes
-   management_commands/index
+
+Usage
+-----
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Usage
+
+   client_integration
    reconnecting_websocket
+   examples
+   management_commands/index
    cleanup
+
+Security and operations
+-----------------------
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Security and operations
+
+   security
+   websocket_tokens
+   permissions
+   rate_limiting
+   deployment
+   local_development
+   troubleshooting
+
+Project
+-------
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Project
+
+   architecture
    contributing
    changelog
+   release_process
+   faq
+   license
 
 API reference
 -------------
 
 .. toctree::
    :maxdepth: 2
-   :caption: Reference
+   :caption: API reference
 
    mixins
    views
