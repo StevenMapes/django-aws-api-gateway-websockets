@@ -1,31 +1,52 @@
-Django-AWS-API-Gateway-WebSockets Documentation
-===============================================
-Django-AWS-API-Gateway-WebSockets has been designed to enable you to quickly introduced WebSocket support into your
-Django project with minimal configuration. With the right IAM policy setup, this package will create and configure an
-AWS ApiGatewway endpoint to forward HTTPS requests to your site allowing to write Class-Based-Views to easily accept
-and action requests that are sent across the websocket. The package uses "channel names" to group connections allowing
-you to multi-cast messages as well as sending a message to a single connection.
+Django-AWS-API-Gateway-WebSockets
+=================================
 
-Mixins have been created to help ease development and examples can be found in the example sectcion of this guide
+Django-AWS-API-Gateway-WebSockets helps Django projects receive and send
+messages over AWS API Gateway WebSocket APIs.
 
+It provides Django models, views, mixins, queryset helpers, admin actions, and
+management commands for working with WebSocket connections backed by AWS API
+Gateway.
 
-If you're new, check out the :doc:`exposition` to see all the features in
-action, or get started with :doc:`installation`. Otherwise, take your pick:
+The package is designed to make it easier to:
+
+* receive WebSocket messages in Django class-based views;
+* send a message back to the current connection;
+* send messages to all active sessions in a channel;
+* multicast or broadcast messages to groups of connected clients;
+* maintain WebSocket session state in your Django database;
+* create and manage API Gateway resources from Django.
+
+Documentation
+-------------
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
+   :caption: User guide
 
    exposition
    installation
-   mixins
-   views
+   configuration
+   aws_iam_setup
+   adding_new_routes
    management_commands/index
-   examples
+   cleanup
    contributing
    changelog
 
+API reference
+-------------
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Reference
+
+   mixins
+   views
+   modules
+
 Indices and tables
-==================
+------------------
 
 * :ref:`genindex`
 * :ref:`modindex`
