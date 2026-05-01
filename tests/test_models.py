@@ -1312,3 +1312,118 @@ class GetRegionNameSimpleTestCase(SimpleTestCase):
         from django_aws_api_gateway_websockets.models import get_region_name
 
         self.assertEqual("eu-west-2", get_region_name())
+
+
+class ApiGatewayValidationTestCase(SimpleTestCase):
+    def test_clean_raises_validation_error_for_invalid_domain_name(self):
+        from django.core.exceptions import ValidationError
+
+        obj = ApiGateway(
+            api_name="Valid API",
+            domain_name="-invalid.example.com",
+            target_base_endpoint="https://www.example.com/",
+        )
+
+        with self.assertRaises(ValidationError) as context:
+            obj.clean()
+
+        self.assertIn("domain_name", context.exception.message_dict)
+
+    def test_clean_raises_validation_error_for_invalid_api_name(self):
+        from django.core.exceptions import ValidationError
+
+        obj = ApiGateway(
+            api_name="Invalid API!",
+            domain_name="valid.example.com",
+            target_base_endpoint="https://www.example.com/",
+        )
+
+        with self.assertRaises(ValidationError) as context:
+            obj.clean()
+
+        self.assertIn("api_name", context.exception.message_dict)
+
+    def test_clean_allows_blank_domain_name_and_api_name(self):
+        obj = ApiGateway(
+            api_name="",
+            domain_name="",
+            target_base_endpoint="https://www.example.com/",
+        )
+
+        self.assertIsNone(obj.clean())
+
+
+class ConnectionRateLimitBranchTestCase(TestCase):
+    def test_check_rate_limit_skips_user_check_for_anonymous_user(self):
+        anonymous_user = AnonymousUser()
+
+        allowed, attempts = ConnectionRateLimit.check_rate_limit(
+            ip_address="127.0.0.1",
+            user=anonymous_user,
+            max_attempts=1,
+            window_minutes=5,
+        )
+
+        self.assertTrue(allowed)
+        self.assertEqual(0, attempts)
+
+
+class WebSocketSessionQuerySetBranchTestCase(TestCase):
+    def setUp(self) -> None:
+        self.api_gateway = ApiGateway.objects.create(
+            api_name="QuerySet Branch Gateway",
+            api_description="A test api gateway",
+            target_base_endpoint="http://www.example1.com/",
+            deployment_id="",
+            api_id="API456",
+            stage_name="production",
+        )
+
+    @patch("django_aws_api_gateway_websockets.models.get_boto3_client")
+    @override_settings(AWS_GATEWAY_REGION_NAME="eu-west-1")
+    def test_send_message_reuses_client_for_multiple_connected_sessions(
+        self,
+        mocked_get_boto3_client,
+    ):
+        first_session = WebSocketSession.objects.create(
+            connection_id="CONNECTED-ONE",
+            channel_name="My-Channel",
+            connected=True,
+            api_gateway=self.api_gateway,
+        )
+        second_session = WebSocketSession.objects.create(
+            connection_id="CONNECTED-TWO",
+            channel_name="My-Channel",
+            connected=True,
+            api_gateway=self.api_gateway,
+        )
+        data = {"action": "example"}
+
+        result = (
+            WebSocketSession.objects.filter(
+                channel_name="My-Channel",
+            )
+            .order_by("connection_id")
+            .send_message(data)
+        )
+
+        mocked_get_boto3_client.assert_called_once_with(
+            "apigatewaymanagementapi",
+            endpoint_url=(
+                "https://API456.execute-api.eu-west-1.amazonaws.com/production"
+            ),
+        )
+        mocked_get_boto3_client.return_value.post_to_connection.assert_has_calls(
+            [
+                call(Data=json.dumps(data), ConnectionId=first_session.connection_id),
+                call(Data=json.dumps(data), ConnectionId=second_session.connection_id),
+            ],
+            any_order=True,
+        )
+        self.assertEqual(
+            [
+                mocked_get_boto3_client.return_value.post_to_connection.return_value,
+                mocked_get_boto3_client.return_value.post_to_connection.return_value,
+            ],
+            result,
+        )
