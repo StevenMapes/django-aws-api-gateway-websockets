@@ -227,7 +227,7 @@ Messaging
 ---------
 
 How do I send a message back to the current connection?
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Use the current WebSocket session from inside your view.
 

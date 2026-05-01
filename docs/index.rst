@@ -76,6 +76,7 @@ Getting started
    quickstart
    concepts
    installation
+   compatibility
    configuration
    settings
 

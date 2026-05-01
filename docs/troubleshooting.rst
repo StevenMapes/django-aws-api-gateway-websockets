@@ -253,7 +253,7 @@ Example:
 See :doc:`websocket_tokens`.
 
 WebSocket token is rejected during connection
---------------------------------------------
+---------------------------------------------
 
 Symptoms
 ~~~~~~~~

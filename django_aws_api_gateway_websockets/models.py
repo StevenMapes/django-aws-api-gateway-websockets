@@ -374,19 +374,17 @@ class ApiGatewayAdditionalRoute(models.Model):
 
 class WebSocketSessionQuerySet(models.QuerySet):
     def send_message(self, data: dict):
-        """Sends the same message to all WebSocketSessions included within the current filter
+        """Send the same message to all connected WebSocket sessions in the queryset.
 
-        Example use:
+        Example::
 
-        Send a message to all active connections to the "Shared Channel Name" channel
-
-        WebSocketSession.objects.filter(
-            channel="Shared Channel Name"
-        ).send_message(
-            {
-                "msg": "this is a server sent message"
-            }
-        )
+            WebSocketSession.objects.filter(
+                channel_name="Shared Channel Name",
+            ).send_message(
+                {
+                    "msg": "this is a server sent message",
+                }
+            )
         """
         client = None
         region = get_region_name()

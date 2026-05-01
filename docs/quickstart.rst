@@ -462,4 +462,3 @@ After completing the quickstart, continue with:
 * :doc:`websocket_tokens`;
 * :doc:`reconnecting_websocket`;
 * :doc:`example`.
-```

@@ -1,8 +1,8 @@
-API reference
-=============
+Reference
+=========
 
-This section provides a reference for the public modules and documentation pages
-that are most useful when working with Django-AWS-API-Gateway-WebSockets.
+This page provides links to the public reference documentation for
+Django-AWS-API-Gateway-WebSockets.
 
 For most users, start with the user guide pages before using this reference:
 
@@ -15,51 +15,31 @@ For most users, start with the user guide pages before using this reference:
 Public API
 ----------
 
-.. toctree::
-   :maxdepth: 2
-   :caption: Public API
-
-   models
-   views
-   mixins
+* :doc:`models`;
+* :doc:`views`;
+* :doc:`mixins`.
 
 Operational reference
 ---------------------
 
-.. toctree::
-   :maxdepth: 2
-   :caption: Operational reference
-
-   settings
-   management_commands/index
-   admin
+* :doc:`settings`;
+* :doc:`management_commands/index`;
+* :doc:`admin`.
 
 Usage reference
 ---------------
 
-.. toctree::
-   :maxdepth: 2
-   :caption: Usage reference
-
-   message_patterns
-   templates_and_mixins
-   testing
-   upgrade_guide
-
-Related architecture
---------------------
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Related architecture
-
-   architecture
+* :doc:`message_patterns`;
+* :doc:`templates_and_mixins`;
+* :doc:`testing`;
+* :doc:`upgrade_guide`.
 
 Generated API documentation
 ---------------------------
 
-.. toctree::
-   :maxdepth: 2
-   :caption: Generated API documentation
+* :doc:`api/index`.
 
-   api/index
+Architecture
+------------
+
+* :doc:`architecture`.

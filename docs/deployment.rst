@@ -599,4 +599,3 @@ See also:
 * :doc:`reconnecting_websocket`;
 * :doc:`cleanup`;
 * :doc:`troubleshooting`.
-```

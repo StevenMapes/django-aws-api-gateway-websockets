@@ -3,14 +3,15 @@ Changelog
 
 :tocdepth: 1
 
-4.* - ??? 2026 - NOT RELEASED - Breaking changes
+4.* - Future Release - Breaking changes
 ------------------------------------------------
 
 -  The ``route_selection_key`` property has been removed as per the
    warning in version 2.0.0. Please update your integration.
+- This change has not happened yet so treat it as a warning
 
-3.0.0 - ??? 2026 - Security release - Breaking changes
-------------------------------------------------------
+3.0.0 - Unreleased - Security release - Breaking changes
+--------------------------------------------------------
 
 This is a major release that introduces a number of security improvements and
 breaking changes.
@@ -216,7 +217,7 @@ project that requires websocket connectivity to define the connection
 
 .. code:: html
 
-   <script src="js/reconnecting-websocket.min.js"" crossorigin="anonymous"></script>
+   <script src="js/reconnecting-websocket.min.js" crossorigin="anonymous"></script>
    {% with api_gateway_route.api_gateway as websocket %}
    <script
        data-wss-url="wss://{{ websocket.domain_name }}"
@@ -256,7 +257,7 @@ Yanked to bugs - do not use
    name, it’s been yanked, so use 1.2.1 instead
 
 1.2.0 - 12th May 2025 - yanked
----------------------
+------------------------------
 
 -  Dropped support for Django 5.0
 -  This package should still work with those combinations but they are
@@ -269,18 +270,18 @@ Yanked to bugs - do not use
    pre-commit-config and requirements or testings
 
 1.1.2 - 17th March 2025
----------------------
+-----------------------
 
 -  Removed Python 3.8 support
 
 1.1.1 - 20th November 2024
----------------------
+--------------------------
 
 -  Updated the tox tests to include support for Django 5.2a.1 with
    Python 3.10, 3.11, 3.12, 3.13 and 3.14
 
 1.1.0 - 19th November 2024
----------------------
+--------------------------
 
 -  Fixes possible security issue #17 to remove the direct use of headers
    being passed into the Bad Request Response.
@@ -288,7 +289,7 @@ Yanked to bugs - do not use
 -  Updating requirements
 
 1.0.22 - 21st October 2024
----------------------
+--------------------------
 
 -  Updated github actions to collect and display coverage reports
 -  Updated tox to include tests for Python 3.13 with Django 4.2, 5.0 and
@@ -298,18 +299,18 @@ Yanked to bugs - do not use
    for faster testing
 
 1.0.21 - 4th August 2024
----------------------
+--------------------------
 
 -  Includes the PR for .github/workflows/main.yml as well as updating to
    show support for Django 5.1
 
 1.0.20 - 15th July 2024
----------------------
+--------------------------
 
 -  Dependency update for security fix
 
 1.0.19 - 11th July 2024
----------------------
+--------------------------
 
 -  Updating the requirements for the pipline to use Django 5.0.7 or
    Django 4.2.14
@@ -321,7 +322,7 @@ Yanked to bugs - do not use
    to the security issues with 2.0.0 through 2.2.1
 
 1.0.17 - 28th May 2024
----------------------
+--------------------------
 
 -  Bumping required sqlparse version for Django 4.2 and 5.0 to be 0.5.0
    due to security fix for DOS in sqlparse<5.0.0 within the requirements
@@ -330,7 +331,7 @@ Yanked to bugs - do not use
 .. _th-may-2024-1:
 
 1.0.16 - 24th May 2024
----------------------
+--------------------------
 
 -  Added in test for Django 5.1a1
 
@@ -353,13 +354,13 @@ Yanked to bugs - do not use
 -  Bumped requirements as well
 
 1.0.13 - 14th December 2023
----------------------
+---------------------------
 
 -  Adding Django 4.2 into the matrix of tests replacing 4.2a1
 -  Adding Django 5 into the tox runner
 
 1.0.12 - 20th September 2023
----------------------
+-----------------------------
 
 -  Updating the README file with additional examples.
 -  Adding in additional unit tests to improve coverage from 86% to 96%.
@@ -367,12 +368,12 @@ Yanked to bugs - do not use
 -  Adding Django 5 into the tox runner
 
 1.0.11 - 18th January 2023
----------------------
+--------------------------
 
 -  Adding Django 4.2a1 into the matrix of tests
 
 1.0.10 - 15th December 2022
----------------------
+---------------------------
 
 -  Fixing an issue where ``ApiGatewayAdditionalRoute`` had a unique
    constraint on the ``route_key`` when it should have been a composite
@@ -381,7 +382,7 @@ Yanked to bugs - do not use
 .. _th-december-2022-1:
 
 1.0.9 - 12th December 2022
----------------------
+--------------------------
 
 -  Fixing an issue within the dispatch method of the view where the
    route key was missing from the arg. Now continues with the checks.
@@ -389,7 +390,7 @@ Yanked to bugs - do not use
 .. _th-december-2022-2:
 
 1.0.8 - 9th December 2022
----------------------
+--------------------------
 
 -  Corrected the examples of the CSRF and Session values on the README
    file.
@@ -397,7 +398,7 @@ Yanked to bugs - do not use
 .. _th-december-2022-3:
 
 1.0.7 - 9th December 2022
----------------------
+-------------------------
 
 -  Added in tests for Python 3.11
 -  Removed use of CodeCov and moved to use GitHUb actions to store and
@@ -411,7 +412,7 @@ Yanked to bugs - do not use
 .. _th-december-2022-4:
 
 1.0.6 - 9th December 2022
----------------------
+--------------------------
 
 -  Updating the listing pages to include whether the additional route
    has been deployed or not
@@ -420,7 +421,7 @@ Yanked to bugs - do not use
 .. _th-december-2022-5:
 
 1.0.0 - 1.0.5 - 8th December 2022
----------------------
+---------------------------------
 
 -  Added support for additional custom routes for each API. This means
    that you could use one API Gateway for an entire project if you
@@ -432,7 +433,7 @@ Yanked to bugs - do not use
    apps, views or however you require to separate requests.
 
 0.2.2 - 20th September 2022
----------------------
+----------------------------
 
 -  Added in additional unit tests. Still requires additional tests for
    full coverage
@@ -440,7 +441,7 @@ Yanked to bugs - do not use
 .. _th-september-2022-1:
 
 0.2.1 - 13th September 2022
----------------------
+---------------------------
 
 -  BUG FIX - The ``_create_domain_name`` method of the ``ApiGateway``
    was always setting a hosted zone id even if one was not to be used.
@@ -449,13 +450,13 @@ Yanked to bugs - do not use
 .. _th-september-2022-2:
 
 0.2.0 - 12th September 2022
----------------------
+---------------------------
 
 -  Updating the packaging of the project as the management command was
    not being bundled with the rest of the code.
 
 0.1.5 - 4th August 2022
----------------------
+-----------------------
 
 -  Adding in a supplementary list of headers that are also required, by
    default, but that you may need to blank out when testing from a
@@ -465,7 +466,7 @@ Yanked to bugs - do not use
 .. _th-august-2022-1:
 
 0.1.4 - 4th August 2022
----------------------
+-----------------------
 
 -  Correcting the name on the license
 -  Updating the README setup instructions including the required Django
@@ -477,7 +478,7 @@ Yanked to bugs - do not use
 .. _th-august-2022-2:
 
 0.1.3 - 4th August 2022
----------------------
+-----------------------
 
 -  License is now MIT
 -  Now considered as in Beta
@@ -485,7 +486,7 @@ Yanked to bugs - do not use
 -  Supports Python 3.8 through 3.10
 
 0.1.2 - 29th June 2022
----------------------
+----------------------
 
 -  Updated the dispatch method of WebSocketView to add in the default
    positive response if the handling method that was called does not
