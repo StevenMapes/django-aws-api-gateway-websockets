@@ -10,7 +10,7 @@ Changelog
    warning in version 2.0.0. Please update your integration.
 - This change has not happened yet so treat it as a warning
 
-3.0.0 - Unreleased - Security release - Breaking changes
+3.0.0 - 1st May 2026 - Security release - Breaking changes
 --------------------------------------------------------
 
 This is a major release that introduces a number of security improvements and
