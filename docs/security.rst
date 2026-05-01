@@ -38,6 +38,153 @@ The security model includes:
 
 These controls are designed to work together as defence in depth.
 
+Security model
+--------------
+
+This package uses AWS API Gateway as the WebSocket server and Django as the
+application handler.
+
+The browser or client connects to API Gateway. API Gateway then forwards
+connection, disconnection, and message events to Django as HTTP requests.
+
+Because Django receives HTTP requests from API Gateway, the package performs
+several checks before trusting or processing those requests.
+
+The security model includes:
+
+* WebSocket token protection;
+* connection rate limiting;
+* token generation rate limiting;
+* API Gateway validation;
+* header validation;
+* origin and host checks;
+* connection ID validation;
+* channel name validation;
+* request body size limits;
+* message size limits;
+* handler whitelisting;
+* Django permissions;
+* stale session cleanup;
+* generic error handling.
+
+These controls are designed to work together as defence in depth.
+
+OWASP Top 10 alignment
+----------------------
+
+This project includes controls mapped to the OWASP Top 10 web application
+security risks.
+
+This mapping is a project self-assessment. It is not a third-party audit,
+certification, or guarantee of compliance. Security also depends on how the
+package is configured and used by the consuming Django application, including
+Django settings, AWS IAM permissions, API Gateway configuration, TLS, cookie
+settings, logging, monitoring, and application-specific authorization checks.
+
+The current OWASP Top 10 release is OWASP Top 10:2025. Earlier project
+documentation referred to OWASP Top 10:2021.
+
+OWASP Top 10:2025 mapping
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. list-table::
+   :header-rows: 1
+   :widths: 28 18 54
+
+   * - Category
+     - Status
+     - Notes
+   * - A01:2025 - Broken Access Control
+     - Partially mitigated
+     - The package supports WebSocket token protection, API Gateway validation,
+       handler whitelisting, Django permission checks, origin and host checks,
+       and connection/session validation. Applications must still implement
+       object-level authorization in their handlers.
+   * - A02:2025 - Security Misconfiguration
+     - Partially mitigated
+     - The package provides secure defaults and production guidance. Correct
+       Django settings, AWS configuration, allowed hosts, trusted origins,
+       cookies, TLS, and environment separation remain deployment
+       responsibilities.
+   * - A03:2025 - Software Supply Chain Failures
+     - Partially mitigated
+     - Dependency management and vulnerability scanning should be performed by
+       maintainers and deployers. Additional controls such as pinned hashes, SBOM
+       generation, signed releases, and provenance would strengthen this area.
+   * - A04:2025 - Cryptographic Failures
+     - Shared responsibility
+     - The package relies on Django, AWS, HTTPS/WSS, secure cookies, session
+       handling, and generated WebSocket tokens. Deployments must configure TLS,
+       secrets, cookies, and session security correctly.
+   * - A05:2025 - Injection
+     - Partially mitigated
+     - The package uses Django ORM patterns and validates selected inputs such as
+       connection IDs and channel names. Application handlers must validate
+       message payloads and avoid unsafe use of client-controlled input.
+   * - A06:2025 - Insecure Design
+     - Partially mitigated
+     - The design uses defence-in-depth controls including short-lived
+       single-use tokens, rate limiting, validation, handler restrictions, and
+       permission hooks. Applications should still perform threat modelling for
+       their own WebSocket workflows.
+   * - A07:2025 - Authentication Failures
+     - Partially mitigated
+     - Authenticated WebSocket connections can be protected with short-lived,
+       single-use, session-bound tokens. Correct Django authentication, session,
+       CSRF, and cookie configuration is required.
+   * - A08:2025 - Software or Data Integrity Failures
+     - Partially mitigated
+     - Single-use tokens and validation help protect connection integrity.
+       Broader software integrity controls such as release signing, CI/CD
+       hardening, dependency provenance, and package verification are
+       recommended.
+   * - A09:2025 - Security Logging and Alerting Failures
+     - Partially mitigated
+     - The package documents security-relevant events that should be logged and
+       monitored. Production deployments should configure centralised logging,
+       alerting, retention, and incident response processes.
+   * - A10:2025 - Mishandling of Exceptional Conditions
+     - Partially mitigated
+     - The package uses validation and generic error responses in
+       security-sensitive paths. Applications should handle exceptions
+       consistently, fail closed where appropriate, and avoid exposing
+       implementation details to clients.
+
+OWASP Top 10:2021 mapping
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The project was previously mapped to OWASP Top 10:2021. That mapping remains
+useful for historical comparison, but OWASP Top 10:2025 should be treated as the
+current reference.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 42 58
+
+   * - Category
+     - Status
+   * - A01:2021 - Broken Access Control
+     - Partially mitigated
+   * - A02:2021 - Cryptographic Failures
+     - Shared responsibility
+   * - A03:2021 - Injection
+     - Partially mitigated
+   * - A04:2021 - Insecure Design
+     - Partially mitigated
+   * - A05:2021 - Security Misconfiguration
+     - Partially mitigated
+   * - A06:2021 - Vulnerable and Outdated Components
+     - Partially mitigated / shared responsibility
+   * - A07:2021 - Identification and Authentication Failures
+     - Partially mitigated
+   * - A08:2021 - Software and Data Integrity Failures
+     - Partially mitigated
+   * - A09:2021 - Security Logging and Monitoring Failures
+     - Partially mitigated
+   * - A10:2021 - Server-Side Request Forgery
+     - Mostly not applicable to the package core, but application handlers must
+       avoid unsafe outbound request behaviour.
+
 WebSocket token protection
 --------------------------
 
