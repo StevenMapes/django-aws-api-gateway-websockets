@@ -10,6 +10,11 @@ Changelog
    warning in version 2.0.0. Please update your integration.
 - This change has not happened yet so treat it as a warning
 
+3.0.1 - 1st May 2026 - Security release - Breaking changes
+--------------------------------------------------------
+
+Corrected the project changelog path witihn pyproject.toml to correct pypi
+
 3.0.0 - 1st May 2026 - Security release - Breaking changes
 --------------------------------------------------------
 

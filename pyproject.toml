@@ -10,7 +10,7 @@ skip = [
 
 [project]
 name = "django-aws-api-gateway-websockets"
-version = "3.0.0"
+version = "3.0.1"
 description = "Created to allow Django projects to be used as a HTTP backend for AWS API Gateway websockets"
 readme = "README.md"
 authors = [
@@ -59,7 +59,7 @@ dev = [
 
 [project.urls]
 Documentation = "https://django-aws-api-gateway-websockets.readthedocs.io/"
-Changelog = "https://github.com/StevenMapes/django-aws-api-gateway-websockets/blob/main/CHANGELOG.md"
+Changelog = "https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/changelog.html"
 Twitter = "https://twitter.com/stevenamapes"
 Homepage = "https://github.com/StevenMapes/django-aws-api-gateway-websockets"
 
