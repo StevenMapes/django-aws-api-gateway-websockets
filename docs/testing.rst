@@ -87,7 +87,6 @@ Example URL
 
    from .views import ExampleWebSocketView
 
-
    urlpatterns = [
        path(
            "ws/<slug:route>",
@@ -555,7 +554,9 @@ Example with ``unittest.mock``:
        )
 
        client = Mock()
-       client.post_to_connection.return_value = {"ResponseMetadata": {"HTTPStatusCode": 200}}
+       client.post_to_connection.return_value = {
+           "ResponseMetadata": {"HTTPStatusCode": 200}
+       }
 
        with patch(
            "django_aws_api_gateway_websockets.models.get_boto3_client",
@@ -618,7 +619,9 @@ When testing queryset sends, create multiple sessions and mock the AWS client.
        )
 
        client = Mock()
-       client.post_to_connection.return_value = {"ResponseMetadata": {"HTTPStatusCode": 200}}
+       client.post_to_connection.return_value = {
+           "ResponseMetadata": {"HTTPStatusCode": 200}
+       }
 
        with patch(
            "django_aws_api_gateway_websockets.models.get_boto3_client",
@@ -649,7 +652,6 @@ Example outline:
 .. code-block:: python
 
    from botocore.exceptions import ClientError
-
 
    gone_error = ClientError(
        {
@@ -714,7 +716,6 @@ You can also test token and rate limit cleanup with ``call_command``.
 .. code-block:: python
 
    from django.core.management import call_command
-
 
    call_command(
        "cleanupWebSocketTokens",

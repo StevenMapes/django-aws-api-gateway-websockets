@@ -128,7 +128,6 @@ Add the token view to your URL configuration.
 
    from django_aws_api_gateway_websockets.views import WebSocketTokenView
 
-
    urlpatterns = [
        path(
            "api/ws-token/",

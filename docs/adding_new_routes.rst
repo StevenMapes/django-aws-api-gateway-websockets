@@ -64,7 +64,6 @@ Add a Django URL pattern for the WebSocket callback endpoint.
 
    from .views import NotificationsWebSocketView
 
-
    urlpatterns = [
        path(
            "websockets/notifications/",

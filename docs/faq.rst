@@ -250,7 +250,6 @@ Filter ``WebSocketSession`` records by ``channel_name`` and call
 
    from django_aws_api_gateway_websockets.models import WebSocketSession
 
-
    WebSocketSession.objects.filter(
        channel_name="general",
    ).send_message(
@@ -268,7 +267,6 @@ Filter active sessions and call ``send_message``.
 .. code-block:: python
 
    from django_aws_api_gateway_websockets.models import WebSocketSession
-
 
    WebSocketSession.objects.filter(
        connected=True,

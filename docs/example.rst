@@ -201,7 +201,6 @@ The slug parameter must be named ``route``.
 
    from .views import ChatWebSocketView
 
-
    urlpatterns = [
        path(
            "ws/chat/<slug:route>",
@@ -218,7 +217,6 @@ Include the app URLs from your project URL configuration if required.
 
    from django.urls import include
    from django.urls import path
-
 
    urlpatterns = [
        path("", include("chat.urls")),
@@ -572,7 +570,6 @@ Then run:
 
    from django_aws_api_gateway_websockets.models import WebSocketSession
 
-
    WebSocketSession.objects.filter(connected=True).send_message(
        {
            "type": "system",
@@ -590,7 +587,6 @@ To send a message to only one room, filter by ``channel_name``:
 .. code-block:: python
 
    from django_aws_api_gateway_websockets.models import WebSocketSession
-
 
    WebSocketSession.objects.filter(
        connected=True,

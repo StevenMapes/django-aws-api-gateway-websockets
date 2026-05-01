@@ -325,7 +325,6 @@ Example:
 
    from django_aws_api_gateway_websockets.models import WebSocketSession
 
-
    WebSocketSession.objects.filter(
        channel_name="general",
    ).send_message(
@@ -416,7 +415,6 @@ channel.
 
    from django_aws_api_gateway_websockets.models import WebSocketSession
 
-
    WebSocketSession.objects.filter(
        channel_name="support",
    ).send_message(
@@ -442,7 +440,6 @@ Broadcast means sending a message to all active WebSocket sessions.
 .. code-block:: python
 
    from django_aws_api_gateway_websockets.models import WebSocketSession
-
 
    WebSocketSession.objects.filter(
        connected=True,

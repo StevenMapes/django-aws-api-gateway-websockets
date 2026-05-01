@@ -1,13 +1,217 @@
 import json
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
-from django.contrib.messages.api import success
+from django.contrib.auth.models import AnonymousUser, User
 from django.core.exceptions import ObjectDoesNotExist
-from django.http import HttpResponseBadRequest, HttpResponseNotAllowed, JsonResponse
-from django.test import RequestFactory, SimpleTestCase, override_settings
+from django.http import HttpResponseBadRequest
+from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
 
 from django_aws_api_gateway_websockets import views
 from django_aws_api_gateway_websockets.models import ApiGateway
+
+
+class WebSocketTokenViewIntegrationTestCase(TestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.user = User.objects.create_user(
+            username="token-view-user", password="password"
+        )
+
+    def test_post_requires_authenticated_user(self):
+        request = self.factory.post("/ws-token/")
+        request.user = AnonymousUser()
+        request.session = MagicMock(session_key="session-key")
+
+        response = views.WebSocketTokenView.as_view()(request)
+
+        self.assertEqual(403, response.status_code)
+        self.assertEqual(b"Authentication required", response.content)
+
+    @patch("django_aws_api_gateway_websockets.views.WebSocketToken.generate_token")
+    @patch("django_aws_api_gateway_websockets.views.WebSocketToken.check_rate_limit")
+    def test_post_creates_session_when_missing(
+        self,
+        mocked_check_rate_limit,
+        mocked_generate_token,
+    ):
+        mocked_check_rate_limit.return_value = True
+        mocked_generate_token.return_value = MagicMock(token="a" * 64)
+
+        request = self.factory.post("/ws-token/")
+        request.user = self.user
+        request.session = MagicMock(session_key=None)
+        request.session.create.side_effect = lambda: setattr(
+            request.session,
+            "session_key",
+            "new-session-key",
+        )
+
+        response = views.WebSocketTokenView.as_view()(request)
+
+        self.assertEqual(200, response.status_code)
+        request.session.create.assert_called_with()
+        mocked_check_rate_limit.assert_called_with(
+            self.user,
+            max_tokens_per_minute=10,
+        )
+        mocked_generate_token.assert_called_with(
+            user=self.user,
+            session_key="new-session-key",
+        )
+
+    @patch("django_aws_api_gateway_websockets.views.WebSocketToken.check_rate_limit")
+    def test_post_returns_forbidden_when_rate_limited(self, mocked_check_rate_limit):
+        mocked_check_rate_limit.return_value = False
+
+        request = self.factory.post("/ws-token/")
+        request.user = self.user
+        request.session = MagicMock(session_key="session-key")
+
+        response = views.WebSocketTokenView.as_view()(request)
+
+        self.assertEqual(403, response.status_code)
+        self.assertEqual(b"Rate limit exceeded", response.content)
+
+    @patch("django_aws_api_gateway_websockets.views.WebSocketToken.generate_token")
+    @patch("django_aws_api_gateway_websockets.views.WebSocketToken.check_rate_limit")
+    def test_post_returns_token_json(
+        self,
+        mocked_check_rate_limit,
+        mocked_generate_token,
+    ):
+        mocked_check_rate_limit.return_value = True
+        mocked_generate_token.return_value = MagicMock(token="b" * 64)
+
+        request = self.factory.post("/ws-token/")
+        request.user = self.user
+        request.session = MagicMock(session_key="session-key")
+
+        response = views.WebSocketTokenView.as_view()(request)
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual(
+            {"token": "b" * 64, "expires_in": 60},
+            json.loads(response.content),
+        )
+
+
+class WebSocketViewSecuritySimpleTestCase(SimpleTestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+
+    def test_debug_sanitizes_and_truncates_message(self):
+        view = views.WebSocketView(debug=True)
+
+        view._debug("<script>" + ("x" * 600))
+
+        self.assertIn("&lt;script&gt;", view.debug_log[0])
+        self.assertLessEqual(len(view.debug_log[0]), 520)
+
+    def test_setup_ignores_body_when_too_large(self):
+        request = self.factory.post(
+            "/",
+            data="x" * (views.WebSocketView.MAX_BODY_SIZE + 1),
+            content_type="application/json",
+        )
+
+        view = views.WebSocketView(debug=True)
+        view.setup(request)
+
+        self.assertEqual({}, view.body)
+        self.assertIn("Request body too large", view.debug_log)
+
+    def test_setup_uses_empty_body_for_invalid_json(self):
+        request = self.factory.post(
+            "/",
+            data="{invalid-json",
+            content_type="application/json",
+        )
+
+        view = views.WebSocketView(debug=True)
+        view.setup(request)
+
+        self.assertEqual({}, view.body)
+        self.assertIn("Body is invalid JSON", view.debug_log)
+
+    def test_validate_connection_id_rejects_empty_id(self):
+        view = views.WebSocketView()
+
+        self.assertFalse(view._validate_connection_id(""))
+
+    def test_validate_connection_id_rejects_long_id(self):
+        view = views.WebSocketView()
+
+        self.assertFalse(view._validate_connection_id("a" * 129))
+
+    def test_validate_connection_id_rejects_invalid_characters(self):
+        view = views.WebSocketView()
+
+        self.assertFalse(view._validate_connection_id("abc<script>"))
+
+    def test_validate_connection_id_accepts_allowed_characters(self):
+        view = views.WebSocketView()
+
+        self.assertTrue(view._validate_connection_id("abcABC123_=-"))
+
+    def test_get_client_ip_uses_first_forwarded_ip(self):
+        request = self.factory.get(
+            "/",
+            HTTP_X_FORWARDED_FOR="192.168.1.10, 10.0.0.1",
+        )
+        view = views.WebSocketView()
+
+        self.assertEqual("192.168.1.10", view._get_client_ip(request))
+
+    def test_get_client_ip_falls_back_to_remote_addr(self):
+        request = self.factory.get(
+            "/",
+            REMOTE_ADDR="192.168.1.11",
+        )
+        view = views.WebSocketView()
+
+        self.assertEqual("192.168.1.11", view._get_client_ip(request))
+
+    def test_get_client_ip_returns_default_for_invalid_ip(self):
+        request = self.factory.get(
+            "/",
+            HTTP_X_FORWARDED_FOR="not-an-ip",
+        )
+        view = views.WebSocketView(debug=True)
+
+        self.assertEqual("0.0.0.0", view._get_client_ip(request))
+        self.assertIn("Invalid IP address: not-an-ip", view.debug_log)
+
+
+class WebSocketViewAdditionalIntegrationTestCase(TestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.api_gateway = ApiGateway.objects.create(
+            api_name="View Gateway",
+            api_description="A test api gateway",
+            target_base_endpoint="http://www.example1.com/",
+            api_id="APIGateway-1",
+            default_channel_name="default-channel",
+        )
+
+    def test_get_channel_name_raises_value_error_for_invalid_channel(self):
+        request = self.factory.get("/", {"channel": "bad channel"})
+        view = views.WebSocketView(api_gateway=self.api_gateway)
+
+        with self.assertRaises(ValueError):
+            view._get_channel_name(request)
+
+    def test_get_channel_name_raises_value_error_for_too_long_channel(self):
+        request = self.factory.get("/", {"channel": "a" * 192})
+        view = views.WebSocketView(api_gateway=self.api_gateway)
+
+        with self.assertRaises(ValueError):
+            view._get_channel_name(request)
+
+    def test_get_channel_name_uses_api_gateway_default(self):
+        request = self.factory.get("/")
+        view = views.WebSocketView(api_gateway=self.api_gateway)
+
+        self.assertEqual("default-channel", view._get_channel_name(request))
 
 
 class WebSocketViewSimpleTestCase(SimpleTestCase):
@@ -106,7 +310,11 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
         obj = views.WebSocketView()
         res = obj.route_selection_key_missing(None)
 
-        mock_warnings.warn.assert_called_with("Deprecated: Use handler_selection_key_missing instead. Will be removed in version 3", DeprecationWarning, stacklevel=2)
+        mock_warnings.warn.assert_called_with(
+            "Deprecated: Use handler_selection_key_missing instead. Will be removed in version 3",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self.assertIsInstance(res, HttpResponseBadRequest)
         self.assertEqual(400, res.status_code)
         self.assertEqual(
@@ -605,7 +813,7 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
     @patch("django_aws_api_gateway_websockets.views.F")
     @patch("django_aws_api_gateway_websockets.views.WebSocketSession")
     def test__add_user_to_request_raises_when_object_not_found(
-            self, MockWebSocketSession, mock_F, mock_transaction
+        self, MockWebSocketSession, mock_F, mock_transaction
     ):
         """An exception should be raised if the object can not be found"""
         # Setup DoesNotExist exception
@@ -643,11 +851,11 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
     @patch("django_aws_api_gateway_websockets.views.F")
     @patch("django_aws_api_gateway_websockets.views.WebSocketSession")
     def test__add_user_to_request_when_session_found(
-            self, MockWebSocketSession, mock_F, mock_transaction
+        self, MockWebSocketSession, mock_F, mock_transaction
     ):
         """When a WebSocketSession is found then the user will be added to the request IF it's set against the session"""
         # Set up DoesNotExist exception properly
-        MockWebSocketSession.DoesNotExist = type('DoesNotExist', (Exception,), {})
+        MockWebSocketSession.DoesNotExist = type("DoesNotExist", (Exception,), {})
 
         mocked_user = MagicMock(pk=12)
         configs = [
@@ -658,7 +866,9 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
         for config in configs:
             with self.subTest(config=config):
                 wss = MagicMock(user=config["user"], request_count=0)
-                MockWebSocketSession.objects.select_for_update.return_value.get.return_value = wss
+                MockWebSocketSession.objects.select_for_update.return_value.get.return_value = (
+                    wss
+                )
                 con_id = "12345"
 
                 obj = views.WebSocketView()
@@ -683,8 +893,7 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
                 else:
                     self.assertFalse(hasattr(request, "user"))
 
-                wss.save.assert_called_with(update_fields=['request_count'])
-
+                wss.save.assert_called_with(update_fields=["request_count"])
 
     def test__get_channel_name(self):
         """Ensure the method returns the channel either from the GET string of set against the API Gateway"""
@@ -790,7 +999,13 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
     @patch("django_aws_api_gateway_websockets.views.JsonResponse")
     @patch("django_aws_api_gateway_websockets.views.ConnectionRateLimit")
     @patch("django_aws_api_gateway_websockets.views.WebSocketToken")
-    def test_connect(self, MockWebSocketToken, MockConnectionRateLimit, MockJsonResponse, MockWebSocketSession):
+    def test_connect(
+        self,
+        MockWebSocketToken,
+        MockConnectionRateLimit,
+        MockJsonResponse,
+        MockWebSocketSession,
+    ):
         """Test the connect method when the expected header are set. Should pass through all checks"""
         MockConnectionRateLimit.check_rate_limit.return_value = (True, 100)
 
@@ -817,7 +1032,7 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
             ip_address="127.0.0.1",
             user=user,
             max_attempts=views.WebSocketView.RATE_LIMIT_MAX_ATTEMPTS,
-            window_minutes=views.WebSocketView.RATE_LIMIT_WINDOW_MINUTES
+            window_minutes=views.WebSocketView.RATE_LIMIT_WINDOW_MINUTES,
         )
         self.assertEqual(1, MockWebSocketToken.validate_and_consume.call_count)
         MockConnectionRateLimit.record_attempt("127.0.0.1", user, successful=True)
@@ -838,7 +1053,12 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
     @patch("django_aws_api_gateway_websockets.views.ConnectionRateLimit")
     @patch("django_aws_api_gateway_websockets.views.WebSocketToken")
     def test_connect__missing_expected_headers(
-        self, MockWebSocketToken, MockConnectionRateLimit, MockHttpResponseBadRequest, MockJsonResponse, MockWebSocketSession
+        self,
+        MockWebSocketToken,
+        MockConnectionRateLimit,
+        MockHttpResponseBadRequest,
+        MockJsonResponse,
+        MockWebSocketSession,
     ):
         """Test the connect method when the expected headers are missing."""
         MockConnectionRateLimit.check_rate_limit.return_value = (True, 100)
@@ -872,7 +1092,12 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
     @patch("django_aws_api_gateway_websockets.views.ConnectionRateLimit")
     @patch("django_aws_api_gateway_websockets.views.WebSocketToken")
     def test_connect__with_invalid_host(
-        self, MockWebSocketToken, MockConnectionRateLimit, MockHttpResponseBadRequest, MockJsonResponse, MockWebSocketSession
+        self,
+        MockWebSocketToken,
+        MockConnectionRateLimit,
+        MockHttpResponseBadRequest,
+        MockJsonResponse,
+        MockWebSocketSession,
     ):
         """Test the connect method when the host is not in the allowed list are missing."""
         MockConnectionRateLimit.check_rate_limit.return_value = (True, 100)
@@ -911,7 +1136,12 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
     @patch("django_aws_api_gateway_websockets.views.ConnectionRateLimit")
     @patch("django_aws_api_gateway_websockets.views.WebSocketToken")
     def test_connect__with_host_not_in_origin(
-        self, MockWebSocketToken, MockConnectionRateLimit, MockHttpResponseBadRequest, MockJsonResponse, MockWebSocketSession
+        self,
+        MockWebSocketToken,
+        MockConnectionRateLimit,
+        MockHttpResponseBadRequest,
+        MockJsonResponse,
+        MockWebSocketSession,
     ):
         """Test the connect method when the host does not exist within the origin."""
         MockConnectionRateLimit.check_rate_limit.return_value = (True, 100)
@@ -948,7 +1178,12 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
     @patch("django_aws_api_gateway_websockets.views.ConnectionRateLimit")
     @patch("django_aws_api_gateway_websockets.views.WebSocketToken")
     def test_connect__additional_connection_checks_returns_false(
-        self, MockWebSocketToken, MockConnectionRateLimit, MockHttpResponseBadRequest, MockJsonResponse, MockWebSocketSession
+        self,
+        MockWebSocketToken,
+        MockConnectionRateLimit,
+        MockHttpResponseBadRequest,
+        MockJsonResponse,
+        MockWebSocketSession,
     ):
         """Test the connect method when the expected headers are missing."""
         MockConnectionRateLimit.check_rate_limit.return_value = (True, 100)
@@ -1010,9 +1245,7 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
 
         res = obj.dispatch(request)
 
-        MockHttpResponseBadRequest.assert_called_with(
-            "Invalid request headers"
-        )
+        MockHttpResponseBadRequest.assert_called_with("Invalid request headers")
         self.assertEqual(MockHttpResponseBadRequest.return_value, res)
         self.assertEqual(0, MockJsonResponse.call_count)
 

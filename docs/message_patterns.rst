@@ -159,7 +159,6 @@ Example:
 
    from django_aws_api_gateway_websockets.models import WebSocketSession
 
-
    session = WebSocketSession.objects.get(pk=1)
 
    session.send_message(
@@ -182,7 +181,6 @@ You can send a message to all active sessions for one user.
 .. code-block:: python
 
    from django.contrib.auth import get_user_model
-
 
    User = get_user_model()
 
@@ -217,7 +215,6 @@ Example:
 
    from django_aws_api_gateway_websockets.models import WebSocketSession
 
-
    WebSocketSession.objects.filter(
        channel_name="general",
    ).send_message(
@@ -248,7 +245,6 @@ Example:
 .. code-block:: python
 
    from django_aws_api_gateway_websockets.models import WebSocketSession
-
 
    WebSocketSession.objects.filter(
        connected=True,
@@ -449,7 +445,6 @@ Then:
 .. code-block:: python
 
    from django_aws_api_gateway_websockets.models import WebSocketSession
-
 
    WebSocketSession.objects.filter(
        connected=True,

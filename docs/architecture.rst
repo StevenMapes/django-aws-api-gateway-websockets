@@ -186,7 +186,6 @@ For example:
 
    from .views import ExampleWebSocketView
 
-
    urlpatterns = [
        path(
            "ws/<slug:route>",
@@ -464,7 +463,6 @@ Multicast sends a message to all connected sessions in a specific channel.
 
    from django_aws_api_gateway_websockets.models import WebSocketSession
 
-
    WebSocketSession.objects.filter(
        channel_name="support",
    ).send_message(
@@ -482,7 +480,6 @@ Broadcast sends a message to all connected sessions.
 .. code-block:: python
 
    from django_aws_api_gateway_websockets.models import WebSocketSession
-
 
    WebSocketSession.objects.filter(
        connected=True,

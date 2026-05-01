@@ -129,6 +129,7 @@ Create a WebSocket view:
 from django.http import JsonResponse
 from django_aws_api_gateway_websockets.views import WebSocketView
 
+
 class ExampleWebSocketView(WebSocketView):
     def default(self, request, *args, **kwargs):
         self.websocket_session.send_message({})
@@ -157,7 +158,7 @@ class ExampleWebSocketView(WebSocketView):
 
 Connect from the browser:
 
-```python
+```javascript
 const socket = new WebSocket("wss://ws.example.com?channel=example");
 
 socket.onmessage = function (event) {
@@ -230,6 +231,7 @@ Install development requirements into your virtual environment.
 Run tests:
 
 ```bash
+pip install pytest-django
 coverage erase
 python -W error::DeprecationWarning -W error::PendingDeprecationWarning -m coverage run --parallel -m pytest --ds tests.settings
 coverage combine

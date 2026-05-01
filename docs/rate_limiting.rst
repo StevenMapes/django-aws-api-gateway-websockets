@@ -221,7 +221,6 @@ Then use your custom token view in your URL configuration.
 
    from .views import CustomWebSocketTokenView
 
-
    urlpatterns = [
        path(
            "api/ws-token/",

@@ -154,7 +154,6 @@ The slug parameter must be named ``route``.
 
    from .views import ExampleWebSocketView
 
-
    urlpatterns = [
        path(
            "ws/<slug:route>",
@@ -171,7 +170,6 @@ Include this URL configuration from your project URLs if required.
 
    from django.urls import include
    from django.urls import path
-
 
    urlpatterns = [
        path("", include("example.urls")),
@@ -394,7 +392,6 @@ all active sessions in that channel.
 
    from django_aws_api_gateway_websockets.models import WebSocketSession
 
-
    WebSocketSession.objects.filter(
        channel_name="quickstart",
    ).send_message(
@@ -412,7 +409,6 @@ You can also broadcast to every active WebSocket session.
 .. code-block:: python
 
    from django_aws_api_gateway_websockets.models import WebSocketSession
-
 
    WebSocketSession.objects.filter(
        connected=True,

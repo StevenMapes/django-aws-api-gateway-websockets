@@ -15,9 +15,9 @@ from django.views.generic import View
 
 from django_aws_api_gateway_websockets.models import (
     ApiGateway,
+    ConnectionRateLimit,
     WebSocketSession,
     WebSocketToken,
-    ConnectionRateLimit
 )
 
 
@@ -44,14 +44,10 @@ class WebSocketTokenView(View):
             return HttpResponseForbidden("Rate limit exceeded")
 
         token = WebSocketToken.generate_token(
-            user=request.user,
-            session_key=request.session.session_key
+            user=request.user, session_key=request.session.session_key
         )
 
-        return JsonResponse({
-            'token': token.token,
-            'expires_in': 60  # seconds
-        })
+        return JsonResponse({"token": token.token, "expires_in": 60})  # seconds
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -66,7 +62,7 @@ class WebSocketView(View):
     MAX_BODY_SIZE = 1024 * 128  # 128KB
 
     MAX_CHANNEL_NAME_LENGTH = 191
-    CHANNEL_NAME_PATTERN = re.compile(r'^[a-zA-Z0-9_-]+$')
+    CHANNEL_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
 
     ALLOWED_HANDLERS = set()
     ADDITIONAL_ALLOWED_HANDLERS = list()
@@ -106,8 +102,12 @@ class WebSocketView(View):
     ]
     expected_useragent_prefix = "AmazonAPIGateway_"
 
-    permissions_required = []       # User must have ANY of these permissions to invoke the method. Default = Allow All
-    all_permissions_required = []   # User must have ALL these permissions to invoke the method. Default = Allow All
+    permissions_required = (
+        []
+    )  # User must have ANY of these permissions to invoke the method. Default = Allow All
+    all_permissions_required = (
+        []
+    )  # User must have ALL these permissions to invoke the method. Default = Allow All
 
     def __init__(self, **kwargs):
         self.api_gateway = kwargs.get("api_gateway", False)
@@ -116,7 +116,11 @@ class WebSocketView(View):
         self.debug_log = []
 
         if not self.ALLOWED_HANDLERS:
-            self.ALLOWED_HANDLERS = set(["default"] + self.ADDITIONAL_ALLOWED_HANDLERS + self._get_current_class_methods())
+            self.ALLOWED_HANDLERS = set(
+                ["default"]
+                + self.ADDITIONAL_ALLOWED_HANDLERS
+                + self._get_current_class_methods()
+            )
 
         super().__init__(**kwargs)
 
@@ -153,7 +157,7 @@ class WebSocketView(View):
         methods = []
         for name in dir(current_class):
             # Skip private/magic methods if desired
-            if name.startswith('_'):
+            if name.startswith("_"):
                 continue
 
             attr = getattr(current_class, name)
@@ -174,7 +178,11 @@ class WebSocketView(View):
         self, request, *args, **kwargs
     ) -> HttpResponseBadRequest:
         """Method for handling missing route_selection_key"""
-        warnings.warn("Deprecated: Use handler_selection_key_missing instead. Will be removed in version 3", DeprecationWarning, stacklevel=2)
+        warnings.warn(
+            "Deprecated: Use handler_selection_key_missing instead. Will be removed in version 3",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
         msg = f"route_select_key {self.route_selection_key} missing from request body."
         self._debug(msg)
@@ -285,7 +293,7 @@ class WebSocketView(View):
         # Security: Strict validation to prevent injection
         if not connection_id or len(connection_id) > 128:
             return False
-        return bool(re.match(r'^[A-Za-z0-9_=-]+$', connection_id))
+        return bool(re.match(r"^[A-Za-z0-9_=-]+$", connection_id))
 
     def _add_user_to_request(self, request):
         """Fetch the user from the model and append it back into the request variable"""
@@ -298,8 +306,8 @@ class WebSocketView(View):
                     )
                     if wss.user:
                         request.user = wss.user
-                    wss.request_count = F('request_count') + 1
-                    wss.save(update_fields=['request_count'])
+                    wss.request_count = F("request_count") + 1
+                    wss.save(update_fields=["request_count"])
             except WebSocketSession.DoesNotExist:
                 self._debug(f"Session not found: {request.headers['Connectionid']}")
                 # Handle gracefully
@@ -315,7 +323,11 @@ class WebSocketView(View):
 
         # Security: Validate channel name length and format atomically
         if channel_name:
-            if len(channel_name) > self.MAX_CHANNEL_NAME_LENGTH or not self.CHANNEL_NAME_PATTERN.match(channel_name):
+            if len(
+                channel_name
+            ) > self.MAX_CHANNEL_NAME_LENGTH or not self.CHANNEL_NAME_PATTERN.match(
+                channel_name
+            ):
                 self._debug(f"Invalid channel name: {channel_name[:50]}")
                 raise ValueError("Invalid channel name")
 
@@ -357,7 +369,10 @@ class WebSocketView(View):
                     else:
                         handler = self.disconnect
                         self._add_user_to_request(request)
-                elif self.handler_selection_key in self.body or self.route_selection_key in self.body:
+                elif (
+                    self.handler_selection_key in self.body
+                    or self.route_selection_key in self.body
+                ):
                     self._load_session(request)
 
                     handler = self.default
@@ -365,15 +380,27 @@ class WebSocketView(View):
 
                     # Safely get handler name and validate it's in ALLOWED_HANDLERS
                     if self.body.get(self.handler_selection_key):
-                        handler_name = str(self.body[self.handler_selection_key])  # Force string type
+                        handler_name = str(
+                            self.body[self.handler_selection_key]
+                        )  # Force string type
                         # Security: Only allow handlers explicitly in ALLOWED_HANDLERS
-                        if handler_name in self.ALLOWED_HANDLERS and not handler_name.startswith('_'):
+                        if (
+                            handler_name in self.ALLOWED_HANDLERS
+                            and not handler_name.startswith("_")
+                        ):
                             handler = getattr(self, handler_name, self.default)
 
                     # Fallback to deprecated route_selection_key if handler not found
-                    if handler == self.default and self.body.get(self.route_selection_key):
-                        handler_name = str(self.body[self.route_selection_key])  # Force string type
-                        if handler_name in self.ALLOWED_HANDLERS and not handler_name.startswith('_'):
+                    if handler == self.default and self.body.get(
+                        self.route_selection_key
+                    ):
+                        handler_name = str(
+                            self.body[self.route_selection_key]
+                        )  # Force string type
+                        if (
+                            handler_name in self.ALLOWED_HANDLERS
+                            and not handler_name.startswith("_")
+                        ):
                             handler = getattr(self, handler_name, self.default)
 
                     if not self._expected_useragent(request, *args, **kwargs):
@@ -404,14 +431,18 @@ class WebSocketView(View):
         """Handle the connection route in a standard way that ensures the User to Connectionid mapping persists"""
         # Security: Rate limiting for connection attempts
         ip_address = self._get_client_ip(request)
-        user = request.user if hasattr(request, 'user') and request.user.is_authenticated else None
+        user = (
+            request.user
+            if hasattr(request, "user") and request.user.is_authenticated
+            else None
+        )
 
         if self.RATE_LIMIT_ENABLED:
             is_allowed, attempt_count = ConnectionRateLimit.check_rate_limit(
                 ip_address=ip_address,
                 user=user,
                 max_attempts=self.RATE_LIMIT_MAX_ATTEMPTS,
-                window_minutes=self.RATE_LIMIT_WINDOW_MINUTES
+                window_minutes=self.RATE_LIMIT_WINDOW_MINUTES,
             )
 
             if not is_allowed:
@@ -441,7 +472,7 @@ class WebSocketView(View):
 
         if self.USE_WS_TOKEN:
             # Security: Validate one-time WebSocket token (CSRF protection)
-            ws_token = request.GET.get('ws_token', '')
+            ws_token = request.GET.get("ws_token", "")
             if not request.session.session_key:
                 self._debug("No session key present")
                 return self._return_bad_request("Invalid session")
@@ -449,7 +480,7 @@ class WebSocketView(View):
             validated_user = WebSocketToken.validate_and_consume(
                 token_value=ws_token,
                 session_key=request.session.session_key,
-                max_age_seconds=60
+                max_age_seconds=60,
             )
 
             if not validated_user:
@@ -481,12 +512,12 @@ class WebSocketView(View):
     def _get_client_ip(self, request) -> str:
         """Extract client IP address from request headers"""
         # Security: Get real IP from X-Forwarded-For (set by API Gateway)
-        x_forwarded_for = request.headers.get('X-Forwarded-For', '')
+        x_forwarded_for = request.headers.get("X-Forwarded-For", "")
         if x_forwarded_for:
             # Take the first IP in the chain (client IP)
-            ip = x_forwarded_for.split(',')[0].strip()
+            ip = x_forwarded_for.split(",")[0].strip()
         else:
-            ip = request.META.get('REMOTE_ADDR', '0.0.0.0')
+            ip = request.META.get("REMOTE_ADDR", "0.0.0.0")
 
         # Validate IP format
         try:
@@ -494,7 +525,7 @@ class WebSocketView(View):
             return ip
         except ValueError:
             self._debug(f"Invalid IP address: {ip[:50]}")
-            return '0.0.0.0'
+            return "0.0.0.0"
 
     def _additional_connection_checks(self, request, *args, **kwargs) -> (bool, str):
         """Could add in additional steps for certificates, APIGateway Authorizers etc"""
@@ -516,7 +547,10 @@ class WebSocketView(View):
         """Test if the user has ANY of the required permissions"""
         res = True
         if self.permissions_required:
-            has_perms = [request.user.has_perms([permission]) for permission in self.permissions_required]
+            has_perms = [
+                request.user.has_perms([permission])
+                for permission in self.permissions_required
+            ]
             res = any(has_perms)
         return res
 
@@ -524,6 +558,9 @@ class WebSocketView(View):
         """Test if the user has ALL: of the required permissions"""
         res = True
         if self.all_permissions_required:
-            has_perms = [request.user.has_perms([permission]) for permission in self.all_permissions_required]
+            has_perms = [
+                request.user.has_perms([permission])
+                for permission in self.all_permissions_required
+            ]
             res = all(has_perms)
         return res

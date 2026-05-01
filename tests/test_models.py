@@ -3,14 +3,246 @@ from unittest.mock import MagicMock, call, patch
 
 from botocore.exceptions import ClientError
 from django.conf import settings
+from django.contrib.auth.models import AnonymousUser, User
 from django.test import SimpleTestCase, TestCase, override_settings
+from django.utils import timezone
 
 from django_aws_api_gateway_websockets.models import (
     ApiGateway,
     ApiGatewayAdditionalRoute,
+    ConnectionRateLimit,
     WebSocketSession,
+    WebSocketToken,
     get_boto3_client,
 )
+
+
+class WebSocketTokenIntegrationTestCase(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="token-user", password="password")
+
+    def test_generate_token_creates_valid_token(self):
+        token = WebSocketToken.generate_token(
+            user=self.user,
+            session_key="session-key",
+        )
+
+        self.assertEqual(64, len(token.token))
+        self.assertEqual(self.user, token.user)
+        self.assertEqual("session-key", token.session_key)
+        self.assertFalse(token.used)
+
+    def test_validate_and_consume_returns_user_and_marks_token_used(self):
+        token = WebSocketToken.generate_token(
+            user=self.user,
+            session_key="session-key",
+        )
+
+        result = WebSocketToken.validate_and_consume(
+            token.token,
+            "session-key",
+            max_age_seconds=60,
+        )
+
+        token.refresh_from_db()
+        self.assertEqual(self.user, result)
+        self.assertTrue(token.used)
+
+    def test_validate_and_consume_returns_none_for_invalid_token(self):
+        result = WebSocketToken.validate_and_consume(
+            "0" * 64,
+            "session-key",
+            max_age_seconds=60,
+        )
+
+        self.assertIsNone(result)
+
+    def test_validate_and_consume_returns_none_for_wrong_session_key(self):
+        token = WebSocketToken.generate_token(
+            user=self.user,
+            session_key="session-key",
+        )
+
+        result = WebSocketToken.validate_and_consume(
+            token.token,
+            "other-session-key",
+            max_age_seconds=60,
+        )
+
+        self.assertIsNone(result)
+
+    def test_validate_and_consume_returns_none_for_used_token(self):
+        token = WebSocketToken.generate_token(
+            user=self.user,
+            session_key="session-key",
+        )
+        token.used = True
+        token.save(update_fields=["used"])
+
+        result = WebSocketToken.validate_and_consume(
+            token.token,
+            "session-key",
+            max_age_seconds=60,
+        )
+
+        self.assertIsNone(result)
+
+    def test_cleanup_expired_deletes_old_tokens(self):
+        token = WebSocketToken.generate_token(
+            user=self.user,
+            session_key="session-key",
+        )
+        WebSocketToken.objects.filter(pk=token.pk).update(
+            created_at=timezone.now() - timezone.timedelta(seconds=301),
+        )
+
+        deleted_count, _ = WebSocketToken.cleanup_expired(max_age_seconds=300)
+
+        self.assertEqual(1, deleted_count)
+        self.assertFalse(WebSocketToken.objects.filter(pk=token.pk).exists())
+
+    def test_check_rate_limit_returns_true_below_limit(self):
+        WebSocketToken.generate_token(
+            user=self.user,
+            session_key="session-key",
+        )
+
+        self.assertTrue(
+            WebSocketToken.check_rate_limit(
+                self.user,
+                max_tokens_per_minute=2,
+            )
+        )
+
+    def test_check_rate_limit_returns_false_at_limit(self):
+        WebSocketToken.generate_token(
+            user=self.user,
+            session_key="session-key-1",
+        )
+        WebSocketToken.generate_token(
+            user=self.user,
+            session_key="session-key-2",
+        )
+
+        self.assertFalse(
+            WebSocketToken.check_rate_limit(
+                self.user,
+                max_tokens_per_minute=2,
+            )
+        )
+
+
+class ConnectionRateLimitIntegrationTestCase(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="rate-user", password="password")
+
+    def test_record_attempt_stores_authenticated_user(self):
+        attempt = ConnectionRateLimit.record_attempt(
+            ip_address="127.0.0.1",
+            user=self.user,
+            successful=True,
+        )
+
+        self.assertEqual("127.0.0.1", attempt.ip_address)
+        self.assertEqual(self.user, attempt.user)
+        self.assertTrue(attempt.successful)
+
+    def test_record_attempt_ignores_anonymous_user(self):
+        attempt = ConnectionRateLimit.record_attempt(
+            ip_address="127.0.0.1",
+            user=AnonymousUser(),
+            successful=False,
+        )
+
+        self.assertIsNone(attempt.user)
+        self.assertFalse(attempt.successful)
+
+    def test_check_rate_limit_allows_when_under_limit(self):
+        ConnectionRateLimit.record_attempt(
+            ip_address="127.0.0.1",
+            user=self.user,
+            successful=False,
+        )
+
+        allowed, attempts = ConnectionRateLimit.check_rate_limit(
+            ip_address="127.0.0.1",
+            user=self.user,
+            max_attempts=2,
+            window_minutes=5,
+        )
+
+        self.assertTrue(allowed)
+        self.assertEqual(1, attempts)
+
+    def test_check_rate_limit_blocks_by_ip(self):
+        ConnectionRateLimit.record_attempt(
+            ip_address="127.0.0.1",
+            user=None,
+            successful=False,
+        )
+
+        allowed, attempts = ConnectionRateLimit.check_rate_limit(
+            ip_address="127.0.0.1",
+            max_attempts=1,
+            window_minutes=5,
+        )
+
+        self.assertFalse(allowed)
+        self.assertEqual(1, attempts)
+
+    def test_check_rate_limit_blocks_by_user(self):
+        ConnectionRateLimit.record_attempt(
+            ip_address="127.0.0.1",
+            user=self.user,
+            successful=False,
+        )
+
+        allowed, attempts = ConnectionRateLimit.check_rate_limit(
+            ip_address="127.0.0.2",
+            user=self.user,
+            max_attempts=1,
+            window_minutes=5,
+        )
+
+        self.assertFalse(allowed)
+        self.assertEqual(1, attempts)
+
+    def test_cleanup_old_records_deletes_old_attempts(self):
+        attempt = ConnectionRateLimit.record_attempt(
+            ip_address="127.0.0.1",
+            user=self.user,
+            successful=False,
+        )
+        ConnectionRateLimit.objects.filter(pk=attempt.pk).update(
+            attempt_time=timezone.now() - timezone.timedelta(days=8),
+        )
+
+        deleted_count, _ = ConnectionRateLimit.cleanup_old_records(days=7)
+
+        self.assertEqual(1, deleted_count)
+        self.assertFalse(ConnectionRateLimit.objects.filter(pk=attempt.pk).exists())
+
+
+class WebSocketSessionMessageSizeTestCase(TestCase):
+    def setUp(self):
+        self.api_gateway = ApiGateway.objects.create(
+            api_name="Message Size Gateway",
+            api_description="A test api gateway",
+            target_base_endpoint="http://www.example1.com/",
+            deployment_id="",
+        )
+
+    @override_settings(AWS_GATEWAY_REGION_NAME="eu-west-1")
+    def test_send_message_raises_value_error_when_message_too_large(self):
+        obj = WebSocketSession.objects.create(
+            connection_id="ABC-123-LARGE",
+            channel_name="My-Channel",
+            connected=True,
+            api_gateway=self.api_gateway,
+        )
+
+        with self.assertRaises(ValueError):
+            obj.send_message({"message": "x" * (1024 * 128)})
 
 
 class GetBoto3ClientTestCase(SimpleTestCase):
@@ -30,7 +262,9 @@ class GetBoto3ClientTestCase(SimpleTestCase):
         """
         with self.assertRaises(RuntimeError) as re:
             get_boto3_client("s3")
-            self.assertEqual("AWS_GATEWAY_REGION_NAME must be set within settings.py", str(re))
+            self.assertEqual(
+                "AWS_GATEWAY_REGION_NAME must be set within settings.py", str(re)
+            )
 
     @override_settings(
         AWS_IAM_PROFILE="FakeIAMProfile",
@@ -151,7 +385,8 @@ class GetBoto3ClientTestCase(SimpleTestCase):
             get_boto3_client("s3")
 
         self.assertEqual(
-            str(e.exception), "AWS_GATEWAY_REGION_NAME or AWS_REGION_NAME must be set within settings.py"
+            str(e.exception),
+            "AWS_GATEWAY_REGION_NAME or AWS_REGION_NAME must be set within settings.py",
         )
 
 

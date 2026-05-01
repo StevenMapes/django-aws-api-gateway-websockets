@@ -88,7 +88,6 @@ The package provides a token view that can be added to your URL configuration.
 
    from django_aws_api_gateway_websockets.views import WebSocketTokenView
 
-
    urlpatterns = [
        path(
            "api/ws-token/",
@@ -442,7 +441,6 @@ URL configuration:
    from django.urls import path
 
    from .views import CustomWebSocketTokenView
-
 
    urlpatterns = [
        path(

@@ -1,16 +1,14 @@
-import boto3
 import json
 import re
 import secrets
-
-from botocore.exceptions import ClientError
 from datetime import timedelta
 
+import boto3
+from botocore.exceptions import ClientError
 from django.conf import settings
 from django.core.validators import RegexValidator
 from django.db import models, transaction
 from django.utils import timezone
-
 
 MAX_MESSAGE_SIZE = 1024 * 128  # 128KB (AWS limit is 128KB)
 
@@ -19,12 +17,17 @@ def get_region_name():
     """Returns the AWS region name from settings.py. Uses AWS_GATEWAY_REGION_NAME first and falls back to
     AWS_REGION_NAME for backwards compatibility.
     """
-    if hasattr(settings, "AWS_GATEWAY_REGION_NAME") and settings.AWS_GATEWAY_REGION_NAME:
+    if (
+        hasattr(settings, "AWS_GATEWAY_REGION_NAME")
+        and settings.AWS_GATEWAY_REGION_NAME
+    ):
         return settings.AWS_GATEWAY_REGION_NAME
     elif hasattr(settings, "AWS_REGION_NAME") and settings.AWS_REGION_NAME:
         return settings.AWS_REGION_NAME
     else:
-        raise RuntimeError("AWS_GATEWAY_REGION_NAME or AWS_REGION_NAME must be set within settings.py")
+        raise RuntimeError(
+            "AWS_GATEWAY_REGION_NAME or AWS_REGION_NAME must be set within settings.py"
+        )
 
 
 def get_boto3_client(service: str = "apigatewayv2", **kwargs):
@@ -88,20 +91,20 @@ class ApiGateway(models.Model):
         # Validate domain_name only if provided
         if self.domain_name:
             domain_pattern = re.compile(
-                r'^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$'
+                r"^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$"
             )
             if not domain_pattern.match(self.domain_name):
-                raise ValidationError({
-                    'domain_name': 'Invalid domain name format'
-                })
+                raise ValidationError({"domain_name": "Invalid domain name format"})
 
         # Validate api_name only if provided
         if self.api_name:
-            api_name_pattern = re.compile(r'^[ a-zA-Z0-9_-]+$')
+            api_name_pattern = re.compile(r"^[ a-zA-Z0-9_-]+$")
             if not api_name_pattern.match(self.api_name):
-                raise ValidationError({
-                    'api_name': 'API name can only contain alphanumeric characters, spaces, hyphens, and underscores'
-                })
+                raise ValidationError(
+                    {
+                        "api_name": "API name can only contain alphanumeric characters, spaces, hyphens, and underscores"
+                    }
+                )
 
     def save(self, **kwargs):
         """Ensure the trailing slash is saved to the target endpoint"""
@@ -123,7 +126,7 @@ class ApiGateway(models.Model):
         max_length=255,
         blank=True,
         default="",
-        help_text = "The full domain you wish to use for the API endpoint. E.G ws.example.com",
+        help_text="The full domain you wish to use for the API endpoint. E.G ws.example.com",
     )
     target_base_endpoint = models.URLField(
         null=True,
@@ -430,7 +433,7 @@ class WebSocketSession(models.Model):
         message_data = json.dumps(data)
 
         # Security: Validate message size before sending
-        message_size = len(message_data.encode('utf-8'))
+        message_size = len(message_data.encode("utf-8"))
         if message_size > MAX_MESSAGE_SIZE:
             raise ValueError(
                 f"Message exceeds AWS limit: {message_size} bytes (max: {MAX_MESSAGE_SIZE} bytes)"
@@ -494,12 +497,12 @@ class WebSocketToken(models.Model):
         max_length=64,
         unique=True,
         db_index=True,
-        validators=[RegexValidator(r'^[a-f0-9]{64}$', 'Invalid token format')]
+        validators=[RegexValidator(r"^[a-f0-9]{64}$", "Invalid token format")],
     )
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name='websocket_tokens'
+        related_name="websocket_tokens",
     )
     session_key = models.CharField(max_length=40, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
@@ -508,19 +511,15 @@ class WebSocketToken(models.Model):
     class Meta:
         db_table = "websocket_tokens"
         indexes = [
-            models.Index(fields=['token', 'used']),
-            models.Index(fields=['created_at']),
+            models.Index(fields=["token", "used"]),
+            models.Index(fields=["created_at"]),
         ]
 
     @classmethod
     def generate_token(cls, user, session_key):
         """Generate a one-time use WebSocket token"""
         token_value = secrets.token_hex(32)  # 64 character hex string
-        return cls.objects.create(
-            token=token_value,
-            user=user,
-            session_key=session_key
-        )
+        return cls.objects.create(token=token_value, user=user, session_key=session_key)
 
     @classmethod
     def validate_and_consume(cls, token_value, session_key, max_age_seconds=60):
@@ -532,11 +531,11 @@ class WebSocketToken(models.Model):
                     token=token_value,
                     session_key=session_key,
                     used=False,
-                    created_at__gte=cutoff_time
+                    created_at__gte=cutoff_time,
                 )
                 # Mark as used immediately
                 token_obj.used = True
-                token_obj.save(update_fields=['used'])
+                token_obj.save(update_fields=["used"])
                 return token_obj.user
         except cls.DoesNotExist:
             return None
@@ -552,10 +551,10 @@ class WebSocketToken(models.Model):
         """Check if user has exceeded token generation rate limit"""
         one_minute_ago = timezone.now() - timedelta(minutes=1)
         recent_tokens = cls.objects.filter(
-            user=user,
-            created_at__gte=one_minute_ago
+            user=user, created_at__gte=one_minute_ago
         ).count()
         return recent_tokens < max_tokens_per_minute
+
 
 class ConnectionRateLimit(models.Model):
     """Track connection attempts for rate limiting"""
@@ -566,7 +565,7 @@ class ConnectionRateLimit(models.Model):
         on_delete=models.CASCADE,
         null=True,
         blank=True,
-        related_name='connection_attempts'
+        related_name="connection_attempts",
     )
     attempt_time = models.DateTimeField(auto_now_add=True, db_index=True)
     successful = models.BooleanField(default=False)
@@ -574,8 +573,8 @@ class ConnectionRateLimit(models.Model):
     class Meta:
         db_table = "connection_rate_limits"
         indexes = [
-            models.Index(fields=['ip_address', 'attempt_time']),
-            models.Index(fields=['user', 'attempt_time']),
+            models.Index(fields=["ip_address", "attempt_time"]),
+            models.Index(fields=["user", "attempt_time"]),
         ]
 
     @classmethod
@@ -588,8 +587,7 @@ class ConnectionRateLimit(models.Model):
 
         # Check IP-based rate limit
         ip_attempts = cls.objects.filter(
-            ip_address=ip_address,
-            attempt_time__gte=cutoff_time
+            ip_address=ip_address, attempt_time__gte=cutoff_time
         ).count()
 
         if ip_attempts >= max_attempts:
@@ -598,8 +596,7 @@ class ConnectionRateLimit(models.Model):
         # Check user-based rate limit if user provided
         if user and user.is_authenticated:
             user_attempts = cls.objects.filter(
-                user=user,
-                attempt_time__gte=cutoff_time
+                user=user, attempt_time__gte=cutoff_time
             ).count()
 
             if user_attempts >= max_attempts:
@@ -613,7 +610,7 @@ class ConnectionRateLimit(models.Model):
         return cls.objects.create(
             ip_address=ip_address,
             user=user if user and user.is_authenticated else None,
-            successful=successful
+            successful=successful,
         )
 
     @classmethod
@@ -621,6 +618,3 @@ class ConnectionRateLimit(models.Model):
         """Delete old rate limit records (call via cron/celery)"""
         cutoff_time = timezone.now() - timedelta(days=days)
         return cls.objects.filter(attempt_time__lt=cutoff_time).delete()
-
-
-

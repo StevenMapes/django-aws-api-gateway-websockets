@@ -57,7 +57,6 @@ Example:
 
    from .views import ExampleWebSocketView
 
-
    urlpatterns = [
        path(
            "ws/<slug:route>",

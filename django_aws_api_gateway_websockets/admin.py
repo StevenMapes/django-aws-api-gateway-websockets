@@ -3,14 +3,18 @@ import logging
 from django.contrib import admin, messages
 from django.contrib.admin import ModelAdmin, TabularInline
 
-from .models import ApiGateway, ApiGatewayAdditionalRoute, WebSocketSession, WebSocketToken, ConnectionRateLimit
+from .models import (
+    ApiGateway,
+    ApiGatewayAdditionalRoute,
+    ConnectionRateLimit,
+    WebSocketSession,
+    WebSocketToken,
+)
 
 logger = logging.getLogger(__name__)
 
 
-@admin.action(
-    description="Create API Gateway"
-)
+@admin.action(description="Create API Gateway")
 def create_api_gateway(modeladmin, request, queryset):
     """Creates the API Gateway record if one does not already exist"""
     for obj in queryset:
@@ -33,9 +37,11 @@ def create_api_gateway(modeladmin, request, queryset):
                 # Security: Log errors without exposing sensitive details to user
                 logger.error(
                     f"Failed to create API Gateway '{obj.api_name}' (ID: {obj.pk}) by '{request.user.username}': {str(e)}",
-                    exc_info=True
+                    exc_info=True,
                 )
-                messages.error(request, f"Failed to create {obj.api_name}: {type(e).__name__}")
+                messages.error(
+                    request, f"Failed to create {obj.api_name}: {type(e).__name__}"
+                )
 
 
 @admin.action(description="Create Custom Domain")
@@ -64,9 +70,12 @@ def create_custom_domain(self, request, queryset):
                 # Security: Log errors without exposing sensitive details
                 logger.error(
                     f"Failed to create custom domain for '{obj.api_name}' by '{request.user.username}': {str(e)}",
-                    exc_info=True
+                    exc_info=True,
                 )
-                messages.error(request, f"Failed to create custom domain for {obj.api_name}: {type(e).__name__}")
+                messages.error(
+                    request,
+                    f"Failed to create custom domain for {obj.api_name}: {type(e).__name__}",
+                )
 
 
 class ApiGatewayAdditionalRouteInline(TabularInline):
@@ -139,16 +148,16 @@ class ApiGatewayAdditionalRouteAdmin(ModelAdmin):
 
 @admin.register(WebSocketToken)
 class WebSocketTokenAdmin(admin.ModelAdmin):
-    list_display = ('token_preview', 'user', 'session_key', 'created_at', 'used')
-    list_filter = ('used', 'created_at')
-    search_fields = ('user__username', 'user__email', 'session_key')
-    readonly_fields = ('token', 'user', 'session_key', 'created_at', 'used')
+    list_display = ("token_preview", "user", "session_key", "created_at", "used")
+    list_filter = ("used", "created_at")
+    search_fields = ("user__username", "user__email", "session_key")
+    readonly_fields = ("token", "user", "session_key", "created_at", "used")
 
     def token_preview(self, obj):
         """Show only first 16 characters of token for security"""
         return f"{obj.token[:16]}..."
 
-    token_preview.short_description = 'Token'
+    token_preview.short_description = "Token"
 
     def has_add_permission(self, request):
         # Tokens should only be created programmatically
@@ -161,11 +170,11 @@ class WebSocketTokenAdmin(admin.ModelAdmin):
 
 @admin.register(ConnectionRateLimit)
 class ConnectionRateLimitAdmin(admin.ModelAdmin):
-    list_display = ('ip_address', 'user', 'attempt_time', 'successful')
-    list_filter = ('successful', 'attempt_time')
-    search_fields = ('ip_address', 'user__username', 'user__email')
-    readonly_fields = ('ip_address', 'user', 'attempt_time', 'successful')
-    date_hierarchy = 'attempt_time'
+    list_display = ("ip_address", "user", "attempt_time", "successful")
+    list_filter = ("successful", "attempt_time")
+    search_fields = ("ip_address", "user__username", "user__email")
+    readonly_fields = ("ip_address", "user", "attempt_time", "successful")
+    date_hierarchy = "attempt_time"
 
     def has_add_permission(self, request):
         # Rate limits should only be created programmatically

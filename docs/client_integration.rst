@@ -102,7 +102,6 @@ Example server-side send:
 
    from django_aws_api_gateway_websockets.models import WebSocketSession
 
-
    WebSocketSession.objects.filter(
        channel_name="notifications",
    ).send_message(

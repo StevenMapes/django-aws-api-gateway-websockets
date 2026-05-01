@@ -107,8 +107,7 @@ class CreatCustomDomainSimpleTestCase(SimpleTestCase):
 
         instance.create_custom_domain.assert_called_with()
         mocked_messages.success.assert_called_with(
-            request,
-            f"{instance.domain_name} custom domain created"
+            request, f"{instance.domain_name} custom domain created"
         )
         self.assertEqual(0, mocked_messages.error.call_count)
 
@@ -152,7 +151,7 @@ class CreatCustomDomainSimpleTestCase(SimpleTestCase):
         self.assertEqual(0, mocked_messages.success.call_count)
         mocked_messages.error.assert_called_with(
             request,
-            f"Failed to create custom domain for {instance.api_name}: ClientError"
+            f"Failed to create custom domain for {instance.api_name}: ClientError",
         )
 
 

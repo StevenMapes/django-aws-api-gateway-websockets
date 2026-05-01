@@ -32,7 +32,7 @@ class AppChannelWebSocketMixin(AddWebSocketRouteToContextMixin):
     """
 
     request = None
-    app_channel_override = None # If set overrides the default channel_name
+    app_channel_override = None  # If set overrides the default channel_name
 
     def get_context_data(self, **kwargs) -> dict:
         app_name = sys.modules[
