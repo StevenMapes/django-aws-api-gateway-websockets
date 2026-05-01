@@ -1667,3 +1667,94 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
         self.assertEqual(0, mocked_disconnect.call_count)
         self.assertEqual(0, MockJsonResponse.call_count)
         self.assertEqual(0, mocked__add_user_to_request.call_count)
+
+
+class WebSocketViewRemainingSimpleTestCase(SimpleTestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+
+    def test_route_selection_key_missing_returns_deprecated_bad_request(self):
+        request = self.factory.post("/")
+
+        view = views.WebSocketView(debug=True)
+
+        with self.assertWarns(DeprecationWarning):
+            response = view.route_selection_key_missing(request)
+
+        self.assertEqual(400, response.status_code)
+        self.assertEqual(
+            b"route_select_key action missing from request body.",
+            response.content,
+        )
+
+    def test_handler_selection_key_missing_returns_generic_bad_request(self):
+        request = self.factory.post("/")
+
+        view = views.WebSocketView(debug=True)
+
+        response = view.handler_selection_key_missing(request)
+
+        self.assertEqual(400, response.status_code)
+        self.assertEqual(b"Invalid request format (1)", response.content)
+
+    def test_invalid_useragent_returns_bad_request(self):
+        request = self.factory.post(
+            "/",
+            HTTP_USER_AGENT="UnexpectedUserAgent",
+        )
+
+        view = views.WebSocketView(debug=True)
+        view.aws_api_gateway_id = "API123"
+
+        response = view.invalid_useragent(request)
+
+        self.assertEqual(400, response.status_code)
+        self.assertEqual(b"Unexpected Useragent", response.content)
+
+    def test_default_raises_not_implemented_error(self):
+        request = self.factory.post("/")
+
+        view = views.WebSocketView()
+
+        with self.assertRaises(NotImplementedError):
+            view.default(request)
+
+    def test_has_any_permission_returns_true_when_no_permissions_required(self):
+        request = self.factory.post("/")
+        request.user = MagicMock()
+
+        view = views.WebSocketView()
+
+        self.assertTrue(view.has_any_permission(request))
+
+    def test_has_any_permission_checks_required_permissions(self):
+        request = self.factory.post("/")
+        request.user = MagicMock()
+        request.user.has_perms.side_effect = [False, True]
+
+        view = views.WebSocketView()
+        view.permissions_required = ["app.first_perm", "app.second_perm"]
+
+        self.assertTrue(view.has_any_permission(request))
+        request.user.has_perms.assert_any_call(["app.first_perm"])
+        request.user.has_perms.assert_any_call(["app.second_perm"])
+
+    def test_has_all_permission_returns_true_when_no_permissions_required(self):
+        request = self.factory.post("/")
+        request.user = MagicMock()
+
+        view = views.WebSocketView()
+
+        self.assertTrue(view.has_all_permission(request))
+
+    def test_has_all_permission_checks_required_permissions(self):
+        request = self.factory.post("/")
+        request.user = MagicMock()
+        request.user.has_perms.side_effect = [True, False]
+
+        view = views.WebSocketView()
+        view.all_permissions_required = ["app.first_perm", "app.second_perm"]
+
+        self.assertFalse(view.has_all_permission(request))
+        request.user.has_perms.assert_any_call(["app.first_perm"])
+        request.user.has_perms.assert_any_call(["app.second_perm"])

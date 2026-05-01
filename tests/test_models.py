@@ -1198,5 +1198,117 @@ class WebSocketSessionIntegrationTestCase(TestCase):
 
 
 class WebSocketSessionQuerySetIntegrationTestCase(TestCase):
-    # todo - Implement these tests
-    pass
+    def setUp(self) -> None:
+        self.api_gateway = ApiGateway.objects.create(
+            api_name="QuerySet Gateway",
+            api_description="A test api gateway",
+            target_base_endpoint="http://www.example1.com/",
+            deployment_id="",
+            api_id="API123",
+            stage_name="production",
+        )
+
+    @patch("django_aws_api_gateway_websockets.models.get_boto3_client")
+    @override_settings(AWS_GATEWAY_REGION_NAME="eu-west-1")
+    def test_send_message_sends_to_connected_sessions_only(
+        self,
+        mocked_get_boto3_client,
+    ):
+        connected_session = WebSocketSession.objects.create(
+            connection_id="CONNECTED-123",
+            channel_name="My-Channel",
+            connected=True,
+            api_gateway=self.api_gateway,
+        )
+        WebSocketSession.objects.create(
+            connection_id="DISCONNECTED-123",
+            channel_name="My-Channel",
+            connected=False,
+            api_gateway=self.api_gateway,
+        )
+        data = {"action": "example", "msg": "Test Me"}
+
+        result = WebSocketSession.objects.filter(
+            channel_name="My-Channel",
+        ).send_message(data)
+
+        mocked_get_boto3_client.assert_called_once_with(
+            "apigatewaymanagementapi",
+            endpoint_url=(
+                "https://API123.execute-api.eu-west-1.amazonaws.com/production"
+            ),
+        )
+        mocked_get_boto3_client.return_value.post_to_connection.assert_called_once_with(
+            Data=json.dumps(data),
+            ConnectionId=connected_session.connection_id,
+        )
+        self.assertEqual(
+            [mocked_get_boto3_client.return_value.post_to_connection.return_value],
+            result,
+        )
+
+    @patch("django_aws_api_gateway_websockets.models.get_boto3_client")
+    @override_settings(AWS_GATEWAY_REGION_NAME="eu-west-1")
+    def test_send_message_marks_gone_connections_as_disconnected(
+        self,
+        mocked_get_boto3_client,
+    ):
+        mocked_get_boto3_client.return_value.post_to_connection.side_effect = (
+            ClientError(
+                {"Error": {"Code": "GoneException", "Message": "Gone"}},
+                "apigateway",
+            )
+        )
+        session = WebSocketSession.objects.create(
+            connection_id="GONE-123",
+            channel_name="My-Channel",
+            connected=True,
+            api_gateway=self.api_gateway,
+        )
+
+        result = WebSocketSession.objects.filter(
+            channel_name="My-Channel",
+        ).send_message({"action": "example"})
+
+        session.refresh_from_db()
+        self.assertFalse(session.connected)
+        self.assertEqual([], result)
+
+    @patch("django_aws_api_gateway_websockets.models.get_boto3_client")
+    @override_settings(AWS_GATEWAY_REGION_NAME="eu-west-1")
+    def test_send_message_raises_non_gone_client_errors(
+        self,
+        mocked_get_boto3_client,
+    ):
+        mocked_get_boto3_client.return_value.post_to_connection.side_effect = (
+            ClientError(
+                {"Error": {"Code": "OtherException", "Message": "Error"}},
+                "apigateway",
+            )
+        )
+        WebSocketSession.objects.create(
+            connection_id="ERROR-123",
+            channel_name="My-Channel",
+            connected=True,
+            api_gateway=self.api_gateway,
+        )
+
+        with self.assertRaises(ClientError):
+            WebSocketSession.objects.filter(
+                channel_name="My-Channel",
+            ).send_message({"action": "example"})
+
+
+class GetRegionNameSimpleTestCase(SimpleTestCase):
+    @override_settings(AWS_GATEWAY_REGION_NAME="", AWS_REGION_NAME="")
+    def test_get_region_name_raises_when_no_region_is_configured(self):
+        from django_aws_api_gateway_websockets.models import get_region_name
+
+        with self.assertRaises(RuntimeError):
+            get_region_name()
+
+    @override_settings(AWS_GATEWAY_REGION_NAME="", AWS_REGION_NAME="eu-west-2")
+    def test_get_region_name_falls_back_to_aws_region_name(self):
+        from django_aws_api_gateway_websockets.models import get_region_name
+
+        self.assertEqual("eu-west-2", get_region_name())

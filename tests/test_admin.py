@@ -194,3 +194,117 @@ class AdminTestCase(TestCase):
         request.user = self.user
         request.session = {}
         site.get_queryset(request)
+
+
+class CreateApiGatewayAdditionalSimpleTestCase(SimpleTestCase):
+    @patch("django_aws_api_gateway_websockets.admin.messages")
+    def test_create_gateway_returning_none_adds_info_message(self, mocked_messages):
+        request = MagicMock()
+        request.user.username = "admin-user"
+        instance = MagicMock(
+            api_created=False,
+            custom_domain_created=False,
+            api_name="Test API",
+            pk=1,
+        )
+        instance.create_gateway.return_value = None
+        queryset = [instance]
+
+        admin.create_api_gateway(None, request, queryset)
+
+        instance.create_gateway.assert_called_with()
+        mocked_messages.info.assert_called_with(
+            request,
+            f"{instance.api_name} already created",
+        )
+        self.assertEqual(0, mocked_messages.success.call_count)
+        self.assertEqual(0, mocked_messages.error.call_count)
+
+
+class CreateCustomDomainAdditionalSimpleTestCase(SimpleTestCase):
+    @patch("django_aws_api_gateway_websockets.admin.messages")
+    def test_value_error_adds_error_message(self, mocked_messages):
+        request = MagicMock()
+        request.user.username = "admin-user"
+        instance = MagicMock(
+            api_created=True,
+            custom_domain_created=False,
+            api_name="Test API",
+            domain_name="ws.example.com",
+        )
+        instance.create_custom_domain.side_effect = ValueError("Certificate required")
+        queryset = [instance]
+
+        admin.create_custom_domain(None, request, queryset)
+
+        instance.create_custom_domain.assert_called_with()
+        mocked_messages.error.assert_called_with(
+            request,
+            "Test API: Certificate required",
+        )
+
+    @patch("django_aws_api_gateway_websockets.admin.messages")
+    def test_generic_exception_adds_safe_error_message(self, mocked_messages):
+        request = MagicMock()
+        request.user.username = "admin-user"
+        instance = MagicMock(
+            api_created=True,
+            custom_domain_created=False,
+            api_name="Test API",
+            domain_name="ws.example.com",
+        )
+        instance.create_custom_domain.side_effect = RuntimeError("Sensitive details")
+        queryset = [instance]
+
+        admin.create_custom_domain(None, request, queryset)
+
+        instance.create_custom_domain.assert_called_with()
+        mocked_messages.error.assert_called_with(
+            request,
+            "Failed to create custom domain for Test API: RuntimeError",
+        )
+
+
+class WebSocketTokenAdminSimpleTestCase(SimpleTestCase):
+    def test_token_preview_masks_token(self):
+        admin_instance = admin.WebSocketTokenAdmin(
+            models.WebSocketToken,
+            AdminSite(),
+        )
+        obj = MagicMock(token="a" * 64)
+
+        self.assertEqual("aaaaaaaaaaaaaaaa...", admin_instance.token_preview(obj))
+
+    def test_has_add_permission_returns_false(self):
+        admin_instance = admin.WebSocketTokenAdmin(
+            models.WebSocketToken,
+            AdminSite(),
+        )
+
+        self.assertFalse(admin_instance.has_add_permission(MagicMock()))
+
+    def test_has_change_permission_returns_false(self):
+        admin_instance = admin.WebSocketTokenAdmin(
+            models.WebSocketToken,
+            AdminSite(),
+        )
+
+        self.assertFalse(admin_instance.has_change_permission(MagicMock()))
+
+
+class ConnectionRateLimitAdminSimpleTestCase(SimpleTestCase):
+    def test_has_add_permission_returns_false(self):
+        admin_instance = admin.ConnectionRateLimitAdmin(
+            models.ConnectionRateLimit,
+            AdminSite(),
+        )
+
+        self.assertFalse(admin_instance.has_add_permission(MagicMock()))
+
+    def test_has_change_permission_returns_false(self):
+        admin_instance = admin.ConnectionRateLimitAdmin(
+            models.ConnectionRateLimit,
+            AdminSite(),
+        )
+
+        self.assertFalse(admin_instance.has_change_permission(MagicMock()))
