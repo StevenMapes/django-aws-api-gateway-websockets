@@ -56,7 +56,7 @@ class WebSocketTokenViewIntegrationTestCase(TestCase):
         request.session.create.assert_called_with()
         mocked_check_rate_limit.assert_called_with(
             self.user,
-            max_tokens_per_minute=10,
+            max_tokens_per_minute=20,
         )
         mocked_generate_token.assert_called_with(
             user=self.user,
