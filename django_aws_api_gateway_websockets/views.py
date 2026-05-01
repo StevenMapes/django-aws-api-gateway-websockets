@@ -564,3 +564,8 @@ class WebSocketView(View):
             ]
             res = all(has_perms)
         return res
+
+    def change_channel(self, request, *args, **kwargs):
+        """Update the channel the user is connected to"""
+        self.websocket_session.channel_name = self.body["channel"]
+        self.websocket_session.save()

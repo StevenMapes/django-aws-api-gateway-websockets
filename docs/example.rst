@@ -52,7 +52,9 @@ This example assumes:
 * messages sent with ``"action": "chat_message"`` are handled by the
   ``chat_message`` method on the view;
 * messages sent with ``"action": "fetch_history"`` are handled by the
-  ``fetch_history`` method on the view.
+  ``fetch_history`` method on the view;
+* messages sent with ``"action": "change_channel"`` are handled by the
+  ``change_channel`` method on the view.
 
 For production deployments, you should also enable authentication,
 authorisation, input validation, rate limiting, and WebSocket token protection.
@@ -141,6 +143,18 @@ Create a WebSocket view that can:
            )
 
            return JsonResponse({"ok": True})
+
+       def change_channel(self, request, *args, **kwargs):
+           self.websocket_session.channel_name = self.body["channel"]
+           self.websocket_session.save()
+
+           return JsonResponse(
+               {
+                   "ok": True,
+                   "type": "channel_changed",
+                   "channel": self.websocket_session.channel_name,
+               }
+           )
 
        def chat_message(self, request, *args, **kwargs):
            room = self.websocket_session.channel_name
@@ -455,7 +469,23 @@ the connection opens, sends messages, and allows the user to change rooms.
            }
 
            roomSelect.addEventListener("change", function () {
-               connectToRoom(roomSelect.value);
+               const newRoom = roomSelect.value;
+
+               if (socket && socket.readyState === WebSocket.OPEN) {
+                   sendMessage("change_channel", {
+                       channel: newRoom
+                   });
+
+                   currentRoom = newRoom;
+                   currentRoomElement.textContent = newRoom;
+                   clearMessages();
+                   appendSystemMessage(`Changed to ${newRoom}. Fetching history...`);
+
+                   sendMessage("fetch_history", {});
+                   return;
+               }
+
+               connectToRoom(newRoom);
            });
 
            chatForm.addEventListener("submit", function (event) {
@@ -532,25 +562,75 @@ room receive the message.
 How changing rooms works
 ------------------------
 
-Changing room means changing the WebSocket channel.
+A connection is associated with a WebSocket channel.
 
-The browser closes the current connection and opens a new one with a different
-``channel`` query string parameter.
+There are two common ways to change room:
 
-For example:
+* close the current WebSocket connection and open a new one with a different
+  ``channel`` query string value;
+* keep the current WebSocket connection open and update the stored
+  ``WebSocketSession.channel_name`` using a WebSocket message.
+
+The ``change_channel`` handler above uses the second approach.
+
+The browser can send:
+
+.. code-block:: javascript
+
+   sendMessage("change_channel", {
+       channel: "support"
+   });
+
+This produces a JSON message like:
+
+.. code-block:: json
+
+   {
+     "action": "change_channel",
+     "channel": "support"
+   }
+
+The Django view updates the current ``WebSocketSession``:
+
+.. code-block:: python
+
+   def change_channel(self, request, *args, **kwargs):
+       self.websocket_session.channel_name = self.body["channel"]
+       self.websocket_session.save()
+
+       return JsonResponse(
+           {
+               "ok": True,
+               "type": "channel_changed",
+               "channel": self.websocket_session.channel_name,
+           }
+       )
+
+After this, messages broadcast to the new channel will include this connection.
+
+For example, if the connection was originally in:
 
 .. code-block:: text
 
-   wss://ws.example.com?channel=general
+   general
 
-becomes:
+and the client sends:
 
-.. code-block:: text
+.. code-block:: json
 
-   wss://ws.example.com?channel=support
+   {
+     "action": "change_channel",
+     "channel": "support"
+   }
 
-The new connection is stored as a WebSocket session for the new channel. When the
-connection opens, the browser fetches message history for the new room.
+then future broadcasts to ``support`` will include this connection, and future
+broadcasts to ``general`` will not.
+
+If WebSocket token protection is enabled and your application opens a new
+WebSocket connection when changing room, request a fresh token before opening the
+new connection. If you use ``change_channel`` on the existing connection, a new
+WebSocket token is not required because the connection is not reopened.
+
 
 Broadcasting to all channels from the Django shell
 --------------------------------------------------

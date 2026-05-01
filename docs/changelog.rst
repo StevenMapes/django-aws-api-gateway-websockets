@@ -92,6 +92,12 @@ New models
 -  Added ``WebSocketToken`` for one-time use CSRF protection tokens.
 -  Added ``ConnectionRateLimit`` for connection attempt rate limiting.
 
+New methods
+~~~~~~~~~~~
+
+- Added ``change_channel`` method to the ``WebSocketView`` to use to change between channels
+
+
 Recommendations
 ~~~~~~~~~~~~~~~
 

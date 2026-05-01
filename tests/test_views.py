@@ -224,6 +224,20 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
     def setUp(self) -> None:
         self.factory = RequestFactory()
 
+    def test_change_channel_updates_websocket_session_channel_name(self):
+        request = self.factory.post("/")
+        websocket_session = MagicMock(channel_name="old-channel")
+
+        view = views.WebSocketView()
+        view.websocket_session = websocket_session
+        view.body = {"channel": "new-channel"}
+
+        response = view.change_channel(request)
+
+        self.assertIsNone(response)
+        self.assertEqual("new-channel", websocket_session.channel_name)
+        websocket_session.save.assert_called_once_with()
+
     def test_default_required_headers(self):
         self.assertEqual(
             [
