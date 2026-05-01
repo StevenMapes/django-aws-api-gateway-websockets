@@ -28,9 +28,8 @@ Architecture diagram
 --------------------
 
 The source diagram is shown below in Mermaid format.
-
-If your Sphinx build supports Mermaid, this can be rendered as a diagram.
-Otherwise, it remains useful as a readable text diagram.
+You can view it rendered as an image
+`on the Github repository <https://github.com/StevenMapes/django-aws-api-gateway-websockets/blob/main/ARCHITECTURE.md>`_
 
 .. code-block:: text
 

@@ -4,7 +4,7 @@ The architecture documentation for this project is maintained in the Read the Do
 
 Please see:
 
-[Architecture - Django-AWS-API-Gateway-WebSockets documentation](https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/architecture/)
+[Architecture - Django-AWS-API-Gateway-WebSockets documentation](https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/architecture.html)
 
 The source file for the published architecture documentation is:
 ```text

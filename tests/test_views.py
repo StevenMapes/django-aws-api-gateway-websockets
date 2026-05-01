@@ -7,7 +7,11 @@ from django.http import HttpResponseBadRequest, JsonResponse
 from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
 
 from django_aws_api_gateway_websockets import views
-from django_aws_api_gateway_websockets.models import ApiGateway, WebSocketSession
+from django_aws_api_gateway_websockets.models import (
+    ApiGateway,
+    WebSocketSession,
+    WebSocketToken,
+)
 
 
 class WebSocketTokenViewIntegrationTestCase(TestCase):
@@ -2090,3 +2094,339 @@ class WebSocketViewRemainingBranchTestCase(TestCase):
         session = WebSocketSession.objects.get(connection_id="CONNECTION-123")
         self.assertIsNone(response)
         self.assertFalse(session.connected)
+
+    @patch("django_aws_api_gateway_websockets.views.WebSocketView._load_session")
+    @patch("django_aws_api_gateway_websockets.views.WebSocketView._add_user_to_request")
+    def test_dispatch_route_selection_key_present_but_route_handler_not_allowed(
+        self,
+        mocked_add_user_to_request,
+        mocked_load_session,
+    ):
+        class SubClassedView(views.WebSocketView):
+            ALLOWED_HANDLERS = {"default"}
+
+            def default(self, request, *args, **kwargs):
+                return JsonResponse({"handler": "default"})
+
+            def blocked_route(self, request, *args, **kwargs):
+                return JsonResponse({"handler": "blocked_route"})
+
+        request = self._request(
+            body={
+                "handler": "not_allowed_handler",
+                "action": "blocked_route",
+            }
+        )
+
+        response = SubClassedView.as_view()(request, route="chat")
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual({"handler": "default"}, json.loads(response.content))
+        mocked_load_session.assert_called_with(request)
+        mocked_add_user_to_request.assert_called_with(request)
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    @patch("django_aws_api_gateway_websockets.views.WebSocketSession.objects.create")
+    @patch("django_aws_api_gateway_websockets.views.ConnectionRateLimit.record_attempt")
+    @patch(
+        "django_aws_api_gateway_websockets.views.ConnectionRateLimit.check_rate_limit"
+    )
+    @patch(
+        "django_aws_api_gateway_websockets.views.WebSocketToken.validate_and_consume"
+    )
+    def test_connect_valid_token_branch_with_plain_truthy_user_mock(
+        self,
+        mocked_validate_and_consume,
+        mocked_check_rate_limit,
+        mocked_record_attempt,
+        mocked_session_create,
+    ):
+        validated_user = MagicMock()
+        validated_user.is_authenticated = True
+        mocked_validate_and_consume.return_value = validated_user
+        mocked_check_rate_limit.return_value = (True, 0)
+
+        request = self._request(
+            route="connect",
+            query="ws_token=valid-token&channel=token-channel",
+        )
+
+        view = views.WebSocketView(api_gateway=self.api_gateway, debug=True)
+        view.USE_WS_TOKEN = True
+
+        response = view.connect(request, route="connect")
+
+        self.assertEqual(200, response.status_code)
+        mocked_validate_and_consume.assert_called_once_with(
+            token_value="valid-token",
+            session_key="session-key",
+            max_age_seconds=60,
+        )
+        mocked_session_create.assert_called_once_with(
+            connection_id="CONNECTION-123",
+            channel_name="token-channel",
+            user=validated_user,
+            api_gateway=self.api_gateway,
+        )
+        mocked_record_attempt.assert_called_with(
+            "123.123.123.123",
+            self.user,
+            successful=True,
+        )
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    @patch("django_aws_api_gateway_websockets.views.ConnectionRateLimit.record_attempt")
+    @patch(
+        "django_aws_api_gateway_websockets.views.ConnectionRateLimit.check_rate_limit"
+    )
+    def test_connect_success_with_rate_limiting_disabled_skips_success_record_attempt(
+        self,
+        mocked_check_rate_limit,
+        mocked_record_attempt,
+    ):
+        request = self._request(
+            route="connect",
+            query="channel=rate-limit-disabled-channel",
+        )
+        request.META["HTTP_CONNECTIONID"] = "RATE-LIMIT-DISABLED-CONNECTION-123"
+
+        view = views.WebSocketView(api_gateway=self.api_gateway, debug=True)
+        view.USE_WS_TOKEN = False
+        view.RATE_LIMIT_ENABLED = False
+
+        response = view.connect(request, route="connect")
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual({}, json.loads(response.content))
+
+        self.assertTrue(
+            WebSocketSession.objects.filter(
+                connection_id="RATE-LIMIT-DISABLED-CONNECTION-123",
+                channel_name="rate-limit-disabled-channel",
+                user=self.user,
+                api_gateway=self.api_gateway,
+            ).exists()
+        )
+        mocked_check_rate_limit.assert_not_called()
+        mocked_record_attempt.assert_not_called()
+
+
+class WebSocketViewConsolidatedFinalCoverageTestCase(TestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.user = User.objects.create_user(
+            username="consolidated-coverage-user",
+            password="password",
+        )
+        self.api_gateway = ApiGateway.objects.create(
+            api_name="Consolidated Coverage Gateway",
+            api_description="A test api gateway",
+            target_base_endpoint="http://www.example1.com/",
+            api_id="APIGateway-1",
+            default_channel_name="default-channel",
+        )
+
+    def _request(self, body=None, query_string=""):
+        request = self.factory.post(
+            "/",
+            data=json.dumps(body if body is not None else {}),
+            content_type="application/json",
+            QUERY_STRING=query_string,
+            HTTP_HOST="www.example.com",
+            HTTP_X_FORWARDED_FOR="123.123.123.123",
+            HTTP_X_FORWARDED_PROTO="https",
+            HTTP_CONTENT_LENGTH="123",
+            HTTP_CONNECTIONID="CONSOLIDATED-CONNECTION-123",
+            HTTP_USER_AGENT="AmazonAPIGateway_APIGateway-1",
+            HTTP_X_AMZN_APIGATEWAY_API_ID="APIGateway-1",
+            HTTP_X_AMZN_TRACE_ID="123456787654",
+            HTTP_X_FORWARDED_PORT="443",
+            HTTP_X_REAL_IP="172.0.0.1",
+            HTTP_COOKIE="some-cookie",
+            HTTP_ORIGIN="https://www.example.com",
+            HTTP_SEC_WEBSOCKET_EXTENSIONS="some-value",
+            HTTP_SEC_WEBSOCKET_KEY="some-key",
+            HTTP_SEC_WEBSOCKET_VERSION="1.2.3",
+        )
+        request.user = self.user
+        request.session = MagicMock(session_key="session-key")
+        return request
+
+    def test_missing_headers_debug_true_logs_expected_headers(self):
+        request = self.factory.post("/")
+        view = views.WebSocketView(debug=True)
+
+        response = view.missing_headers(request)
+
+        self.assertEqual(400, response.status_code)
+        self.assertEqual(b"Invalid request headers", response.content)
+        self.assertEqual(1, len(view.debug_log))
+        self.assertIn("Expected", view.debug_log[0])
+        self.assertIn("Received", view.debug_log[0])
+
+    def test_add_user_to_request_skips_invalid_connection_id(self):
+        request = self.factory.post(
+            "/",
+            HTTP_CONNECTIONID="invalid connection id",
+        )
+        request.user = self.user
+
+        view = views.WebSocketView(debug=True)
+
+        view._add_user_to_request(request)
+
+        self.assertEqual(self.user, request.user)
+        self.assertEqual([], view.debug_log)
+
+    @patch("django_aws_api_gateway_websockets.views.WebSocketView._load_session")
+    @patch("django_aws_api_gateway_websockets.views.WebSocketView._add_user_to_request")
+    def test_dispatch_all_permissions_passes_and_calls_handler(
+        self,
+        mocked_add_user_to_request,
+        mocked_load_session,
+    ):
+        class SubClassedView(views.WebSocketView):
+            all_permissions_required = ["app.can_chat"]
+
+            def default(self, request, *args, **kwargs):
+                return JsonResponse({"handler": "default"})
+
+        request = self._request(body={"handler": "default"})
+        request.user.has_perms = MagicMock(return_value=True)
+
+        response = SubClassedView.as_view()(request, route="chat")
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual({"handler": "default"}, json.loads(response.content))
+        request.user.has_perms.assert_called_once_with(["app.can_chat"])
+        mocked_load_session.assert_called_with(request)
+        mocked_add_user_to_request.assert_called_with(request)
+
+    @patch("django_aws_api_gateway_websockets.views.WebSocketView._load_session")
+    @patch("django_aws_api_gateway_websockets.views.WebSocketView._add_user_to_request")
+    def test_dispatch_any_permissions_passes_and_calls_handler(
+        self,
+        mocked_add_user_to_request,
+        mocked_load_session,
+    ):
+        class SubClassedView(views.WebSocketView):
+            permissions_required = ["app.can_chat"]
+
+            def default(self, request, *args, **kwargs):
+                return JsonResponse({"handler": "default"})
+
+        request = self._request(body={"handler": "default"})
+        request.user.has_perms = MagicMock(return_value=True)
+
+        response = SubClassedView.as_view()(request, route="chat")
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual({"handler": "default"}, json.loads(response.content))
+        request.user.has_perms.assert_called_once_with(["app.can_chat"])
+        mocked_load_session.assert_called_with(request)
+        mocked_add_user_to_request.assert_called_with(request)
+
+    @patch("django_aws_api_gateway_websockets.views.WebSocketView._load_session")
+    @patch("django_aws_api_gateway_websockets.views.WebSocketView._add_user_to_request")
+    def test_dispatch_all_permissions_take_precedence_over_any_permissions(
+        self,
+        mocked_add_user_to_request,
+        mocked_load_session,
+    ):
+        class SubClassedView(views.WebSocketView):
+            all_permissions_required = ["app.all_perm"]
+            permissions_required = ["app.any_perm"]
+
+            def default(self, request, *args, **kwargs):
+                return JsonResponse({"handler": "default"})
+
+        request = self._request(body={"handler": "default"})
+        request.user.has_perms = MagicMock(return_value=True)
+
+        response = SubClassedView.as_view()(request, route="chat")
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual({"handler": "default"}, json.loads(response.content))
+        request.user.has_perms.assert_called_once_with(["app.all_perm"])
+        mocked_load_session.assert_called_with(request)
+        mocked_add_user_to_request.assert_called_with(request)
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    @patch(
+        "django_aws_api_gateway_websockets.views.WebSocketToken.validate_and_consume"
+    )
+    @patch("django_aws_api_gateway_websockets.views.ConnectionRateLimit.record_attempt")
+    @patch(
+        "django_aws_api_gateway_websockets.views.ConnectionRateLimit.check_rate_limit"
+    )
+    def test_connect_success_with_valid_token_sets_request_user(
+        self,
+        mocked_check_rate_limit,
+        mocked_record_attempt,
+        mocked_validate_and_consume,
+    ):
+        token_user = User.objects.create_user(
+            username="consolidated-token-user",
+            password="password",
+        )
+        mocked_check_rate_limit.return_value = (True, 0)
+        mocked_validate_and_consume.return_value = token_user
+
+        request = self._request(
+            query_string="ws_token=valid-token&channel=token-channel"
+        )
+
+        view = views.WebSocketView(api_gateway=self.api_gateway)
+        view.USE_WS_TOKEN = True
+
+        response = view.connect(request, route="connect")
+
+        self.assertEqual(200, response.status_code)
+        self.assertTrue(
+            WebSocketSession.objects.filter(
+                connection_id="CONSOLIDATED-CONNECTION-123",
+                channel_name="token-channel",
+                user=token_user,
+                api_gateway=self.api_gateway,
+            ).exists()
+        )
+        mocked_validate_and_consume.assert_called_with(
+            token_value="valid-token",
+            session_key="session-key",
+            max_age_seconds=60,
+        )
+        mocked_record_attempt.assert_called_with(
+            "123.123.123.123",
+            self.user,
+            successful=True,
+        )
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    @patch("django_aws_api_gateway_websockets.views.ConnectionRateLimit.record_attempt")
+    @patch(
+        "django_aws_api_gateway_websockets.views.ConnectionRateLimit.check_rate_limit"
+    )
+    def test_connect_success_when_rate_limit_disabled_does_not_check_or_record_attempt(
+        self,
+        mocked_check_rate_limit,
+        mocked_record_attempt,
+    ):
+        request = self._request(query_string="channel=no-rate-limit-channel")
+
+        view = views.WebSocketView(api_gateway=self.api_gateway)
+        view.USE_WS_TOKEN = False
+        view.RATE_LIMIT_ENABLED = False
+
+        response = view.connect(request, route="connect")
+
+        self.assertEqual(200, response.status_code)
+        self.assertTrue(
+            WebSocketSession.objects.filter(
+                connection_id="CONSOLIDATED-CONNECTION-123",
+                channel_name="no-rate-limit-channel",
+                user=self.user,
+                api_gateway=self.api_gateway,
+            ).exists()
+        )
+        mocked_check_rate_limit.assert_not_called()
+        mocked_record_attempt.assert_not_called()
