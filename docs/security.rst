@@ -102,7 +102,7 @@ By default, the base WebSocket view allows:
 
 .. code-block:: text
 
-   20 connection attempts per 5 minutes
+   20 connection attempts per minute
 
 The rate limit is checked using:
 

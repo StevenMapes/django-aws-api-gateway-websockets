@@ -32,7 +32,7 @@ By default, the base WebSocket view allows:
 
 .. code-block:: text
 
-   20 connection attempts per 5 minutes
+   20 connection attempts per minute
 
 The rate limit is checked using:
 
@@ -238,8 +238,8 @@ For a typical public application, the defaults are a reasonable starting point:
 
 .. code-block:: text
 
-   20 connection attempts per 5 minutes
-   10 token requests per minute
+   20 connection attempts per minute
+   20 token requests per minute
 
 You may want stricter limits for:
 

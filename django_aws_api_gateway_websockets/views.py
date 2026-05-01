@@ -40,7 +40,7 @@ class WebSocketTokenView(View):
             request.session.create()
 
         # Security: Rate limit token generation
-        if not WebSocketToken.check_rate_limit(request.user, max_tokens_per_minute=10):
+        if not WebSocketToken.check_rate_limit(request.user, max_tokens_per_minute=20):
             return HttpResponseForbidden("Rate limit exceeded")
 
         token = WebSocketToken.generate_token(
@@ -69,7 +69,7 @@ class WebSocketView(View):
     USE_WS_TOKEN = True
     RATE_LIMIT_ENABLED = True
     RATE_LIMIT_MAX_ATTEMPTS = 20  # Max connection attempts
-    RATE_LIMIT_WINDOW_MINUTES = 5  # Within this time window
+    RATE_LIMIT_WINDOW_MINUTES = 1  # Within this time window
 
     # todo - The following key is deprecated and should be removed in a future release for handler_selection_key
     route_selection_key = "action"

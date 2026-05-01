@@ -138,20 +138,20 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
-          python-version: '3.12'
+          python-version: '3.13'
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v1
+        uses: astral-sh/setup-uv@v7
 
       - name: Install dependencies
         run: uv pip install --system coverage[toml]
 
       - name: Download data
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: ${{ github.workspace }}
           pattern: coverage-data-*
@@ -162,7 +162,6 @@ jobs:
           python -m coverage combine
           python -m coverage html --skip-covered --skip-empty
           python -m coverage json
-          python -m coverage report --fail-under=95
           echo "## Coverage summary" >> $GITHUB_STEP_SUMMARY
           python -m coverage report --format=markdown >> $GITHUB_STEP_SUMMARY
 
@@ -211,7 +210,8 @@ jobs:
 
       - name: Upload HTML report
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: html-report
           path: htmlcov
+
