@@ -259,14 +259,12 @@ use a fresh token. A previously used token should not be reused.
        async function getWebSocketToken() {
            const csrfToken = getCookie("csrftoken");
 
-           const response = await fetch(tokenEndpoint, {
-               method: "POST",
-               headers: {
-                   "X-CSRFToken": csrfToken,
-                   "Content-Type": "application/json"
-               },
-               credentials: "same-origin"
-           });
+           let request = new Request(
+               tokenEndpoint,
+               {headers: {'X-CSRFToken': csrftoken}, 'Content-Type': 'application/json'}
+           )
+
+           const response = await fetch(request, {method: "POST"});
 
            if (!response.ok) {
                throw new Error(`Unable to get WebSocket token: ${response.status}`);
