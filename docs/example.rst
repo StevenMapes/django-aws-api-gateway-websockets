@@ -145,8 +145,7 @@ Create a WebSocket view that can:
            return JsonResponse({"ok": True})
 
        def change_channel(self, request, *args, **kwargs):
-           self.websocket_session.channel_name = self.body["channel"]
-           self.websocket_session.save()
+           super().change_channel(request, *args, **kwargs)
 
            return JsonResponse(
                {
