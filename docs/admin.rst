@@ -330,7 +330,7 @@ Expired and used tokens should be cleaned up regularly.
 
 .. code-block:: console
 
-   python manage.py cleanWebSocketToken --token-age=300 --rate-limit-age=7
+   python manage.py cleanupWebSocketTokens --token-age=300 --rate-limit-age=7
 
 See :doc:`websocket_tokens` and :doc:`cleanup`.
 
@@ -394,7 +394,7 @@ Old rate limit records should be cleaned up regularly.
 
 .. code-block:: console
 
-   python manage.py cleanWebSocketToken --token-age=300 --rate-limit-age=7
+   python manage.py cleanupWebSocketTokens --token-age=300 --rate-limit-age=7
 
 Despite the command name, this command also cleans old rate limit records.
 

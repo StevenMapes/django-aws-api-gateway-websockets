@@ -436,7 +436,7 @@ Commands:
 .. code-block:: console
 
    python manage.py clearWebSocketSessions
-   python manage.py cleanWebSocketToken --token-age=300 --rate-limit-age=7
+   python manage.py cleanupWebSocketTokens --token-age=300 --rate-limit-age=7
 
 If you previously scheduled an older or differently named cleanup command, update
 your scheduler.

@@ -717,7 +717,7 @@ You can also test token and rate limit cleanup with ``call_command``.
 
 
    call_command(
-       "cleanWebSocketToken",
+       "cleanupWebSocketTokens",
        token_age=300,
        rate_limit_age=7,
    )

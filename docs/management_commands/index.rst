@@ -48,13 +48,13 @@ limit records.
 
 .. code-block:: console
 
-   python manage.py cleanWebSocketToken
+   python manage.py cleanupWebSocketTokens
 
 You can also provide cleanup ages if supported by your installed version.
 
 .. code-block:: console
 
-   python manage.py cleanWebSocketToken --token-age=300 --rate-limit-age=7
+   python manage.py cleanupWebSocketTokens --token-age=300 --rate-limit-age=7
 
 This command is useful when scheduled from cron, a container scheduler, a
 platform task runner, or another periodic job system.
