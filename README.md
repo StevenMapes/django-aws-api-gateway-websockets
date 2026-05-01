@@ -1,7 +1,7 @@
 # Django AWS API Gateway WebSockets
 
 [![CI Build Status](https://img.shields.io/github/actions/workflow/status/StevenMapes/django-aws-api-gateway-websockets/main.yml?branch=main&style=for-the-badge)](https://github.com/StevenMapes/django-aws-api-gateway-websockets/actions)
-[![Coverage](https://img.shields.io/badge/Coverage-96%25-success?style=for-the-badge)](https://github.com/StevenMapes/django-aws-api-gateway-websockets/actions?workflow=CI)
+[![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/StevenMapes/django-aws-api-gateway-websockets/badges/coverage.json&style=for-the-badge)](https://github.com/StevenMapes/django-aws-api-gateway-websockets/actions?workflow=CI)
 [![PyPI](https://img.shields.io/pypi/v/django-aws-api-gateway-websockets.svg?style=for-the-badge)](https://pypi.org/project/django-aws-api-gateway-websockets/)
 [![Read the Docs](https://img.shields.io/readthedocs/django-aws-api-gateway-websockets?style=for-the-badge)](https://django-aws-api-gateway-websockets.readthedocs.io/)
 [![Python](https://img.shields.io/pypi/pyversions/django-aws-api-gateway-websockets.svg?style=for-the-badge)](https://pypi.org/project/django-aws-api-gateway-websockets/)

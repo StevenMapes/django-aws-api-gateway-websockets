@@ -135,6 +135,8 @@ jobs:
     name: Coverage
     runs-on: ubuntu-24.04
     needs: tests
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -159,9 +161,53 @@ jobs:
         run: |
           python -m coverage combine
           python -m coverage html --skip-covered --skip-empty
+          python -m coverage json
           python -m coverage report --fail-under=95
           echo "## Coverage summary" >> $GITHUB_STEP_SUMMARY
           python -m coverage report --format=markdown >> $GITHUB_STEP_SUMMARY
+
+      - name: Create coverage badge data
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          coverage = json.loads(Path("coverage.json").read_text())
+          percent = round(coverage["totals"]["percent_covered"])
+
+          if percent >= 95:
+              color = "brightgreen"
+          elif percent >= 90:
+              color = "green"
+          elif percent >= 80:
+              color = "yellowgreen"
+          elif percent >= 70:
+              color = "yellow"
+          elif percent >= 60:
+              color = "orange"
+          else:
+              color = "red"
+
+          badge = {
+              "schemaVersion": 1,
+              "label": "coverage",
+              "message": f"{percent}%",
+              "color": color,
+          }
+
+          Path("coverage-badge").mkdir(exist_ok=True)
+          Path("coverage-badge/coverage.json").write_text(
+              json.dumps(badge, indent=2) + "\n"
+          )
+          PY
+
+      - name: Publish coverage badge data
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          branch: badges
+          folder: coverage-badge
+          clean: true
 
       - name: Upload HTML report
         if: ${{ failure() }}
