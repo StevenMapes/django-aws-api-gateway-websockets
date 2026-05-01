@@ -1,6 +1,7 @@
 import json
 from unittest.mock import MagicMock, patch, PropertyMock
 
+from django.contrib.messages.api import success
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import HttpResponseBadRequest, HttpResponseNotAllowed, JsonResponse
 from django.test import RequestFactory, SimpleTestCase, override_settings
@@ -119,9 +120,7 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
 
         self.assertIsInstance(res, HttpResponseBadRequest)
         self.assertEqual(400, res.status_code)
-        self.assertEqual(
-            b"handler_selection_key handler missing from request body.", res.content
-        )
+        self.assertEqual(b"Invalid request format (1)", res.content)
 
     def test_missing_headers(self):
         """Ensure the expected response is generated when there are missing headers"""
@@ -789,8 +788,12 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
     @override_settings(ALLOWED_HOSTS=["www.example.com"])
     @patch("django_aws_api_gateway_websockets.views.WebSocketSession")
     @patch("django_aws_api_gateway_websockets.views.JsonResponse")
-    def test_connect(self, MockJsonResponse, MockWebSocketSession):
+    @patch("django_aws_api_gateway_websockets.views.ConnectionRateLimit")
+    @patch("django_aws_api_gateway_websockets.views.WebSocketToken")
+    def test_connect(self, MockWebSocketToken, MockConnectionRateLimit, MockJsonResponse, MockWebSocketSession):
         """Test the connect method when the expected header are set. Should pass through all checks"""
+        MockConnectionRateLimit.check_rate_limit.return_value = (True, 100)
+
         user = MagicMock(is_authenticated=True)
         request = self.factory.post(
             "?channel=my-channel",
@@ -805,9 +808,20 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
             HTTP_ORIGIN="https://www.example.com",
         )
         request.user = user
+        request.session = MagicMock()
         obj = views.WebSocketView()
 
         res = obj.connect(request)
+
+        MockConnectionRateLimit.check_rate_limit.assert_called_with(
+            ip_address="127.0.0.1",
+            user=user,
+            max_attempts=views.WebSocketView.RATE_LIMIT_MAX_ATTEMPTS,
+            window_minutes=views.WebSocketView.RATE_LIMIT_WINDOW_MINUTES
+        )
+        self.assertEqual(1, MockWebSocketToken.validate_and_consume.call_count)
+        MockConnectionRateLimit.record_attempt("127.0.0.1", user, successful=True)
+
         MockWebSocketSession.objects.create.assert_called_with(
             connection_id=request.headers["Connectionid"],
             channel_name=obj._get_channel_name(request),
@@ -821,10 +835,14 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
     @patch("django_aws_api_gateway_websockets.views.WebSocketSession")
     @patch("django_aws_api_gateway_websockets.views.JsonResponse")
     @patch("django_aws_api_gateway_websockets.views.HttpResponseBadRequest")
+    @patch("django_aws_api_gateway_websockets.views.ConnectionRateLimit")
+    @patch("django_aws_api_gateway_websockets.views.WebSocketToken")
     def test_connect__missing_expected_headers(
-        self, MockHttpResponseBadRequest, MockJsonResponse, MockWebSocketSession
+        self, MockWebSocketToken, MockConnectionRateLimit, MockHttpResponseBadRequest, MockJsonResponse, MockWebSocketSession
     ):
         """Test the connect method when the expected headers are missing."""
+        MockConnectionRateLimit.check_rate_limit.return_value = (True, 100)
+
         user = MagicMock(is_authenticated=True)
         request = self.factory.post(
             "?channel=my-channel",
@@ -837,6 +855,7 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
             HTTP_ORIGIN="https://www.example.com",
         )
         request.user = user
+        request.session = MagicMock()
         obj = views.WebSocketView()
 
         res = obj.connect(request)
@@ -850,10 +869,14 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
     @patch("django_aws_api_gateway_websockets.views.WebSocketSession")
     @patch("django_aws_api_gateway_websockets.views.JsonResponse")
     @patch("django_aws_api_gateway_websockets.views.HttpResponseBadRequest")
+    @patch("django_aws_api_gateway_websockets.views.ConnectionRateLimit")
+    @patch("django_aws_api_gateway_websockets.views.WebSocketToken")
     def test_connect__with_invalid_host(
-        self, MockHttpResponseBadRequest, MockJsonResponse, MockWebSocketSession
+        self, MockWebSocketToken, MockConnectionRateLimit, MockHttpResponseBadRequest, MockJsonResponse, MockWebSocketSession
     ):
         """Test the connect method when the host is not in the allowed list are missing."""
+        MockConnectionRateLimit.check_rate_limit.return_value = (True, 100)
+
         user = MagicMock(is_authenticated=True)
         request = self.factory.post(
             "?channel=my-channel",
@@ -869,6 +892,7 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
             HTTP_ORIGIN="https://www.spoofed.com",
         )
         request.user = user
+        request.session = MagicMock()
         obj = views.WebSocketView()
 
         res = obj.connect(request)
@@ -884,10 +908,14 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
     @patch("django_aws_api_gateway_websockets.views.WebSocketSession")
     @patch("django_aws_api_gateway_websockets.views.JsonResponse")
     @patch("django_aws_api_gateway_websockets.views.HttpResponseBadRequest")
+    @patch("django_aws_api_gateway_websockets.views.ConnectionRateLimit")
+    @patch("django_aws_api_gateway_websockets.views.WebSocketToken")
     def test_connect__with_host_not_in_origin(
-        self, MockHttpResponseBadRequest, MockJsonResponse, MockWebSocketSession
+        self, MockWebSocketToken, MockConnectionRateLimit, MockHttpResponseBadRequest, MockJsonResponse, MockWebSocketSession
     ):
         """Test the connect method when the host does not exist within the origin."""
+        MockConnectionRateLimit.check_rate_limit.return_value = (True, 100)
+
         user = MagicMock(is_authenticated=True)
         request = self.factory.post(
             "?channel=my-channel",
@@ -903,6 +931,7 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
             HTTP_ORIGIN="https://www.spoofed.com",
         )
         request.user = user
+        request.sesssion = MagicMock()
         obj = views.WebSocketView()
 
         res = obj.connect(request)
@@ -916,10 +945,14 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
     @patch("django_aws_api_gateway_websockets.views.WebSocketSession")
     @patch("django_aws_api_gateway_websockets.views.JsonResponse")
     @patch("django_aws_api_gateway_websockets.views.HttpResponseBadRequest")
+    @patch("django_aws_api_gateway_websockets.views.ConnectionRateLimit")
+    @patch("django_aws_api_gateway_websockets.views.WebSocketToken")
     def test_connect__additional_connection_checks_returns_false(
-        self, MockHttpResponseBadRequest, MockJsonResponse, MockWebSocketSession
+        self, MockWebSocketToken, MockConnectionRateLimit, MockHttpResponseBadRequest, MockJsonResponse, MockWebSocketSession
     ):
         """Test the connect method when the expected headers are missing."""
+        MockConnectionRateLimit.check_rate_limit.return_value = (True, 100)
+
         user = MagicMock(is_authenticated=True)
         request = self.factory.post(
             "?channel=my-channel",
@@ -934,6 +967,7 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
             HTTP_HOST="www.example.com",
             HTTP_ORIGIN="https://www.example.com",
         )
+        request.session = MagicMock()
         request.user = user
 
         class SubClassedView(views.WebSocketView):

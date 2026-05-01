@@ -1,0 +1,24 @@
+name: Publish documentation
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  trigger-readthedocs-build:
+    name: Trigger Read the Docs build
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Trigger Read the Docs build
+        env:
+          RTD_PROJECT_SLUG: ${{ secrets.RTD_PROJECT_SLUG }}
+          RTD_API_TOKEN: ${{ secrets.RTD_API_TOKEN }}
+        run: |
+          curl -X POST \
+            -H "Authorization: Token ${RTD_API_TOKEN}" \
+            "https://readthedocs.org/api/v3/projects/${RTD_PROJECT_SLUG}/versions/latest/builds/"

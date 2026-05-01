@@ -34,12 +34,13 @@ class CreateApiGatewaySimpleTestCase(SimpleTestCase):
 
         instance.create_gateway.assert_called_with()
         mocked_messages.success.assert_called_with(
-            request, f"API Gateway endpoint created for {instance.api_name}"
+            request, f"{instance.api_name} created"
         )
         self.assertEqual(0, mocked_messages.error.call_count)
 
     @patch("django_aws_api_gateway_websockets.admin.messages")
-    def test_api_already_created(self, mocked_messages):
+    @patch("django_aws_api_gateway_websockets.admin.logger")
+    def test_api_already_created(self, mocked_logger, mocked_messages):
         """When the api_created boolean is True the record should be skipped"""
         request = MagicMock()
         instance = MagicMock(
@@ -47,6 +48,7 @@ class CreateApiGatewaySimpleTestCase(SimpleTestCase):
             custom_domain_created=False,
             api_name="Test API",
         )
+        instance.create_gateway.return_value = False
         queryset = [instance]
 
         admin.create_api_gateway(None, request, queryset)
@@ -74,11 +76,7 @@ class CreateApiGatewaySimpleTestCase(SimpleTestCase):
         instance.create_gateway.assert_called_with()
         self.assertEqual(0, mocked_messages.success.call_count)
         mocked_messages.error.assert_called_with(
-            request,
-            (
-                "An error occurred (A123) when calling the apigateway operation: Some error occurred when processing "
-                f"{instance.api_name}"
-            ),
+            request, f"Failed to create {instance.api_name}: ClientError"
         )
 
 
@@ -110,7 +108,7 @@ class CreatCustomDomainSimpleTestCase(SimpleTestCase):
         instance.create_custom_domain.assert_called_with()
         mocked_messages.success.assert_called_with(
             request,
-            f"Custom Domain setup for {instance.api_name}. Next update DNS to point to {instance.api_gateway_domain_name}",
+            f"{instance.domain_name} custom domain created"
         )
         self.assertEqual(0, mocked_messages.error.call_count)
 
@@ -124,6 +122,7 @@ class CreatCustomDomainSimpleTestCase(SimpleTestCase):
             api_name="Test API",
             api_gateway_domain_name="ws.example.com",
         )
+        instance.create_custom_domain.return_value = True
         queryset = [instance]
 
         admin.create_custom_domain(None, request, queryset)
@@ -153,10 +152,7 @@ class CreatCustomDomainSimpleTestCase(SimpleTestCase):
         self.assertEqual(0, mocked_messages.success.call_count)
         mocked_messages.error.assert_called_with(
             request,
-            (
-                "An error occurred (A123) when calling the apigateway operation: Some error occurred when processing "
-                f"{instance.api_name}"
-            ),
+            f"Failed to create custom domain for {instance.api_name}: ClientError"
         )
 
 

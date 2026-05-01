@@ -1,7 +1,7 @@
 Reference
 =========
 
-This page provides links to the public reference documentation for
+This section provides links to the public reference documentation for
 Django-AWS-API-Gateway-WebSockets.
 
 For most users, start with the user guide pages before using this reference:
