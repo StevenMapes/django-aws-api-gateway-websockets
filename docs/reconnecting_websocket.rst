@@ -1,10 +1,9 @@
 Using reconnecting-websocket
 ============================
 
-This guide shows how to use the ``reconnecting-websocket`` JavaScript library
-with Django-AWS-API-Gateway-WebSockets.
+This guide shows how to setup the websockets to automatically reconnect from the client without using a 3rd part library.
 
-Why use reconnecting-websocket?
+Why use reconnecting websockets?
 -------------------------------
 
 Browser WebSocket connections can close for many reasons, including:
@@ -16,184 +15,6 @@ Browser WebSocket connections can close for many reasons, including:
 * mobile network changes.
 
 The browser's built-in ``WebSocket`` class does not automatically reconnect.
-The ``reconnecting-websocket`` library wraps the normal WebSocket API and
-attempts to reconnect when the connection drops.
-
-Install the JavaScript library
-------------------------------
-
-You can include the library from a CDN:
-
-.. code-block:: html
-
-   <script
-       src="https://cdnjs.cloudflare.com/ajax/libs/reconnecting-websocket/1.0.0/reconnecting-websocket.min.js"
-       integrity="sha512-B4skI5FiLurS86aioJx9VfozI1wjqrn6aTdJH+YQUmCZum/ZibPBTX55k5d9XM6EsKePDInkLVrN7vPmJxc1qA=="
-       crossorigin="anonymous"
-       referrerpolicy="no-referrer">
-   </script>
-
-Basic usage
------------
-
-The simplest connection uses your API Gateway WebSocket URL.
-
-.. code-block:: html
-
-   <script
-       src="https://cdnjs.cloudflare.com/ajax/libs/reconnecting-websocket/1.0.0/reconnecting-websocket.min.js"
-       integrity="sha512-B4skI5FiLurS86aioJx9VfozI1wjqrn6aTdJH+YQUmCZum/ZibPBTX55k5d9XM6EsKePDInkLVrN7vPmJxc1qA=="
-       crossorigin="anonymous"
-       referrerpolicy="no-referrer">
-   </script>
-
-   <script>
-       const websocketUrl = "wss://ws.example.com";
-
-       const socket = new ReconnectingWebSocket(websocketUrl);
-
-       socket.onopen = function () {
-           console.log("WebSocket connected");
-       };
-
-       socket.onmessage = function (event) {
-           const message = JSON.parse(event.data);
-           console.log("WebSocket message received:", message);
-       };
-
-       socket.onerror = function (event) {
-           console.error("WebSocket error:", event);
-       };
-
-       socket.onclose = function (event) {
-           console.log("WebSocket closed:", event.code, event.reason);
-       };
-   </script>
-
-Using channels
---------------
-
-This package supports grouping WebSocket sessions by channel.
-
-To connect to a specific channel, add the ``channel`` query string parameter to
-the WebSocket URL.
-
-.. code-block:: html
-
-   <script>
-       const channelName = "my-example-channel";
-       const websocketUrl = `wss://ws.example.com?channel=${encodeURIComponent(channelName)}`;
-
-       const socket = new ReconnectingWebSocket(websocketUrl);
-
-       socket.onmessage = function (event) {
-           const message = JSON.parse(event.data);
-           console.log("Message for channel:", channelName, message);
-       };
-   </script>
-
-The server can then use the channel name to send messages to all active
-connections associated with that channel.
-
-Sending messages to Django
---------------------------
-
-Messages sent from the browser should be JSON encoded.
-
-By default, the ``action`` value is used by API Gateway as the route selection
-key.
-
-.. code-block:: html
-
-   <script>
-       function sendMessage(action, payload) {
-           if (socket.readyState === WebSocket.OPEN) {
-               socket.send(JSON.stringify({
-                   action: action,
-                   ...payload
-               }));
-           } else {
-               console.warn("WebSocket is not currently open");
-           }
-       }
-
-       sendMessage("default", {
-           message: "Hello from the browser"
-       });
-   </script>
-
-If you have created a custom API Gateway route named ``notifications``, you can
-send a message to that route like this:
-
-.. code-block:: html
-
-   <script>
-       sendMessage("notifications", {
-           message: "Show this notification"
-       });
-   </script>
-
-Complete example without WebSocket tokens
------------------------------------------
-
-This example is useful for projects that have disabled WebSocket token
-validation or are using an older version of the package.
-
-.. code-block:: html
-
-   <script
-       src="https://cdnjs.cloudflare.com/ajax/libs/reconnecting-websocket/1.0.0/reconnecting-websocket.min.js"
-       integrity="sha512-B4skI5FiLurS86aioJx9VfozI1wjqrn6aTdJH+YQUmCZum/ZibPBTX55k5d9XM6EsKePDInkLVrN7vPmJxc1qA=="
-       crossorigin="anonymous"
-       referrerpolicy="no-referrer">
-   </script>
-
-   <script>
-       const channelName = "my-example-channel";
-       const websocketUrl = `wss://ws.example.com?channel=${encodeURIComponent(channelName)}`;
-
-       const socket = new ReconnectingWebSocket(websocketUrl, null, {
-           debug: false,
-           reconnectInterval: 3000,
-           maxReconnectInterval: 10000,
-           reconnectDecay: 1.5,
-           timeoutInterval: 5000,
-           maxReconnectAttempts: null
-       });
-
-       socket.onopen = function () {
-           console.log("WebSocket connected");
-
-           socket.send(JSON.stringify({
-               action: "default",
-               message: "Hello from the browser"
-           }));
-       };
-
-       socket.onmessage = function (event) {
-           const message = JSON.parse(event.data);
-           console.log("WebSocket message received:", message);
-       };
-
-       socket.onerror = function (event) {
-           console.error("WebSocket error:", event);
-       };
-
-       socket.onclose = function (event) {
-           console.log("WebSocket closed:", event.code, event.reason);
-       };
-
-       function sendMessage(action, payload) {
-           if (socket.readyState === WebSocket.OPEN) {
-               socket.send(JSON.stringify({
-                   action: action,
-                   ...payload
-               }));
-           } else {
-               console.warn("WebSocket is not currently open");
-           }
-       }
-   </script>
 
 Using WebSocket tokens
 ----------------------
@@ -221,124 +42,154 @@ Token-aware reconnecting example
 The important difference with token-based connections is that a reconnect should
 use a fresh token. A previously used token should not be reused.
 
+This example shows creating a class to handle connection, token exchange, sending messages and reconnecting.
+
+As this package supports grouping WebSocket sessions by channel the example also includes how to add the
+``channel`` query string parameter to the WebSocket URL.
+
+The server can then use the channel name to send messages to all active connections associated with that channel.
+
+
 .. code-block:: html
 
-   <script
-       src="https://cdnjs.cloudflare.com/ajax/libs/reconnecting-websocket/1.0.0/reconnecting-websocket.min.js"
-       integrity="sha512-B4skI5FiLurS86aioJx9VfozI1wjqrn6aTdJH+YQUmCZum/ZibPBTX55k5d9XM6EsKePDInkLVrN7vPmJxc1qA=="
-       crossorigin="anonymous"
-       referrerpolicy="no-referrer">
+   <script>
+    window.myWebSocketConnected = false; /* Indicate that the websocket is not connected initially */
+    const csrftoken = "";   // Fetch the CSRF token from the cookies OR set it here
+    const wss_channel = "my-example-channel";
+
+
+    class WebSocketManager {
+        constructor(options) {
+            this.wssUrl = options.wssUrl;
+            this.tokenEndpoint = options.tokenEndpoint;
+            this.channel = options.channel;
+            this.routeKey = options.routeKey;
+            this.reconnectDelay = options.reconnectDelay || 3000;
+            this.tokenRetryDelay = options.tokenRetryDelay || 5000;
+            this.socket = null;
+        }
+
+        /* Fetch the token */
+        async getToken() {
+            const request = new Request(
+                this.tokenEndpoint,
+                {headers: {'X-CSRFToken': csrftoken}, 'Content-Type': 'application/json'}
+            );
+
+            const response = await fetch(request, {method: "POST"});
+
+            if (!response.ok) {
+                throw new Error(`Unable to get WebSocket token: ${response.status}`);
+            }
+
+            const data = await response.json();
+            return data.token;
+        }
+
+        /* Connect to the websocket */
+        async connect() {
+            let token;
+
+            try {
+                token = await this.getToken();
+            } catch (error) {
+                console.error(error);
+                setTimeout(() => this.connect(), this.tokenRetryDelay);
+                return;
+            }
+
+            const websocketUrl = (
+                `${this.wssUrl}?ws_token=${encodeURIComponent(token)}` +
+                `&channel=${encodeURIComponent(this.channel)}`
+            );
+
+            this.socket = new WebSocket(websocketUrl);
+
+            this.socket.addEventListener("open", (event) => this.onOpen(event));
+            this.socket.addEventListener("message", (event) => this.onMessage(event));
+            this.socket.addEventListener("close", (event) => this.onClose(event));
+            this.socket.addEventListener("error", (event) => this.onError(event));
+        }
+
+        {% comment %}Handle when a Websocket connection is made using a window var to ensure we only run the logic once{% endcomment %}
+        onOpen(event) {
+            if (window.myWebSocketConnected) {
+                return;
+            }
+            if (window.OnWebSocketConnectFn) {
+                /* You can define a callback function of payload to send to the server when the connection is established */
+                this.send(window.OnWebSocketConnectFn);
+            }
+            if (window['myWsConnectionOpenWebhook']) {
+                /* Support a callback function when the connection is established */
+                window.myWsConnectionOpenWebhook();
+            }
+            window.myWebSocketConnected = true;
+        }
+
+        onMessage(event) {
+            window.WebSocketNotSupported = false;
+            const msg = JSON.parse(event.data);
+
+            /* Do something with the message that was received from the server */
+            console.log(msg);
+        }
+
+        /* On close automativally reconnect after a delay */
+        onClose(event) {
+            window.myWebSocketConnected = false;
+            setTimeout(() => this.connect(), this.reconnectDelay);
+        }
+
+        onError(event) {
+            console.error('WebSocket error:', event);
+        }
+
+        /* Method for sending messages across the websocket */
+        send(handler, params = {}) {
+            this.socket.send(JSON.stringify({
+                "action": this.routeKey,
+                "handler": handler,
+                ...params
+            }));
+        }
+    }
+
+    const wmsWebSocketManager = new WebSocketManager({
+        wssUrl: 'wss://{{ api_gateway_route.api_gateway.domain_name }}',
+        tokenEndpoint: "{% url "websocket_token" %}",
+        channel: wss_channel,
+        routeKey: "{{ api_gateway_route.route_key }}"
+    });
+
+    /* Start to connect when the page is ready */
+    document.addEventListener("DOMContentLoaded", function () {
+        wmsWebSocketManager.connect();
+    }
    </script>
 
+Sending messages to Django
+--------------------------
+
+Messages sent from the browser should be JSON encoded.
+
+By default, the ``action`` value is used by API Gateway as the route selection
+key.
+
+.. code-block:: html
+
    <script>
-       const websocketBaseUrl = "wss://ws.example.com";
-       const tokenEndpoint = "/api/ws-token/";
-       const channelName = "my-example-channel";
+    wmsWebSocketManager.send("default", {message: "Hello from the browser"})
+   </script>
 
-       let socket = null;
+If you have created a custom API Gateway route named ``notifications``, you can
+send a message to that route like this:
 
-       function getCookie(name) {
-           let cookieValue = null;
+.. code-block:: html
 
-           if (document.cookie && document.cookie !== "") {
-               const cookies = document.cookie.split(";");
-
-               for (let i = 0; i < cookies.length; i++) {
-                   const cookie = cookies[i].trim();
-
-                   if (cookie.substring(0, name.length + 1) === `${name}=`) {
-                       cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                       break;
-                   }
-               }
-           }
-
-           return cookieValue;
-       }
-
-       async function getWebSocketToken() {
-           const csrfToken = getCookie("csrftoken");
-
-           let request = new Request(
-               tokenEndpoint,
-               {headers: {'X-CSRFToken': csrftoken}, 'Content-Type': 'application/json'}
-           )
-
-           const response = await fetch(request, {method: "POST"});
-
-           if (!response.ok) {
-               throw new Error(`Unable to get WebSocket token: ${response.status}`);
-           }
-
-           const data = await response.json();
-           return data.token;
-       }
-
-       async function connectWebSocket() {
-           let token;
-
-           try {
-               token = await getWebSocketToken();
-           } catch (error) {
-               console.error(error);
-               setTimeout(connectWebSocket, 5000);
-               return;
-           }
-
-           const websocketUrl = (
-               `${websocketBaseUrl}?ws_token=${encodeURIComponent(token)}` +
-               `&channel=${encodeURIComponent(channelName)}`
-           );
-
-           socket = new ReconnectingWebSocket(websocketUrl, null, {
-               debug: false,
-               reconnectInterval: 3000,
-               maxReconnectInterval: 10000,
-               reconnectDecay: 1.5,
-               timeoutInterval: 5000,
-               maxReconnectAttempts: null
-           });
-
-           socket.onopen = function () {
-               console.log("WebSocket connected");
-           };
-
-           socket.onmessage = function (event) {
-               const message = JSON.parse(event.data);
-               console.log("WebSocket message received:", message);
-           };
-
-           socket.onerror = function (event) {
-               console.error("WebSocket error:", event);
-           };
-
-           socket.onclose = function (event) {
-               console.log("WebSocket closed:", event.code, event.reason);
-
-               setTimeout(function () {
-                   if (
-                       socket.readyState === WebSocket.CLOSED ||
-                       socket.readyState === WebSocket.CLOSING
-                   ) {
-                       connectWebSocket();
-                   }
-               }, 3000);
-           };
-       }
-
-       function sendMessage(action, payload) {
-           if (socket && socket.readyState === WebSocket.OPEN) {
-               socket.send(JSON.stringify({
-                   action: action,
-                   ...payload
-               }));
-           } else {
-               console.warn("WebSocket is not connected");
-           }
-       }
-
-       document.addEventListener("DOMContentLoaded", function () {
-           connectWebSocket();
+   <script>
+       wmsWebSocketManager.send("notifications", {
+           message: "Show this notification"
        });
    </script>
 
@@ -352,7 +203,7 @@ Example browser message:
 
 .. code-block:: javascript
 
-   sendMessage("default", {
+   wmsWebSocketManager.send("default", {
        type: "toast",
        level: "success",
        message: "The browser is connected"
@@ -362,20 +213,26 @@ Example frontend message handler:
 
 .. code-block:: javascript
 
-   socket.onmessage = function (event) {
-       const message = JSON.parse(event.data);
+class CustomWebSocketManager extends WebSocketManager {
+    onMessage(event) {
+        // Call the parent implementation first (optional)
+        super.onMessage(event);
 
-       if (message.type === "toast") {
-           showToast(message.level, message.message);
-           return;
-       }
+        const message = JSON.parse(event.data);
+
+        if (message.type === "toast") {
+            this.showToast(message.level, message.message);
+            return;
+        }
 
        console.log("WebSocket message received:", message);
-   };
+    }
 
-   function showToast(level, message) {
-       console.log(`[${level}] ${message}`);
-   }
+    showToast(level, message) {
+        console.log(`[${level}] ${message}`);
+    }
+}
+
 
 Notes and recommendations
 -------------------------
