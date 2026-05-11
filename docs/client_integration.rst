@@ -377,6 +377,7 @@ See :doc:`reconnecting_websocket`.
 
 If WebSocket tokens are enabled, each reconnect must use a fresh token.
 
+
 Client-side validation
 ----------------------
 

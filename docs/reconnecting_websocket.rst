@@ -57,7 +57,6 @@ The server can then use the channel name to send messages to all active connecti
     const csrftoken = "";   // Fetch the CSRF token from the cookies OR set it here
     const wss_channel = "my-example-channel";
 
-
     class WebSocketManager {
         constructor(options) {
             this.wssUrl = options.wssUrl;
@@ -167,6 +166,32 @@ The server can then use the channel name to send messages to all active connecti
         wmsWebSocketManager.connect();
     }
    </script>
+
+
+Subclassing the WebSocketManager object
+---------------------------------------
+To subclass the base WebSocketManager class to add in your own functionality you could follow the below implementatioh
+
+.. code-block html
+
+    <script>
+    class CustomWebSocketManager extends WebSocketManager {
+        onOpen(event) {
+            super.onOpen(event);
+            console.log("Connection established!");
+        }
+
+        onMessage(event) {
+            super.onMessage(event);
+            // Additional handling
+        }
+
+        onClose(event) {
+            console.log("Connection lost, attempting reconnect...");
+            super.onClose(event);
+        }
+    }
+    </script>
 
 Sending messages to Django
 --------------------------
