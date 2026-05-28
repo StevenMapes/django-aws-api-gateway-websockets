@@ -508,7 +508,6 @@ class WebSocketToken(models.Model):
     used = models.BooleanField(default=False)
 
     class Meta:
-        db_table = "websocket_tokens"
         indexes = [
             models.Index(fields=["token", "used"], name="idx_websocket_tokens_used"),
         ]
@@ -569,10 +568,11 @@ class ConnectionRateLimit(models.Model):
     successful = models.BooleanField(default=False)
 
     class Meta:
-        db_table = "connection_rate_limits"
         indexes = [
-            models.Index(fields=["ip_address", "attempt_time"]),
-            models.Index(fields=["user", "attempt_time"]),
+            models.Index(
+                fields=["ip_address", "attempt_time"], name="idx_ip_attempt_time"
+            ),
+            models.Index(fields=["user", "attempt_time"], name="idx_user_attempt_time"),
         ]
 
     @classmethod

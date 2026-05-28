@@ -10,8 +10,12 @@ Changelog
    warning in version 2.0.0. Please update your integration.
 - This change has not happened yet so treat it as a warning
 
-3.0.3 - 28th May 2026 - Django 5.2 MySQL Index bug Fix
-------------------------------------------------------
+3.0.4 - 28th May 2026 - Renamed the WebSocketToken and RateLimit table names
+----------------------------------------------------------------------------
+This adds in the fix to work with Django 5.2 by removing the additional index.
+
+3.0.3 - 28th May 2026 - Django 5.2 MySQL Index bug Fix (Yanked)
+---------------------------------------------------------------
 This adds in the fix to work with Django 5.2 by removing the additional index.
 
 3.0.2 - 28th May 2026 - Django 5.2 MySQL Index bug Fix (Yanked)

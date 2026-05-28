@@ -93,16 +93,16 @@ class Migration(migrations.Migration):
                     ),
                 ),
             ],
-            # options={
-            #     "db_table": "websocket_tokens",
-            #     "indexes": [
-            #         models.Index(
-            #             fields=["token", "used"], name="websocket_t_token_b1045e_idx"
-            #         ),
-            #         models.Index(
-            #             fields=["created_at"], name="websocket_t_created_c55db3_idx"
-            #         ),
-            #     ],
-            # },
+            options={
+                "db_table": "websocket_tokens",
+                #     "indexes": [
+                #         models.Index(
+                #             fields=["token", "used"], name="websocket_t_token_b1045e_idx"
+                #         ),
+                #         models.Index(
+                #             fields=["created_at"], name="websocket_t_created_c55db3_idx"
+                #         ),
+                #     ],
+            },
         ),
     ]

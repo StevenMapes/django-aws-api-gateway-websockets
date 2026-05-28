@@ -17,7 +17,10 @@ class RemoveIndexIfExists(migrations.RemoveIndex):
         if self.name not in constraints:
             return
 
-        super().database_forwards(app_label, schema_editor, from_state, to_state)
+        try:
+            super().database_forwards(app_label, schema_editor, from_state, to_state)
+        except Exception:
+            pass
 
 
 class Migration(migrations.Migration):
@@ -30,9 +33,39 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.AlterModelTable(
+            name="connectionratelimit",
+            table="django_aws_api_gateway_websockets_connectionratelimit",
+        ),
+        migrations.AlterModelTable(
+            name="websockettoken",
+            table="django_aws_api_gateway_websockets_websockettoken",
+        ),
         RemoveIndexIfExists(
             model_name="websockettoken",
             name="websocket_t_token_b1045e_idx",
+        ),
+        RemoveIndexIfExists(
+            model_name="connectionratelimit",
+            name="connection__ip_addr_636400_idx",
+        ),
+        RemoveIndexIfExists(
+            model_name="connectionratelimit",
+            name="connection__user_id_fa2960_idx",
+        ),
+        migrations.AddIndex(
+            model_name="connectionratelimit",
+            index=models.Index(
+                fields=["ip_address", "attempt_time"],
+                name="idx_ip_attempt_time",
+            ),
+        ),
+        migrations.AddIndex(
+            model_name="connectionratelimit",
+            index=models.Index(
+                fields=["user", "attempt_time"],
+                name="idx_user_attempt_time",
+            ),
         ),
         migrations.AddIndex(
             model_name="websockettoken",
