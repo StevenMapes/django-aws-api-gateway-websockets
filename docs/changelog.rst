@@ -10,13 +10,21 @@ Changelog
    warning in version 2.0.0. Please update your integration.
 - This change has not happened yet so treat it as a warning
 
-3.0.1 - 1st May 2026 - Security release - Breaking changes
---------------------------------------------------------
+3.0.2 - 28th May 2026 - Django 5.2 MySQL Index bug Fix
+------------------------------------------------------
+This adds in the fix to work with Django 5.2 by removing the additional index.
 
-Corrected the project changelog path witihn pyproject.toml to correct pypi
+3.0.1 - 1st May 2026 - Security release - Breaking changes
+----------------------------------------------------------
+IMPORTANT: Do not us this version with Django < 6.0 due to an issue in the migration file where both db_index=True and
+unique=True was set along with the composite index. This breaks on Django < 6 so jump to 3.0.2
+
+Corrected the project changelog path within pyproject.toml to correct pypi
 
 3.0.0 - 1st May 2026 - Security release - Breaking changes
---------------------------------------------------------
+----------------------------------------------------------
+IMPORTANT: Do not us this version with Django < 6.0 due to an issue in the migration file where both db_index=True and
+unique=True was set along with the composite index. This breaks on Django < 6 so jump to 3.0.2
 
 This is a major release that introduces a number of security improvements and
 breaking changes.

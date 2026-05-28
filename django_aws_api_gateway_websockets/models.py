@@ -496,7 +496,6 @@ class WebSocketToken(models.Model):
     token = models.CharField(
         max_length=64,
         unique=True,
-        db_index=True,
         validators=[RegexValidator(r"^[a-f0-9]{64}$", "Invalid token format")],
     )
     user = models.ForeignKey(

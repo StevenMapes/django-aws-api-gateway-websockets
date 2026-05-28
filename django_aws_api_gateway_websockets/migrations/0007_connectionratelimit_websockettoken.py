@@ -72,7 +72,6 @@ class Migration(migrations.Migration):
                 (
                     "token",
                     models.CharField(
-                        db_index=True,
                         max_length=64,
                         unique=True,
                         validators=[

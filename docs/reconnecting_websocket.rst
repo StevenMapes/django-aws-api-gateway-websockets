@@ -170,9 +170,10 @@ The server can then use the channel name to send messages to all active connecti
 
 Subclassing the WebSocketManager object
 ---------------------------------------
-To subclass the base WebSocketManager class to add in your own functionality you could follow the below implementatioh
+To subclass the base WebSocketManager class to add in your own functionality you could follow the below implementation.
 
-.. code-block html
+
+.. code-block:: html
 
     <script>
     class CustomWebSocketManager extends WebSocketManager {
@@ -192,6 +193,7 @@ To subclass the base WebSocketManager class to add in your own functionality you
         }
     }
     </script>
+
 
 Sending messages to Django
 --------------------------
