@@ -510,8 +510,7 @@ class WebSocketToken(models.Model):
     class Meta:
         db_table = "websocket_tokens"
         indexes = [
-            models.Index(fields=["token", "used"]),
-            models.Index(fields=["created_at"]),
+            models.Index(fields=["token", "used"], name="idx_websocket_tokens_used"),
         ]
 
     @classmethod

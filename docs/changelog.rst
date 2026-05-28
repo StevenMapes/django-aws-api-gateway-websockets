@@ -10,9 +10,14 @@ Changelog
    warning in version 2.0.0. Please update your integration.
 - This change has not happened yet so treat it as a warning
 
-3.0.2 - 28th May 2026 - Django 5.2 MySQL Index bug Fix
+3.0.3 - 28th May 2026 - Django 5.2 MySQL Index bug Fix
 ------------------------------------------------------
 This adds in the fix to work with Django 5.2 by removing the additional index.
+
+3.0.2 - 28th May 2026 - Django 5.2 MySQL Index bug Fix (Yanked)
+---------------------------------------------------------------
+Yanked as bug fix did not quite work
+
 
 3.0.1 - 1st May 2026 - Security release - Breaking changes
 ----------------------------------------------------------

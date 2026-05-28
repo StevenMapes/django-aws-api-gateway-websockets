@@ -26,14 +26,14 @@ Full documentation is available on Read the Docs:
 
 Useful starting points:
 
-- [Quickstart](https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/quickstart/)
-- [Concepts](https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/concepts/)
-- [API Gateway setup](https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/api_gateway_setup/)
-- [Client integration](https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/client_integration/)
-- [Security](https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/security/)
-- [WebSocket tokens](https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/websocket_tokens/)
-- [Deployment](https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/deployment/)
-- [Troubleshooting](https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/troubleshooting/)
+- [Quickstart](https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/quickstart.html)
+- [Concepts](https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/concepts.html)
+- [API Gateway setup](https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/api_gateway_setup.html)
+- [Client integration](https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/client_integration.html)
+- [Security](https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/security.html)
+- [WebSocket tokens](https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/websocket_tokens.html)
+- [Deployment](https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/deployment.html)
+- [Troubleshooting](https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/troubleshooting.html)
 
 ## Features
 
@@ -77,9 +77,9 @@ better fit if you want Django itself to run an ASGI WebSocket server.
 - Boto3-compatible AWS credentials or IAM role
 
 See the
-[installation guide](https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/installation/)
+[installation guide](https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/installation.html)
 and
-[AWS IAM setup guide](https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/aws_iam_setup/)
+[AWS IAM setup guide](https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/aws_iam_setup.html)
 for details.
 
 ## Installation
@@ -102,7 +102,7 @@ Run migrations:
 python manage.py migrate
 ```
 
-See the full [quickstart](https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/quickstart/)
+See the full [quickstart](https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/quickstart.html)
 for a working example.
 
 ## Minimal example
@@ -174,7 +174,7 @@ socket.onopen = function () {
 };
 ```
 
-For production usage, read the documentation on [WebSocket tokens](https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/websocket_tokens/) and [security](https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/security/).
+For production usage, read the documentation on [WebSocket tokens](https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/websocket_tokens.html) and [security](https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/security.html).
 ## AWS setup
 The package can create and configure API Gateway WebSocket resources using Django Admin actions or management commands.
 Typical setup steps:
@@ -185,7 +185,7 @@ Typical setup steps:
 5. Configure DNS.
 6. Connect from your frontend client.
 
-See the full [API Gateway setup guide](https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/api_gateway_setup/).
+See the full [API Gateway setup guide](https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/api_gateway_setup.html).
 ## Management commands
 The package includes management commands for API Gateway setup and cleanup.
 
@@ -196,7 +196,7 @@ python manage.py clearWebSocketSessions
 python manage.py cleanupWebSocketTokens
 ```
 
-See the [management commands documentation](https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/management_commands/) for details.
+See the [management commands documentation](https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/management_commands.html) for details.
 
 ## Security
 Version 3.0.0 introduced significant security improvements, including:
@@ -212,10 +212,10 @@ Version 3.0.0 introduced significant security improvements, including:
 - audit logging for admin actions.
 
 For authenticated production WebSocket endpoints, read:
-- [Security](https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/security/)
-- [WebSocket tokens](https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/websocket_tokens/)
-- [Permissions](https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/permissions/)
-- [Rate limiting](https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/rate_limiting/)
+- [Security](https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/security.html)
+- [WebSocket tokens](https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/websocket_tokens.html)
+- [Permissions](https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/permissions.html)
+- [Rate limiting](https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/rate_limiting.html)
 
 To report a vulnerability, see [SECURITY.md](SECURITY.md).
 
@@ -246,10 +246,10 @@ pip install -r requirements.txt
 make html
 ```
 
-See the [contributing guide](https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/contributing/) for more information.
+See the [contributing guide](https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/contributing.html) for more information.
 
 ## Changelog
-See the [changelog](https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/changelog/) for release history.
+See the [changelog](https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/changelog.html) for release history.
 
 ## License
 This project is licensed under the MIT License.
