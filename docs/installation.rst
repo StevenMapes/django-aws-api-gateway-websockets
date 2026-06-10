@@ -22,6 +22,11 @@ Add the package to ``INSTALLED_APPS`` in your Django settings.
        "django_aws_api_gateway_websockets",
    ]
 
+Configuring settings.py
+-----------------------
+
+See * :doc:`settings`; for more information
+
 Run migrations
 --------------
 

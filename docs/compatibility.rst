@@ -32,6 +32,7 @@ The package metadata declares support for:
 * Django 5.1;
 * Django 5.2;
 * Django 6.0.
+* Django 6.1.
 
 Django versions older than 4.2 are not supported.
 
@@ -64,11 +65,13 @@ The following table summarises the intended test/support matrix.
      - Django 5.1
      - Django 5.2
      - Django 6.0
+     - Django 6.1
    * - 3.10
      - Supported
      - Legacy / not recommended
      - Supported
      - Supported
+     - Not applicable
      - Not applicable
    * - 3.11
      - Supported
@@ -76,9 +79,11 @@ The following table summarises the intended test/support matrix.
      - Supported
      - Supported
      - Not applicable
+     - Not applicable
    * - 3.12
      - Supported
      - Legacy / not recommended
+     - Supported
      - Supported
      - Supported
      - Supported
@@ -88,9 +93,11 @@ The following table summarises the intended test/support matrix.
      - Supported
      - Supported
      - Supported
+     - Supported
    * - 3.14
      - Not recommended
      - Not recommended
+     - Supported
      - Supported
      - Supported
      - Supported
@@ -98,6 +105,7 @@ The following table summarises the intended test/support matrix.
      - Not recommended
      - Not recommended
      - Not recommended
+     - Supported
      - Supported
      - Supported
 

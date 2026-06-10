@@ -173,6 +173,21 @@ if __name__ == "__main__":
             check=True,
             capture_output=True,
         )
+        subprocess.run(
+            [
+                "python",
+                *common_args,
+                "-P",
+                "Django>=6.1a1,<6.2",
+                "-P",
+                "urllib3>=2.6.0",
+                "-o",
+                "py312-django61.txt",
+            ],
+            check=True,
+            capture_output=True,
+        )
+
     if (3, 13, 0) <= py_version < (3, 15, 0):
         # Python 3.13
         subprocess.run(
@@ -233,6 +248,21 @@ if __name__ == "__main__":
             check=True,
             capture_output=True,
         )
+        subprocess.run(
+            [
+                "python",
+                *common_args,
+                "-P",
+                "Django>=6.1a1,<6.2",
+                "-P",
+                "urllib3>=2.6.0",
+                "-o",
+                "py313-django61.txt",
+            ],
+            check=True,
+            capture_output=True,
+        )
+
         # Python 3.14
         subprocess.run(
             [
@@ -292,7 +322,20 @@ if __name__ == "__main__":
             check=True,
             capture_output=True,
         )
-
+        subprocess.run(
+            [
+                "python",
+                *common_args,
+                "-P",
+                "Django>=6.1a1,<6.2",
+                "-P",
+                "urllib3>=2.6.0",
+                "-o",
+                "py314-django61.txt",
+            ],
+            check=True,
+            capture_output=True,
+        )
         # Python 3.15
         subprocess.run(
             [
@@ -318,6 +361,20 @@ if __name__ == "__main__":
                 "urllib3>=2.6.0",
                 "-o",
                 "py315-django60.txt",
+            ],
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            [
+                "python",
+                *common_args,
+                "-P",
+                "Django>=6.1a1,<6.2",
+                "-P",
+                "urllib3>=2.6.0",
+                "-o",
+                "py315-django61.txt",
             ],
             check=True,
             capture_output=True,

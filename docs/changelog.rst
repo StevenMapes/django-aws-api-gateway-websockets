@@ -10,6 +10,29 @@ Changelog
    warning in version 2.0.0. Please update your integration.
 - This change has not happened yet so treat it as a warning
 
+3.1.0 - 10th June 2026 - Added Django Settings variables to control the WebsocketToken rate limit and expiry time
+-----------------------------------------------------------------------------------------------------------------
+Introduces a new settings.py dictionary for optionally controlling the rate limits for the token and the websocket
+connections. All keys within the dictionary below are optional, and the values shown are the default values.
+
+`token_rate_limit_per_minute` and `token_expiry_seconds` are used by the WebSocketTokenView that handles the CSRF
+protected token generation endpoint
+
+`rate_limit_max_attempts` and `rate_limit_window_minutes` are used by the WebSocketView object to allow project level
+overrides of the default values. Previously you had to set the class properties on the subclass directly if you needed
+this. You can still overload them in that manner if you wish to have different values per subclass
+
+.. code-block:: python
+
+    WEBSOCKETS = {
+        "token_rate_limit_per_minute": 20,  # The number of tokens a user can request per minute
+        "token_expiry_seconds": 60,  # The time, in seconds, that the token is valid for
+        "rate_limit_max_attempts": 20,  # The number of connection attempts a user can make within the rate limit window
+        "rate_limit_window_minutes": 1,  # The rate limit window for the connection attempts
+    }
+
+Adding Django 6.1a1 into the test suite
+
 3.0.4 - 28th May 2026 - Renamed the WebSocketToken and RateLimit table names
 ----------------------------------------------------------------------------
 This adds in the fix to work with Django 5.2 by removing the additional index.

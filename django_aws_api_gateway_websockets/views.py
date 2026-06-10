@@ -39,15 +39,30 @@ class WebSocketTokenView(View):
             # Create session if it doesn't exist
             request.session.create()
 
+        max_tokens_per_minute = 20
+        token_expires = 60
+
+        if hasattr(settings, "WEBSOCKETS") and settings.WEBSOCKETS:
+            max_tokens_per_minute = settings.WEBSOCKETS.get(
+                "token_rate_limit_per_minute", max_tokens_per_minute
+            )
+            token_expires = settings.WEBSOCKETS.get(
+                "token_expiry_seconds", token_expires
+            )
+
         # Security: Rate limit token generation
-        if not WebSocketToken.check_rate_limit(request.user, max_tokens_per_minute=20):
+        if not WebSocketToken.check_rate_limit(
+            request.user, max_tokens_per_minute=max_tokens_per_minute
+        ):
             return HttpResponseForbidden("Rate limit exceeded")
 
         token = WebSocketToken.generate_token(
             user=request.user, session_key=request.session.session_key
         )
 
-        return JsonResponse({"token": token.token, "expires_in": 60})  # seconds
+        return JsonResponse(
+            {"token": token.token, "expires_in": token_expires}
+        )  # seconds
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -68,8 +83,8 @@ class WebSocketView(View):
     ADDITIONAL_ALLOWED_HANDLERS = list()
     USE_WS_TOKEN = True
     RATE_LIMIT_ENABLED = True
-    RATE_LIMIT_MAX_ATTEMPTS = 20  # Max connection attempts
-    RATE_LIMIT_WINDOW_MINUTES = 1  # Within this time window
+    RATE_LIMIT_MAX_ATTEMPTS = 0  # Max connection attempts
+    RATE_LIMIT_WINDOW_MINUTES = 0  # Within this time window
 
     # todo - The following key is deprecated and should be removed in a future release for handler_selection_key
     route_selection_key = "action"
@@ -114,6 +129,19 @@ class WebSocketView(View):
         self.websocket_session = kwargs.get("websocket_session", False)
         self.debug = kwargs.get("debug", False)
         self.debug_log = []
+
+        websocket_config = (
+            settings.WEBSOCKETS if hasattr(settings, "WEBSOCKETS") else {}
+        )
+        if not self.RATE_LIMIT_MAX_ATTEMPTS:
+            self.RATE_LIMIT_MAX_ATTEMPTS = websocket_config.get(
+                "rate_limit_max_attempts", 20
+            )
+
+        if not self.RATE_LIMIT_WINDOW_MINUTES:
+            self.RATE_LIMIT_WINDOW_MINUTES = websocket_config.get(
+                "rate_limit_window_minutes", 1
+            )
 
         if not self.ALLOWED_HANDLERS:
             self.ALLOWED_HANDLERS = set(

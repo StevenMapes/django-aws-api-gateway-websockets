@@ -331,6 +331,21 @@ If your WebSocket token endpoint is served from your main Django site rather
 than the WebSocket domain, adjust origins and cookie settings to match your
 actual deployment.
 
+WEBSOCKETS
+----------
+
+A dictionary that controls the WebSocket token settings as well as the rate limiting without needing to subclass the
+WebSocketView and WebSocketToken classes. All keys shown below are optional, all values shown below are the defaults
+
+.. code-block:: python
+    WEBSOCKETS = {
+        "token_rate_limit_per_minute": 20,  # The number of tokens a user can request per minute
+        "token_expiry_seconds": 60,  # The time, in seconds, that the token is valid for
+        "rate_limit_max_attempts": 20,  # The number of connection attempts a user can make within the rate limit window
+        "rate_limit_window_minutes": 1,  # The rate limit window for the connection attempts
+    }
+
+
 WebSocketView settings
 ----------------------
 
