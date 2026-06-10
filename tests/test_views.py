@@ -1012,7 +1012,10 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
             "This logic needs to be defined within the subclass", str(e.exception)
         )
 
-    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    @override_settings(
+        ALLOWED_HOSTS=["www.example.com"],
+        WEBSOCKETS={"rate_limit_max_attempts": 20, "rate_limit_window_minutes": 1},
+    )
     @patch("django_aws_api_gateway_websockets.views.WebSocketSession")
     @patch("django_aws_api_gateway_websockets.views.JsonResponse")
     @patch("django_aws_api_gateway_websockets.views.ConnectionRateLimit")
@@ -1049,8 +1052,8 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
         MockConnectionRateLimit.check_rate_limit.assert_called_with(
             ip_address="127.0.0.1",
             user=user,
-            max_attempts=views.WebSocketView.RATE_LIMIT_MAX_ATTEMPTS,
-            window_minutes=views.WebSocketView.RATE_LIMIT_WINDOW_MINUTES,
+            max_attempts=20,
+            window_minutes=1,
         )
         self.assertEqual(1, MockWebSocketToken.validate_and_consume.call_count)
         MockConnectionRateLimit.record_attempt("127.0.0.1", user, successful=True)
