@@ -336,6 +336,7 @@ if __name__ == "__main__":
             check=True,
             capture_output=True,
         )
+
         # Python 3.15
         subprocess.run(
             [
@@ -345,6 +346,8 @@ if __name__ == "__main__":
                 "Django>=5.2.12,<6.0",
                 "-P",
                 "urllib3>=2.6.0",
+                "-P",
+                "trove-classifiers>=2026.6.1.19",
                 "-o",
                 "py315-django52.txt",
             ],
@@ -359,6 +362,8 @@ if __name__ == "__main__":
                 "Django>=6,<6.1",
                 "-P",
                 "urllib3>=2.6.0",
+                "-P",
+                "trove-classifiers>=2026.6.1.19",
                 "-o",
                 "py315-django60.txt",
             ],
