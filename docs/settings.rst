@@ -352,6 +352,19 @@ WebSocketView settings
 Many runtime options are configured as class attributes on your
 ``WebSocketView`` subclass.
 
+SEND_EXCEPTION_MAIL
+~~~~~~~~~~~~~~~~~~~
+
+Controls whether the project sends an email via ``mail_admins``  if an exception is raised during the dispatch method
+calling the handler function
+
+Default: True
+
+.. code-block:: python
+
+   SEND_EXCEPTION_MAIL = False
+
+
 USE_WS_TOKEN
 ~~~~~~~~~~~~
 

@@ -1,11 +1,13 @@
 import ipaddress
 import json
+import logging
 import re
 import warnings
 from html import escape
 from typing import Union
 
 from django.conf import settings
+from django.core.mail import mail_admins
 from django.db import transaction
 from django.db.models import F
 from django.http import HttpResponseBadRequest, HttpResponseForbidden, JsonResponse
@@ -19,6 +21,8 @@ from django_aws_api_gateway_websockets.models import (
     WebSocketSession,
     WebSocketToken,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class WebSocketTokenView(View):
@@ -73,6 +77,8 @@ class WebSocketView(View):
 
     debug = False
     debug_log = None
+
+    SEND_EXCEPTION_MAIL = True  # Set to False to supress the mail_admins send
 
     MAX_BODY_SIZE = 1024 * 128  # 128KB
 
@@ -450,7 +456,16 @@ class WebSocketView(View):
         else:
             handler = self.missing_headers
 
-        res = handler(request, *args, **kwargs)
+        try:
+            res = handler(request, *args, **kwargs)
+        except Exception as e:
+            logger.exception(e)
+            if self.SEND_EXCEPTION_MAIL:
+                mail_admins(
+                    "Unexpected Websocket Exception", str(e), fail_silently=True
+                )
+            raise e
+
         return res if res else JsonResponse({})
 
     def connect(

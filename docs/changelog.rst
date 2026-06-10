@@ -10,6 +10,32 @@ Changelog
    warning in version 2.0.0. Please update your integration.
 - This change has not happened yet so treat it as a warning
 
+3.1.1 - 10th June 2026 - Websocket error logging and mail_admin integration
+---------------------------------------------------------------------------
+If an exception is raised during the WebSocketView's dispatch method, then the exception will be written to the Python
+logger and an email send via Django's mail_admins function. You can turn off the mail sending by setting the class
+property SEND_EXCEPTION_MAIL to False. The exception is then raised again for backward compatibility.
+
+Django Logger settings example
+
+.. code-block:: python
+    LOGGING = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "handlers": {
+            "console": {
+                "class": "logging.StreamHandler",
+            },
+        },
+        "loggers": {
+            "django_aws_api_gateway_websockets": {
+                "handlers": ["console"],
+                "level": "ERROR",
+                "propagate": False,
+            },
+        },
+    }
+
 3.1.0 - 10th June 2026 - Added Django Settings variables to control the WebsocketToken rate limit and expiry time
 -----------------------------------------------------------------------------------------------------------------
 Introduces a new settings.py dictionary for optionally controlling the rate limits for the token and the websocket
