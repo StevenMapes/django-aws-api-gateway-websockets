@@ -134,9 +134,9 @@ distlib==0.4.2 \
     --hash=sha256:baeb401c90f27acd15c4861ae0847d1e731c27ac3dbf4210643ba61fa1e813db \
     --hash=sha256:ca4cb11e5d746b5ec13c199cbf19ae27a241f89702b54e153a74332955446067
     # via virtualenv
-django==6.1a1 \
-    --hash=sha256:abd3a1ec92cf4817654fd83ab708932b5d2d12a0cec993ea169320682c193ad0 \
-    --hash=sha256:fc617100cc0db25e8e93cb2ed7be65684787a46cbce26ecf87d217e1c5ae4b98
+django==6.1b1 \
+    --hash=sha256:b7720a90857a46eb57f58aa29fc4d7844a1ac705fb61725e6fbebbad600e2479 \
+    --hash=sha256:d08aae6f285b8c7bb1fb1156bc0e9dc3ec94282c80b8e975c46e09daeebbb89f
     # via -r requirements.in
 filelock==3.29.1 \
     --hash=sha256:85199dfd706869641b72b2e8955d5416a4b2b7dc4b0e8e6d97b4cc1299a6983b \
