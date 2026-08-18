@@ -72,7 +72,7 @@ better fit if you want Django itself to run an ASGI WebSocket server.
 ## Requirements
 
 - Python 3.10+
-- Django 4.2+
+- Django 5.2+
 - AWS account with API Gateway permissions
 - Boto3-compatible AWS credentials or IAM role
 
