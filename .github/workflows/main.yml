@@ -21,37 +21,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: Python 3.10 / Django 4.2
-            python-version: '3.10'
-            tox-env: py310-django42
-
-          - name: Python 3.10 / Django 5.1
-            python-version: '3.10'
-            tox-env: py310-django51
-
           - name: Python 3.10 / Django 5.2
             python-version: '3.10'
             tox-env: py310-django52
 
-          - name: Python 3.11 / Django 4.2
-            python-version: '3.11'
-            tox-env: py311-django42
-
-          - name: Python 3.11 / Django 5.1
-            python-version: '3.11'
-            tox-env: py311-django51
-
           - name: Python 3.11 / Django 5.2
             python-version: '3.11'
             tox-env: py311-django52
-
-          - name: Python 3.12 / Django 4.2
-            python-version: '3.12'
-            tox-env: py312-django42
-
-          - name: Python 3.12 / Django 5.1
-            python-version: '3.12'
-            tox-env: py312-django51
 
           - name: Python 3.12 / Django 5.2
             python-version: '3.12'
@@ -65,14 +41,6 @@ jobs:
             python-version: '3.12'
             tox-env: py312-django61
 
-          - name: Python 3.13 / Django 4.2
-            python-version: '3.13'
-            tox-env: py313-django42
-
-          - name: Python 3.13 / Django 5.1
-            python-version: '3.13'
-            tox-env: py313-django51
-
           - name: Python 3.13 / Django 5.2
             python-version: '3.13'
             tox-env: py313-django52
@@ -84,10 +52,6 @@ jobs:
           - name: Python 3.13 / Django 6.1
             python-version: '3.13'
             tox-env: py313-django61
-
-          - name: Python 3.14 / Django 5.1
-            python-version: '3.14'
-            tox-env: py314-django51
 
           - name: Python 3.14 / Django 5.2
             python-version: '3.14'

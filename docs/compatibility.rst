@@ -23,18 +23,15 @@ Python versions older than 3.10 are not supported.
 Supported Django versions
 -------------------------
 
-The project requires Django 4.2 or later.
+The project requires Django 5.2 or later.
 
 The package metadata declares support for:
 
-* Django 4.2;
-* Django 5.0;
-* Django 5.1;
 * Django 5.2;
 * Django 6.0.
 * Django 6.1.
 
-Django versions older than 4.2 are not supported.
+Django versions older than 4.2 are not supported but the current release.
 
 Recommended versions
 --------------------
@@ -43,10 +40,9 @@ For new projects, use current supported Python and Django versions.
 
 Recommended stable combinations include:
 
-* Python 3.12 with Django 4.2, 5.1, or 5.2;
-* Python 3.13 with Django 4.2, 5.1, or 5.2;
-* Python 3.14 with Django 5.1, 5.2, or 6.0 where supported by your deployment
-  environment.
+* Python 3.12 with Django 5.2 or 6.1;
+* Python 3.13 with Django 5.2 or 6.1;
+* Python 3.14 with Django 5.2 or 6.1;
 
 If using pre-release Python or Django versions, test carefully before deploying
 to production.
@@ -67,37 +63,37 @@ The following table summarises the intended test/support matrix.
      - Django 6.0
      - Django 6.1
    * - 3.10
-     - Supported
      - Legacy / not recommended
-     - Supported
+     - Legacy / not recommended
+     - Legacy / not recommended
      - Supported
      - Not applicable
      - Not applicable
    * - 3.11
-     - Supported
      - Legacy / not recommended
-     - Supported
+     - Legacy / not recommended
+     - Legacy / not recommended
      - Supported
      - Not applicable
      - Not applicable
    * - 3.12
-     - Supported
      - Legacy / not recommended
-     - Supported
+     - Legacy / not recommended
+     - Legacy / not recommended
      - Supported
      - Supported
      - Supported
    * - 3.13
-     - Supported
      - Legacy / not recommended
-     - Supported
+     - Legacy / not recommended
+     - Legacy / not recommended
      - Supported
      - Supported
      - Supported
    * - 3.14
      - Not recommended
      - Not recommended
-     - Supported
+     - Legacy / not recommended
      - Supported
      - Supported
      - Supported
@@ -117,12 +113,12 @@ Django 5.x versions are recommended for active projects.
 
 If possible, use Django 5.1 or 5.2 instead of Django 5.0.
 
-Django 6.0
+Django 6.*
 ----------
 
-Django 6.0 support depends on the Python version used by your environment.
+Django 6.* support depends on the Python version used by your environment.
 
-Use a Python version supported by Django 6.0 and test your deployment carefully.
+Use a Python version supported by Django 6.* and test your deployment carefully.
 
 Python 3.14 and 3.15
 --------------------

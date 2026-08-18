@@ -3,12 +3,17 @@ Changelog
 
 :tocdepth: 1
 
-4.* - Future Release - Breaking changes
+5.* - Future Release - Breaking changes
 ------------------------------------------------
 
 -  The ``route_selection_key`` property has been removed as per the
    warning in version 2.0.0. Please update your integration.
 - This change has not happened yet so treat it as a warning
+
+4.0.0 - Unreleased - Dropped support for Django < 5.2 and Python < 3.10
+-----------------------------------------------------------------------
+This release has no code changed but drops support for Django < 5.2. Python 3.10 is currently still supported but that
+will be dropped from the test matrix and official support in the future.
 
 3.1.1 - 10th June 2026 - Websocket error logging and mail_admin integration
 ---------------------------------------------------------------------------
