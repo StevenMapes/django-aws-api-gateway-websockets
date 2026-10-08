@@ -9,7 +9,7 @@ pre-commit
 # setuptools
 hatchling
 sqlparse>=0.5.4
-virtualenv>=20.28.1     # Set by pre-commit
+virtualenv>=21.7.13     # Set by pre-commit
 urllib3>=2.6.3
 
 
