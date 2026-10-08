@@ -1,6 +1,6 @@
 boto3>=1.35.96
 coverage
-django
+django>=5.2.18
 filelock>=3.20.3
 pytest>=8.3.4
 pytest-django>=4.9.0
