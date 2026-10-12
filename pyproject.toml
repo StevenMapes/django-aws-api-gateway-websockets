@@ -60,6 +60,12 @@ Changelog = "https://django-aws-api-gateway-websockets.readthedocs.io/en/latest/
 Twitter = "https://twitter.com/stevenamapes"
 Homepage = "https://github.com/StevenMapes/django-aws-api-gateway-websockets"
 
+[dependency-groups]
+dev = [
+    "bandit>=1.9.4",
+    "pip-audit>=2.10.1",
+]
+
 # NEW
 [tool.coverage.run]
 branch = true
