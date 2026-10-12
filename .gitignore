@@ -142,3 +142,7 @@ dmypy.json
 
 STEVE-README.txt
 DEV-PLAN.md
+
+.clade
+.claude/*
+docs/sessions/*
