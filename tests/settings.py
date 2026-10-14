@@ -14,11 +14,11 @@ SECRET_KEY = "".join(random.choice(characters) for i in range(48))
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": os.path.join(BASE_DIR, "db.sqlite3"),
+        "NAME": ":memory:",
     }
 }
 
-ALLOWED_HOSTS: []
+ALLOWED_HOSTS = ["testserver"]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -45,11 +45,18 @@ TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
 
+STATIC_URL = "/static/"
+
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "APP_DIRS": True,
         "OPTIONS": {
-            "context_processors": ["django.contrib.auth.context_processors.auth"]
+            "context_processors": [
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
+            ]
         },
     }
 ]

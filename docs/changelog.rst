@@ -10,10 +10,84 @@ Changelog
    warning in version 2.0.0. Please update your integration.
 - This change has not happened yet so treat it as a warning
 
-4.0.0 - Unreleased - Dropped support for Django < 5.2 and Python < 3.10
------------------------------------------------------------------------
-This release has no code changed but drops support for Django < 5.2. Python 3.10 is currently still supported but that
+4.1.0 - Unreleased - Security updated
+-------------------------------------
+
+Added
+~~~~~
+
+-  Added the ``django_aws_api_gateway_websockets.E002`` system check, which reports a ``WEBSOCKETS`` value that is not a whole number of 1 or more (or, for ``push_changes_to_aws``, not ``True`` or ``False``), the ``W002`` check, which warns about an unknown ``WEBSOCKETS`` key, and the ``W003`` check, which warns under ``check --deploy`` when no AWS region is set.
+-  Added the ``provisioning_status`` and ``last_error`` fields to ``ApiGateway``, which record how far creating the API, its custom domain and the mapping has got, and the error that stopped the last step. The migration only adds the two columns, and needs no AWS change.
+-  Added an optional gateway secret, set with ``WEBSOCKETS["gateway_secret"]``, that API Gateway sends in the ``X-Ws-Gateway-Secret`` header and that ``WebSocketView`` requires before it handles any request. It is off by default, so nothing changes until you set it. See :doc:`gateway_secret`.
+-  Added the ``updateApiGatewayIntegrations`` management command, which adds, changes or removes the gateway secret header on the integrations of API Gateways that are already deployed. You must run it before you set the secret on the web processes of an existing deployment.
+-  Added the ``django_aws_api_gateway_websockets.E001`` system check, which reports an invalid gateway secret, and the ``django_aws_api_gateway_websockets.W001`` check, which warns under ``check --deploy`` when no secret is set.
+-  Added the ``ChannelPermission`` and ``ChannelPermissionRule`` models and a Django Admin page, so a channel can be limited to super admins, staff, or users who hold Django permissions in any combination of AND and OR. See :doc:`channel_permissions`.
+-  Added ``WebSocketView.can_join_channel(request, channel_name)`` and ``WebSocketView.get_channel_permission(channel_name)``, called on connect and by ``change_channel``, so a view can refuse a channel. A refused request gets a 403 response and no session is created.
+-  Added ``WebSocketView.ALLOW_UNLISTED_CHANNELS`` and ``WebSocketView.CHECK_PERMISSIONS_ON_CONNECT``. Both default to the previous behaviour: channels without a rule are open, and ``permissions_required`` applies only to messages. Both defaults are planned to change in a future major version.
+
+-  Added syncing of a deployed API Gateway with AWS. Saving an ``ApiGateway`` or ``ApiGatewayAdditionalRoute`` that is already deployed now updates AWS: adding, removing and changing the URL or key of an additional route, and changing the name, description, base URL or stage description of the API Gateway. See :ref:`api-gateway-auto-sync`.
+-  Added the ``push_changes_to_aws`` key to the ``WEBSOCKETS`` setting. It is ``True`` by default, which keeps the syncing described above. Set it to ``False`` to go back to the earlier behaviour, where editing or deleting a deployed ``ApiGateway`` or ``ApiGatewayAdditionalRoute`` changes only the local record. A new additional route is still created in AWS when it is saved, and the ``Sync to AWS`` and ``Sync from AWS`` actions still work. A ``push_to_aws`` argument on a single ``save()`` or ``delete()`` overrides the setting.
+-  Added the ``Sync to AWS`` and ``Sync from AWS`` admin actions on the API Gateway list page, which write the local records to AWS and read AWS into the local records, and report what changed.
+-  Added the ``ApiGateway.sync_to_aws()`` and ``ApiGateway.sync_from_aws()`` methods, the ``ApiGatewaySyncError`` exception, and a ``push_to_aws`` argument on ``save()`` and ``delete()`` to choose whether AWS is called.
+-  Added the ``deployment_id`` and ``api_created`` fields to the API Gateway admin page, and ``deployment_id`` to its list page. Both are read-only.
+-  Added the ``route_id`` and ``integration_id`` fields to ``ApiGatewayAdditionalRoute``, which store the AWS IDs of its route and integration. The migration only adds the two columns, and needs no AWS change.
+
+Changed
+~~~~~~~
+
+-  Changed the default age of the ``cleanupWebSocketTokens`` command to 5 minutes, or ``token_expiry_seconds`` if that is longer, so it never deletes a token that is still valid.
+-  Changed the ``createApiGateway`` and ``createCustomDomain`` commands to raise a command error, not ``DoesNotExist``, for a gateway that has nothing left to do, and to resume a gateway that stopped part way.
+-  Changed ``ApiGateway.save()`` to skip validation when it is called with ``update_fields``, so recording progress cannot fail because an unrelated field is invalid. A full save still validates the whole record.
+-  Changed ``WebSocketSession.objects.filter(...).send_message()`` to post to recipients concurrently, with a new optional ``max_workers`` argument that defaults to 10.
+-  Changed ``WebSocketSession.objects.filter(...).send_message()`` to log a warning and carry on when a recipient fails, instead of raising and skipping the remaining recipients.
+-  Changed ``WebSocketSession.objects.filter(...).send_message()`` to mark all disconnected sessions with a single query.
+-  Changed ``WebSocketSession.objects.filter(...).send_message()`` to use a 5 second connect timeout, a 10 second read timeout and up to 3 attempts for each post.
+-  Changed the chat examples to broadcast from a background task after the transaction commits.
+-  Changed ``WebSocketView`` to answer a request body that is not a JSON object, or that is not valid JSON or UTF-8, as an empty body instead of raising an exception.
+-  Changed ``WebSocketView`` to answer an invalid channel on connect with a 400 response before the one-time token is used, and to count it as a failed connection attempt.
+-  Changed the ``change_channel`` handler to answer a missing or invalid channel with a 400 response, using the same rules as the channel on connect.
+-  Changed the ``$disconnect`` route to answer an unknown connection with a 400 response instead of raising an exception.
+
+-  Changed deleting an ``ApiGatewayAdditionalRoute`` to delete its route and integration in AWS when its API Gateway is deployed. The credentials used by Django need the ``apigateway:DELETE`` permission, which :doc:`aws_iam_setup` now lists.
+
+Security
+~~~~~~~~
+
+-  Changed the ``$connect`` route to require the exact User-Agent that API Gateway sends, ``AmazonAPIGateway_`` followed by the API ID, and to answer anything else with a 400 response. If a proxy between API Gateway and Django rewrites the User-Agent, connections are refused until it passes it through unchanged.
+-  Changed the ``Create API Gateway`` and ``Create Custom Domain`` admin actions to require the change permission on API gateways, so a user who can only view them no longer sees the actions or can run them. Users who run these actions without the change permission must be given it.
+-  Changed the API Gateway documentation to say that the API ID and header checks do not prove a request came from API Gateway, and to point to the gateway secret.
+-  Changed ``WebSocketToken.session_key`` to store a keyed hash of the Django session key instead of the key, and removed it from the token admin page. The column is now 64 characters, and a new migration deletes existing tokens, which are single use and valid for about a minute. Users with a token in flight at the time of the upgrade must request a new one.
+-  Changed the ``WebSocketSession`` admin page to be read-only, so staff can no longer attach a live connection to another user.
+-  Changed ``WebSocketView`` to reject a ``$connect`` request whose ``Connectionid`` header is not a valid AWS connection ID.
+-  Changed ``WebSocketView`` to accept a ``Connectionid`` only for a session that is still connected and belongs to the API Gateway making the request, so a closed session can no longer be used to act as its user.
+-  Changed ``WebSocketView`` to answer a message for an unknown or closed session with a 400 response, where it previously raised an exception.
+
+Fixed
+~~~~~
+
+-  Fixed changes to the ``route_key`` or ``integration_url`` of a deployed additional route being saved locally but never sent to AWS.
+-  Fixed ``token_expiry_seconds`` only changing the ``expires_in`` value sent to the client. The connect route now refuses a token older than the configured time, where it always used 60 seconds before. Projects that set another value now get the behaviour they configured.
+-  Fixed ``WebSocketView`` failing to start when ``WEBSOCKETS`` is ``None``.
+-  Fixed saving an additional route that was created with its API Gateway failing with a conflict, and leaving an unused integration in AWS, because the route was never marked as deployed.
+-  Fixed the deployment ID of an API Gateway being lost when an additional route was deployed to an API Gateway that was already deployed.
+-  Fixed a half-built API Gateway looking complete, and being impossible to finish, after a failure while creating its routes, stage or custom domain mapping. Each step is now saved as it succeeds, a second run continues from the last step that worked, and the admin shows the status and the error. Records created before this version, and records registered by hand for an existing API, are treated as complete.
+-  Fixed the API ID being lost, and the API left in AWS with nothing pointing to it, when the record failed validation after the API had been created. The record is now validated before anything is created in AWS.
+-  Fixed ``change_channel`` resetting ``request_count``, and the ``$disconnect`` route and ``WebSocketSession.send_message()`` overwriting other changes to the session, by making them write only the fields they change.
+-  Fixed the User-Agent check being applied to messages and ``$disconnect``, where the client's own User-Agent is sent, and not to ``$connect``, where API Gateway sends ``AmazonAPIGateway_`` followed by its API ID. A view with ``aws_api_gateway_id`` set no longer refuses every message and disconnect, and a view without it no longer requires the gateway User-Agent on them.
+-  Fixed the ``Create API Gateway`` admin action reporting ``already created`` after it had created the gateway.
+-  Fixed the ``Create API Gateway`` admin action and ``ApiGateway.create_gateway()`` failing with an unclear error when ``target_base_endpoint`` is not set. They now report that the field is required before calling AWS.
+-  Fixed saving an ``ApiGateway`` without a ``target_base_endpoint`` raising a ``TypeError``.
+-  Fixed the API Gateway ``Target`` containing a double slash.
+-  Fixed searching the additional route admin page raising an error.
+-  Fixed channel names of 129 to 191 characters being accepted and then failing at the database, by lowering the ``MAX_CHANNEL_NAME_LENGTH`` default from 191 to 128 to match the ``WebSocketSession.channel_name`` column.
+-  Fixed ``WebSocketSession.objects.filter(...).send_message()`` posting every session through the first session's API Gateway when the queryset spans more than one gateway.
+-  Fixed ``WebSocketSession.objects.filter(...).send_message()`` accepting messages over the 128 KB AWS limit.
+
+4.0.0 - 18th August 2026 - Dropped support for Django < 5.2 and Python < 3.10
+-----------------------------------------------------------------------------
+This release drops support for Django < 5.2. Python 3.10 is currently still supported but that
 will be dropped from the test matrix and official support in the future.
+
 
 3.1.1 - 10th June 2026 - Websocket error logging and mail_admin integration
 ---------------------------------------------------------------------------
@@ -24,6 +98,7 @@ property SEND_EXCEPTION_MAIL to False. The exception is then raised again for ba
 Django Logger settings example
 
 .. code-block:: python
+
     LOGGING = {
         "version": 1,
         "disable_existing_loggers": False,

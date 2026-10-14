@@ -76,6 +76,7 @@ replace the following placeholders:
                 "Sid": "DjangoApiGatewayPolicy01",
                 "Effect": "Allow",
                 "Action": [
+                    "apigateway:DELETE",
                     "apigateway:GET",
                     "apigateway:PATCH",
                     "apigateway:POST",

@@ -352,6 +352,10 @@ For example, if a client connects to:
 
 you should still check whether the user is allowed to receive admin messages.
 
+Every channel is open to every user unless you add a rule. Use
+:doc:`channel_permissions` to restrict a channel, or override ``can_join_channel``
+on your view for custom rules. Both run on connect and on ``change_channel``.
+
 See :doc:`permissions`.
 
 WebSocket token

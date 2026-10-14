@@ -36,6 +36,111 @@ The package provides two main ways to send messages:
 
 The queryset version sends to connected sessions in the queryset.
 
+Updating the session from a handler
+-----------------------------------
+
+``self.websocket_session`` is loaded at the start of the request. Other requests
+can change the same row while your handler runs: ``request_count`` increases with
+every message, and ``$disconnect`` sets ``connected=False``.
+
+A plain ``self.websocket_session.save()`` writes every field back from the copy
+loaded at the start. That undoes those changes, and can mark a closed connection
+as connected again. Write only the fields you changed:
+
+.. code-block:: python
+
+   def set_nickname(self, request, *args, **kwargs):
+       self.websocket_session.channel_name = "lobby"
+       self.websocket_session.save(update_fields=["channel_name", "updated_on"])
+
+       return JsonResponse({"ok": True})
+
+Include ``updated_on`` so the modification time is still refreshed. For a flag or
+a counter, use ``update()`` so the database applies the change:
+
+.. code-block:: python
+
+   from django.db.models import F
+
+   WebSocketSession.objects.filter(pk=self.websocket_session.pk).update(
+       request_count=F("request_count") + 1
+   )
+
+.. versionchanged:: 4.1
+   The library's own ``change_channel`` and ``$disconnect`` handlers, and
+   ``WebSocketSession.send_message`` when a connection has gone, now write only
+   the fields they change.
+
+Broadcasting to a channel
+-------------------------
+
+.. versionchanged:: 4.1
+   A queryset broadcast posts to recipients concurrently and no longer stops at
+   the first failed recipient.
+
+``WebSocketSession.objects.filter(...).send_message()`` sends the message to
+every connected session in the queryset, then returns.
+
+* Each session is posted through its own API Gateway, with one client per
+  gateway.
+* Up to ``max_workers`` posts (default 10) run at the same time for each gateway.
+  Pass ``max_workers=1`` to send one at a time.
+* A recipient that fails does not stop the others. The failure is written to the
+  ``django_aws_api_gateway_websockets.models`` logger at ``WARNING`` level, with
+  the connection ID and the AWS error code. Configure that logger to see it.
+* A session whose client has disconnected (AWS answers ``GoneException``) is
+  marked ``connected=False``. All such sessions are updated in one query.
+* The return value is a list of the AWS responses for the posts that succeeded.
+  Failed and disconnected recipients are not in the list, so its length can be
+  shorter than the number of sessions.
+* A message over the 128 KB AWS limit raises ``ValueError`` before any post is
+  made.
+* Each client uses a 5 second connect timeout, a 10 second read timeout and the
+  botocore ``standard`` retry mode with up to 3 attempts.
+
+.. warning::
+
+   The call blocks until every post has finished. Called from a message handler
+   it holds a web worker for that time, and a large channel can reach the API
+   Gateway integration timeout (29 seconds) or the worker timeout of your WSGI
+   server. Broadcast from a background task for any channel that can grow large.
+
+Broadcasting from a background task
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Queue the broadcast with :func:`django.db.transaction.on_commit` so it runs only
+after the data it announces is committed. If the transaction rolls back, nothing
+is sent.
+
+.. code-block:: python
+
+   # chat/tasks.py
+
+   from celery import shared_task
+
+   from django_aws_api_gateway_websockets.models import WebSocketSession
+
+
+   @shared_task
+   def broadcast_to_channel(channel_name: str, message: dict) -> None:
+       WebSocketSession.objects.filter(
+           channel_name=channel_name,
+       ).send_message(message)
+
+.. code-block:: python
+
+   # In a WebSocketView handler
+
+   from django.db import transaction
+
+   from .tasks import broadcast_to_channel
+
+   transaction.on_commit(lambda: broadcast_to_channel.delay(room, payload))
+
+Any task queue works. Django 6 includes ``django.tasks`` but ships only backends
+that run immediately or discard the task, so use a package such as
+``django-tasks`` or Celery to run it in the background.
+
 Message shape
 -------------
 
@@ -396,10 +501,12 @@ Example:
 
 .. code-block:: python
 
+   from django.db import transaction
    from django.http import JsonResponse
 
-   from django_aws_api_gateway_websockets.models import WebSocketSession
    from django_aws_api_gateway_websockets.views import WebSocketView
+
+   from .tasks import broadcast_to_channel
 
 
    class ChatWebSocketView(WebSocketView):
@@ -416,18 +523,18 @@ Example:
                    status=400,
                )
 
-           WebSocketSession.objects.filter(
-               channel_name=room,
-           ).send_message(
-               {
-                   "type": "chat_message",
-                   "room": room,
-                   "username": request.user.get_username(),
-                   "message": text,
-               }
-           )
+           payload = {
+               "type": "chat_message",
+               "room": room,
+               "username": request.user.get_username(),
+               "message": text,
+           }
+           transaction.on_commit(lambda: broadcast_to_channel.delay(room, payload))
 
            return JsonResponse({"ok": True})
+
+``broadcast_to_channel`` is the task defined in `Broadcasting from a background
+task`_. The handler returns at once and the task does the sending.
 
 See :doc:`example` for a fuller chat room example.
 

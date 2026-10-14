@@ -111,13 +111,14 @@ Create a WebSocket view that can:
 
    # chat/views.py
 
+   from django.db import transaction
    from django.http import JsonResponse
    from django.utils import timezone
 
-   from django_aws_api_gateway_websockets.models import WebSocketSession
    from django_aws_api_gateway_websockets.views import WebSocketView
 
    from .models import ChatMessage
+   from .tasks import broadcast_to_room
 
 
    class ChatWebSocketView(WebSocketView):
@@ -145,7 +146,10 @@ Create a WebSocket view that can:
            return JsonResponse({"ok": True})
 
        def change_channel(self, request, *args, **kwargs):
-           super().change_channel(request, *args, **kwargs)
+           response = super().change_channel(request, *args, **kwargs)
+           if response is not None:
+               # The channel was invalid or refused by can_join_channel.
+               return response
 
            return JsonResponse(
                {
@@ -178,15 +182,14 @@ Create a WebSocket view that can:
                message=message_text,
            )
 
-           WebSocketSession.objects.filter(channel_name=room).send_message(
-               {
-                   "type": "chat_message",
-                   "room": room,
-                   "username": message.username,
-                   "message": message.message,
-                   "created_at": message.created_at.isoformat(),
-               }
-           )
+           payload = {
+               "type": "chat_message",
+               "room": room,
+               "username": message.username,
+               "message": message.message,
+               "created_at": message.created_at.isoformat(),
+           }
+           transaction.on_commit(lambda: broadcast_to_room.delay(room, payload))
 
            return JsonResponse({"ok": True})
 
@@ -198,6 +201,30 @@ Create a WebSocket view that can:
                },
                status=400,
            )
+
+Broadcast task
+--------------
+
+The view queues the broadcast instead of sending it, so the request returns
+without waiting for every recipient. This example uses Celery. See
+:doc:`message_patterns` for the behaviour of a queryset broadcast and for other
+task queues.
+
+.. code-block:: python
+
+   # chat/tasks.py
+
+   from celery import shared_task
+
+   from django_aws_api_gateway_websockets.models import WebSocketSession
+
+
+   @shared_task
+   def broadcast_to_room(room: str, message: dict) -> None:
+       WebSocketSession.objects.filter(channel_name=room).send_message(message)
+
+``transaction.on_commit`` in the view makes the task run only after the stored
+message is committed.
 
 URL route
 ---------
@@ -540,20 +567,12 @@ When a user sends a chat message, the browser sends:
        message: "Hello everyone"
    });
 
-The Django view stores the message and then sends it to every active
-``WebSocketSession`` in the same channel.
+The Django view stores the message and then queues a task that sends it to every
+active ``WebSocketSession`` in the same channel.
 
 .. code-block:: python
 
-   WebSocketSession.objects.filter(channel_name=room).send_message(
-       {
-           "type": "chat_message",
-           "room": room,
-           "username": message.username,
-           "message": message.message,
-           "created_at": message.created_at.isoformat(),
-       }
-   )
+   WebSocketSession.objects.filter(channel_name=room).send_message(payload)
 
 Because the queryset is filtered by ``channel_name``, only users in the same
 room receive the message.
@@ -594,8 +613,9 @@ The Django view updates the current ``WebSocketSession``:
 .. code-block:: python
 
    def change_channel(self, request, *args, **kwargs):
-       self.websocket_session.channel_name = self.body["channel"]
-       self.websocket_session.save()
+       response = super().change_channel(request, *args, **kwargs)
+       if response is not None:
+           return response
 
        return JsonResponse(
            {
@@ -604,6 +624,18 @@ The Django view updates the current ``WebSocketSession``:
                "channel": self.websocket_session.channel_name,
            }
        )
+
+The base ``change_channel`` checks the channel name and calls ``can_join_channel``
+(see :doc:`channel_permissions`).
+It returns ``None`` when the channel was changed, and a 400 or 403 response when
+it was not.
+
+.. important::
+
+   The chat rooms in this example are public, and every channel is open by
+   default. Before you use channels that only some users may join, add a
+   ``ChannelPermission`` row for each, or override ``can_join_channel``. See
+   :doc:`channel_permissions`.
 
 After this, messages broadcast to the new channel will include this connection.
 

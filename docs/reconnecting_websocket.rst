@@ -4,7 +4,7 @@ Using reconnecting-websocket
 This guide shows how to setup the websockets to automatically reconnect from the client without using a 3rd part library.
 
 Why use reconnecting websockets?
--------------------------------
+--------------------------------
 
 Browser WebSocket connections can close for many reasons, including:
 
@@ -240,25 +240,25 @@ Example frontend message handler:
 
 .. code-block:: javascript
 
-class CustomWebSocketManager extends WebSocketManager {
-    onMessage(event) {
-        // Call the parent implementation first (optional)
-        super.onMessage(event);
+   class CustomWebSocketManager extends WebSocketManager {
+       onMessage(event) {
+           // Call the parent implementation first (optional)
+           super.onMessage(event);
 
-        const message = JSON.parse(event.data);
+           const message = JSON.parse(event.data);
 
-        if (message.type === "toast") {
-            this.showToast(message.level, message.message);
-            return;
-        }
+           if (message.type === "toast") {
+               this.showToast(message.level, message.message);
+               return;
+           }
 
-       console.log("WebSocket message received:", message);
-    }
+           console.log("WebSocket message received:", message);
+       }
 
-    showToast(level, message) {
-        console.log(`[${level}] ${message}`);
-    }
-}
+       showToast(level, message) {
+           console.log(`[${level}] ${message}`);
+       }
+   }
 
 
 Notes and recommendations

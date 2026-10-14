@@ -78,6 +78,30 @@ Check that the API Gateway record has been created and deployed.
 
 Check that API Gateway can reach your Django endpoint over HTTPS.
 
+API Gateway creation stops part way
+-----------------------------------
+
+Symptoms
+~~~~~~~~
+
+The ``Create API Gateway`` action or the ``createApiGateway`` command raises an
+AWS error, or the record shows an API ID but no routes, stage or deployment.
+
+What to check
+~~~~~~~~~~~~~
+
+Open the API Gateway record in Django Admin. ``Provisioning status`` shows the
+last step that worked, and ``Last error`` shows the kind of error and, for an AWS
+error, its code. Common causes are a missing IAM permission (see
+:doc:`aws_iam_setup`), a throttled request, or an AWS account limit.
+
+Fix the cause and run the action or command again. It continues from the
+recorded step and does not create the API a second time.
+
+If the record was created before version 4.1, it shows ``Pending`` with ``API
+created`` set and is treated as complete. Set ``Provisioning status`` to match
+what exists in AWS, then run the action again. See :doc:`admin`.
+
 Django returns bad request
 --------------------------
 
@@ -94,12 +118,14 @@ Common causes include:
 * missing expected headers;
 * request did not come through API Gateway;
 * invalid host or origin;
+* the ``$connect`` request does not carry the API Gateway User-Agent (``AmazonAPIGateway_`` followed by the API ID), which can happen when a proxy rewrites it;
 * invalid connection ID;
 * invalid channel name;
 * missing token;
 * expired token;
 * reused token;
-* route parameter is missing or misnamed.
+* route parameter is missing or misnamed;
+* the gateway secret header is missing or wrong (the response is 403, not 400; see :doc:`gateway_secret`).
 
 What to check
 ~~~~~~~~~~~~~

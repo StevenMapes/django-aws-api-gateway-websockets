@@ -289,8 +289,17 @@ in the database.
 
 A view can also be restricted to a specific API Gateway ID.
 
-This helps prevent requests from unknown API Gateway endpoints or direct HTTP
-clients from being accepted as valid WebSocket events.
+These checks catch misconfiguration and requests that name an unknown gateway.
+They do not prove that a request came from API Gateway. The API ID and the other
+headers are supplied by whoever sends the request, so a client that knows a
+registered API ID can copy them.
+
+.. important::
+
+   To authenticate the gateway, set a gateway secret. API Gateway then adds a
+   secret header to every request, and the view refuses a request without it.
+   The secret is off by default, so existing projects keep working. See
+   :doc:`gateway_secret`.
 
 For production systems:
 
@@ -305,7 +314,12 @@ Header validation
 The package checks for expected headers that are normally sent by API Gateway.
 
 These checks help confirm that the request has the expected API Gateway shape
-before it is processed.
+before it is processed. On ``$connect``, the User-Agent must be the one API
+Gateway sends, ``AmazonAPIGateway_`` followed by the API ID. Messages and
+``$disconnect`` carry the client's own User-Agent, so it is not checked there.
+They are sanity checks, not authentication: a client can
+send the same headers. Use the gateway secret to authenticate the gateway. See
+:doc:`gateway_secret`.
 
 If you deploy behind additional proxies, CDNs, tunnels, or load balancers, make
 sure the required headers are preserved.
@@ -370,6 +384,15 @@ For example, prefer:
    notifications_user_789
 
 over values containing emails, names, or sensitive business data.
+
+.. important::
+
+   A predictable channel name is not secret and does not protect the channel.
+   A client chooses its channel in the ``channel`` query string parameter or with
+   ``change_channel``, and every channel is open unless you add a rule. Add a
+   ``ChannelPermission`` row for the channel, or override ``can_join_channel``, to
+   check that the user may join the channel they ask for. See
+   :doc:`channel_permissions`.
 
 Request body validation
 -----------------------

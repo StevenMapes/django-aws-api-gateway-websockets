@@ -633,7 +633,7 @@ allowed handlers, and permissions.
        ]
 
        MAX_BODY_SIZE = 1024 * 128
-       MAX_CHANNEL_NAME_LENGTH = 191
+       MAX_CHANNEL_NAME_LENGTH = 128
 
        def default(self, request, *args, **kwargs):
            return None

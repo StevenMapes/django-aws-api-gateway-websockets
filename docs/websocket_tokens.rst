@@ -301,7 +301,12 @@ Token expiry
 Tokens are short-lived.
 
 The token endpoint returns an ``expires_in`` value so the client knows how long
-the token can be used for.
+the token can be used for. The default is 60 seconds. Change it with
+``token_expiry_seconds`` in the ``WEBSOCKETS`` setting. See :doc:`settings`.
+
+.. versionchanged:: 4.1
+   The connect route now refuses a token older than ``token_expiry_seconds``.
+   Before, it always refused a token after 60 seconds, whatever the setting.
 
 Example response:
 
@@ -341,6 +346,10 @@ Session binding
 Tokens are bound to the Django session key that requested them.
 
 The WebSocket connection must be opened by a client with the same session.
+
+The database stores a keyed hash of the session key, not the key. Pass the real
+session key (``request.session.session_key``) to ``WebSocketToken.generate_token``
+and ``WebSocketToken.validate_and_consume``. They hash it for you.
 
 This helps prevent a token from being useful if copied into another browser,
 session, or user context.

@@ -11,15 +11,21 @@ from django.core.mail import mail_admins
 from django.db import transaction
 from django.db.models import F
 from django.http import HttpResponseBadRequest, HttpResponseForbidden, JsonResponse
+from django.utils import timezone
+from django.utils.crypto import constant_time_compare
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
 
+from django_aws_api_gateway_websockets.conf import get_setting
 from django_aws_api_gateway_websockets.models import (
+    GATEWAY_SECRET_HEADER,
     ApiGateway,
+    ChannelPermission,
     ConnectionRateLimit,
     WebSocketSession,
     WebSocketToken,
+    get_gateway_secrets,
 )
 
 logger = logging.getLogger(__name__)
@@ -43,20 +49,12 @@ class WebSocketTokenView(View):
             # Create session if it doesn't exist
             request.session.create()
 
-        max_tokens_per_minute = 20
-        token_expires = 60
-
-        if hasattr(settings, "WEBSOCKETS") and settings.WEBSOCKETS:
-            max_tokens_per_minute = settings.WEBSOCKETS.get(
-                "token_rate_limit_per_minute", max_tokens_per_minute
-            )
-            token_expires = settings.WEBSOCKETS.get(
-                "token_expiry_seconds", token_expires
-            )
+        token_expires = get_setting("token_expiry_seconds")
 
         # Security: Rate limit token generation
         if not WebSocketToken.check_rate_limit(
-            request.user, max_tokens_per_minute=max_tokens_per_minute
+            request.user,
+            max_tokens_per_minute=get_setting("token_rate_limit_per_minute"),
         ):
             return HttpResponseForbidden("Rate limit exceeded")
 
@@ -82,8 +80,17 @@ class WebSocketView(View):
 
     MAX_BODY_SIZE = 1024 * 128  # 128KB
 
-    MAX_CHANNEL_NAME_LENGTH = 191
+    MAX_CHANNEL_NAME_LENGTH = 128  # Must not exceed WebSocketSession.channel_name
     CHANNEL_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
+
+    # Channels without a ChannelPermission row are open to everyone. This default is
+    # planned to change to False in a future major version.
+    ALLOW_UNLISTED_CHANNELS = True
+
+    # Apply permissions_required and all_permissions_required to the connect route as
+    # well as to messages. Off for backwards compatibility; planned to change to True
+    # in a future major version.
+    CHECK_PERMISSIONS_ON_CONNECT = False
 
     ALLOWED_HANDLERS = set()
     ADDITIONAL_ALLOWED_HANDLERS = list()
@@ -136,18 +143,11 @@ class WebSocketView(View):
         self.debug = kwargs.get("debug", False)
         self.debug_log = []
 
-        websocket_config = (
-            settings.WEBSOCKETS if hasattr(settings, "WEBSOCKETS") else {}
-        )
         if not self.RATE_LIMIT_MAX_ATTEMPTS:
-            self.RATE_LIMIT_MAX_ATTEMPTS = websocket_config.get(
-                "rate_limit_max_attempts", 20
-            )
+            self.RATE_LIMIT_MAX_ATTEMPTS = get_setting("rate_limit_max_attempts")
 
         if not self.RATE_LIMIT_WINDOW_MINUTES:
-            self.RATE_LIMIT_WINDOW_MINUTES = websocket_config.get(
-                "rate_limit_window_minutes", 1
-            )
+            self.RATE_LIMIT_WINDOW_MINUTES = get_setting("rate_limit_window_minutes")
 
         if not self.ALLOWED_HANDLERS:
             self.ALLOWED_HANDLERS = set(
@@ -176,8 +176,13 @@ class WebSocketView(View):
 
         try:
             self.body = json.loads(request.body) if request.body else {}
-        except json.JSONDecodeError:
+        except (ValueError, RecursionError):
+            # ValueError covers invalid JSON and invalid UTF-8.
             self._debug("Body is invalid JSON")
+            self.body = {}
+
+        if not isinstance(self.body, dict):
+            self._debug("Body is not a JSON object")
             self.body = {}
 
         self._debug("Setup completed")
@@ -233,6 +238,27 @@ class WebSocketView(View):
         # Security: Generic error message to prevent information disclosure
         return self._return_bad_request("Invalid request format (1)")
 
+    def _gateway_secret_valid(self, request) -> bool:
+        """Check the secret header that API Gateway adds to every request it sends.
+
+        Always ``True`` when ``WEBSOCKETS["gateway_secret"]`` is not set. Otherwise the header
+        must match a configured secret. All secrets are compared in constant time.
+        """
+        secrets_ = get_gateway_secrets()
+        if not secrets_:
+            return True
+
+        supplied = request.headers.get(GATEWAY_SECRET_HEADER, "")
+        valid = False
+        for secret in secrets_:
+            valid |= constant_time_compare(supplied, secret)
+        return valid
+
+    def invalid_gateway_secret(self, request, *args, **kwargs) -> HttpResponseForbidden:
+        """Method for handling a request that did not come through the configured gateway"""
+        logger.warning("Rejected a request without a valid gateway secret header")
+        return HttpResponseForbidden("Invalid request")
+
     def missing_headers(self, request, *args, **kwargs) -> HttpResponseBadRequest:
         """Method for handling missing headers"""
         if self.debug:
@@ -247,8 +273,8 @@ class WebSocketView(View):
     def invalid_useragent(self, request, *args, **kwargs) -> HttpResponseBadRequest:
         """Method for handling unexpected useragents"""
         msg = (
-            f"Unexpected Useragent; Expected {self.expected_useragent_prefix}{self.aws_api_gateway_id}, "
-            f"Received {request.headers['User-Agent']}"
+            f"Unexpected Useragent; Expected {self._expected_gateway_useragent(request)}, "
+            f"Received {request.headers.get('User-Agent', '')}"
         )
         self._debug(msg)
         return self._return_bad_request("Unexpected Useragent")
@@ -283,18 +309,37 @@ class WebSocketView(View):
         )
         return bool(self.api_gateway)
 
-    def _expected_useragent(self, request, *args, **kwargs) -> bool:
-        """Validated that the useragent is the expected one for all calls except the connect method
+    def _expected_gateway_useragent(self, request) -> str:
+        """The User-Agent API Gateway sends on the connect route: the prefix plus its API ID.
 
-        For the connect method the useragent should be API Gateway itself and NOT the client's forwarded useragent
+        The ID is the one the view is pinned to, else the registered gateway's, else the one
+        in the request's ``X-Amzn-Apigateway-Api-Id`` header. Returns an empty string if there
+        is none.
         """
         if self.aws_api_gateway_id:
-            res = (
-                not request.headers["User-Agent"]
-                == f"{self.expected_useragent_prefix}{self.aws_api_gateway_id}"
-            )
+            gateway_id = self.aws_api_gateway_id
+        elif self.api_gateway:
+            gateway_id = self.api_gateway.api_id
         else:
-            res = self.expected_useragent_prefix in request.headers["User-Agent"]
+            gateway_id = request.headers.get("X-Amzn-Apigateway-Api-Id", "")
+        return f"{self.expected_useragent_prefix}{gateway_id}" if gateway_id else ""
+
+    def _expected_useragent(self, request, *args, **kwargs) -> bool:
+        """Check the User-Agent for the route being called.
+
+        API Gateway calls Django with its own User-Agent, ``AmazonAPIGateway_<api id>``, on the
+        connect route. Messages and disconnects carry the client's real User-Agent, which can be
+        anything, so they always pass. The connect route must match the gateway's exactly.
+
+        This is a sanity check, not authentication, because a client can send any User-Agent.
+        See the gateway secret for authentication.
+        """
+        route = kwargs.get("route") or getattr(self, "kwargs", {}).get("route")
+        if route != "connect":
+            return True
+
+        expected = self._expected_gateway_useragent(request)
+        res = bool(expected) and request.headers.get("User-Agent", "") == expected
         self._debug(f"_expected_useragent() returned {res}")
 
         return res
@@ -336,7 +381,9 @@ class WebSocketView(View):
             try:
                 with transaction.atomic():
                     wss = WebSocketSession.objects.select_for_update().get(
-                        connection_id=connection_id
+                        connection_id=connection_id,
+                        connected=True,
+                        api_gateway=self.api_gateway or None,
                     )
                     if wss.user:
                         request.user = wss.user
@@ -345,6 +392,14 @@ class WebSocketView(View):
             except WebSocketSession.DoesNotExist:
                 self._debug(f"Session not found: {request.headers['Connectionid']}")
                 # Handle gracefully
+
+    def _is_valid_channel_name(self, channel_name) -> bool:
+        """Check that a client supplied channel name is a string of an allowed length and format"""
+        return (
+            isinstance(channel_name, str)
+            and len(channel_name) <= self.MAX_CHANNEL_NAME_LENGTH
+            and bool(self.CHANNEL_NAME_PATTERN.match(channel_name))
+        )
 
     def _get_channel_name(self, request) -> str:
         """Returns the name of the channel to use
@@ -356,14 +411,9 @@ class WebSocketView(View):
         channel_name = request.GET.get("channel", "")
 
         # Security: Validate channel name length and format atomically
-        if channel_name:
-            if len(
-                channel_name
-            ) > self.MAX_CHANNEL_NAME_LENGTH or not self.CHANNEL_NAME_PATTERN.match(
-                channel_name
-            ):
-                self._debug(f"Invalid channel name: {channel_name[:50]}")
-                raise ValueError("Invalid channel name")
+        if channel_name and not self._is_valid_channel_name(channel_name):
+            self._debug(f"Invalid channel name: {channel_name[:50]}")
+            raise ValueError("Invalid channel name")
 
         if (
             not channel_name
@@ -374,10 +424,25 @@ class WebSocketView(View):
 
         return channel_name
 
-    def _load_session(self, request):
-        self.websocket_session = WebSocketSession.objects.get(
-            connection_id=request.headers["Connectionid"]
-        )
+    def _load_session(self, request) -> bool:
+        """Load the live session for the Connectionid header.
+
+        The header is only a lookup key, so it must match a session that is still
+        connected and belongs to the API Gateway making the request.
+
+        :returns: ``True`` if the session was found and set on ``websocket_session``.
+        """
+        self.websocket_session = WebSocketSession.objects.filter(
+            connection_id=request.headers["Connectionid"],
+            connected=True,
+            api_gateway=self.api_gateway or None,
+        ).first()
+        return self.websocket_session is not None
+
+    def session_not_found(self, request, *args, **kwargs) -> HttpResponseBadRequest:
+        """Method for handling a message for an unknown or closed session"""
+        self._debug("No connected session for Connectionid")
+        return self._return_bad_request("Invalid connection ID")
 
     def dispatch(self, request, *args, **kwargs):
         """Determine the correct method to call.
@@ -393,10 +458,16 @@ class WebSocketView(View):
         If the Handler Selection Key is missing defer to the route selection error handler.
         If the request method isn't on the approved list then defer to the normal error handler .
         """
-        if self._expected_headers(request) and self._allowed_apigateway(request):
+        if not self._gateway_secret_valid(request):
+            # Checked first, so a forged request costs no database queries
+            handler = self.invalid_gateway_secret
+        elif self._expected_headers(request) and self._allowed_apigateway(request):
             if request.method.lower() in self.http_method_names:
                 if "connect" == self.kwargs.get("route"):
-                    handler = self.connect
+                    if not self._expected_useragent(request, *args, **kwargs):
+                        handler = self.invalid_useragent
+                    else:
+                        handler = self.connect
                 elif "disconnect" == self.kwargs.get("route"):
                     if not self._expected_useragent(request, *args, **kwargs):
                         handler = self.invalid_useragent
@@ -406,9 +477,13 @@ class WebSocketView(View):
                 elif (
                     self.handler_selection_key in self.body
                     or self.route_selection_key in self.body
+                ) and not self._load_session(request):
+                    handler = self.session_not_found
+                elif (
+                    self.handler_selection_key in self.body
+                    or self.route_selection_key in self.body
                 ):
-                    self._load_session(request)
-
+                    # The session was loaded by the condition above.
                     handler = self.default
                     handler_name = None
 
@@ -442,13 +517,9 @@ class WebSocketView(View):
                     else:
                         self._add_user_to_request(request)
 
-                        # Use Django Permissiosn to restrict the method
-                        if self.all_permissions_required:
-                            if not self.has_all_permission(request):
-                                handler = self.permission_denied
-                        elif self.permissions_required:
-                            if not self.has_any_permission(request):
-                                handler = self.permission_denied
+                        # Use Django Permissions to restrict the method
+                        if not self._passes_permission_checks(request):
+                            handler = self.permission_denied
                 else:
                     handler = self.handler_selection_key_missing
             else:
@@ -504,6 +575,10 @@ class WebSocketView(View):
             msg = f"Missing {len(missing_headers)} headers"
             return self._return_bad_request(msg)
 
+        if not self._validate_connection_id(request.headers["Connectionid"]):
+            self._debug("Invalid Connectionid format")
+            return self._return_bad_request("Invalid connection ID")
+
         if not self._check_allowed_hosts(request):
             msg = f"Host is not in AllowedHosts {settings.ALLOWED_HOSTS}"
             self._debug(msg)
@@ -512,6 +587,14 @@ class WebSocketView(View):
         if not self._check_host_is_in_origin(request):
             self._debug("Host is not in Origin")
             return self._return_bad_request("Host is not in Origin")
+
+        # Validate the channel before the one-time token is spent
+        try:
+            channel_name = self._get_channel_name(request)
+        except ValueError:
+            if self.RATE_LIMIT_ENABLED:
+                ConnectionRateLimit.record_attempt(ip_address, user, successful=False)
+            return self._return_bad_request("Invalid channel")
 
         if self.USE_WS_TOKEN:
             # Security: Validate one-time WebSocket token (CSRF protection)
@@ -523,7 +606,7 @@ class WebSocketView(View):
             validated_user = WebSocketToken.validate_and_consume(
                 token_value=ws_token,
                 session_key=request.session.session_key,
-                max_age_seconds=60,
+                max_age_seconds=get_setting("token_expiry_seconds"),
             )
 
             if not validated_user:
@@ -533,6 +616,15 @@ class WebSocketView(View):
             # Override request.user with validated user from token
             request.user = validated_user
 
+        # Authorise the connection: view permissions, then the channel it asks to join
+        if (
+            self.CHECK_PERMISSIONS_ON_CONNECT
+            and not self._passes_permission_checks(request)
+        ) or not self.can_join_channel(request, channel_name):
+            if self.RATE_LIMIT_ENABLED:
+                ConnectionRateLimit.record_attempt(ip_address, user, successful=False)
+            return self.permission_denied(request, *args, **kwargs)
+
         res, msg = self._additional_connection_checks(request, *args, **kwargs)
         if not res:
             if self.RATE_LIMIT_ENABLED:
@@ -541,7 +633,7 @@ class WebSocketView(View):
 
         WebSocketSession.objects.create(
             connection_id=request.headers["Connectionid"],
-            channel_name=self._get_channel_name(request),
+            channel_name=channel_name,
             user=request.user if request.user.is_authenticated else None,
             api_gateway=self.api_gateway,
         )
@@ -576,15 +668,53 @@ class WebSocketView(View):
 
     def disconnect(self, request, *args, **kwargs):
         """Using connectionId update websocket table to show as disconnected"""
-        wss = WebSocketSession.objects.get(
+        # One UPDATE that touches only these fields, so it cannot overwrite a change
+        # another request made to the same row.
+        updated = WebSocketSession.objects.filter(
             connection_id=request.headers["Connectionid"]
-        )
-        wss.connected = False
-        wss.save()
+        ).update(connected=False, updated_on=timezone.now())
+        if not updated:
+            return self.session_not_found(request, *args, **kwargs)
 
     def default(self, request, *args, **kwargs) -> JsonResponse:
         """Overload this method if you want to have a default message handler"""
         raise NotImplementedError("This logic needs to be defined within the subclass")
+
+    def _passes_permission_checks(self, request) -> bool:
+        """Apply ``all_permissions_required``, or else ``permissions_required``, to ``request.user``"""
+        if self.all_permissions_required:
+            return self.has_all_permission(request)
+        if self.permissions_required:
+            return self.has_any_permission(request)
+        return True
+
+    def get_channel_permission(self, channel_name: str):
+        """Return the ``ChannelPermission`` for ``channel_name``, or ``None`` if it has none.
+
+        Override to look the rule up elsewhere, for example to derive it from the
+        channel name, or to cache it.
+        """
+        return ChannelPermission.for_channel(channel_name)
+
+    def can_join_channel(self, request, channel_name: str) -> bool:
+        """Decide whether the request's user may be in the channel ``channel_name``.
+
+        Called on ``connect``, with the channel from the query string or the API Gateway's
+        default (an empty string if there is neither), and by ``change_channel``.
+
+        The default applies the ``ChannelPermission`` row for the channel. A channel with
+        no row is allowed unless ``ALLOW_UNLISTED_CHANNELS`` is ``False``. Override this to
+        add your own rules, and call ``super().can_join_channel()`` to keep the rows.
+
+        :param request: The request. ``request.user`` is the authenticated user, if any.
+        :param str channel_name: The requested channel, already checked for length and format.
+        :returns: ``True`` to allow the channel. ``False`` makes ``connect`` and
+            ``change_channel`` answer with a 403 response.
+        """
+        channel_permission = self.get_channel_permission(channel_name)
+        if channel_permission is None:
+            return self.ALLOW_UNLISTED_CHANNELS
+        return channel_permission.allows(getattr(request, "user", None))
 
     def has_any_permission(self, request) -> bool:
         """Test if the user has ANY of the required permissions"""
@@ -610,5 +740,12 @@ class WebSocketView(View):
 
     def change_channel(self, request, *args, **kwargs):
         """Update the channel the user is connected to"""
-        self.websocket_session.channel_name = self.body["channel"]
-        self.websocket_session.save()
+        channel_name = self.body.get("channel")
+        if not self._is_valid_channel_name(channel_name):
+            return self._return_bad_request("Invalid channel")
+        if not self.can_join_channel(request, channel_name):
+            return self.permission_denied(request, *args, **kwargs)
+        self.websocket_session.channel_name = channel_name
+        # Write only what changed. A full save would write back the copy loaded at the
+        # start of the request, undoing request_count and connected changes made since.
+        self.websocket_session.save(update_fields=["channel_name", "updated_on"])

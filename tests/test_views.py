@@ -1,14 +1,17 @@
 import json
 from unittest.mock import MagicMock, patch
 
-from django.contrib.auth.models import AnonymousUser, User
+from django.contrib.auth.models import AnonymousUser, Permission, User
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import HttpResponseBadRequest, JsonResponse
 from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
 
 from django_aws_api_gateway_websockets import views
 from django_aws_api_gateway_websockets.models import (
+    GATEWAY_SECRET_HEADER,
     ApiGateway,
+    ChannelPermission,
+    ChannelPermissionRule,
     WebSocketSession,
     WebSocketToken,
 )
@@ -211,6 +214,25 @@ class WebSocketViewAdditionalIntegrationTestCase(TestCase):
         with self.assertRaises(ValueError):
             view._get_channel_name(request)
 
+    def test_max_channel_name_length_matches_the_database_column(self):
+        """A name that passes validation must fit in WebSocketSession.channel_name"""
+        column = WebSocketSession._meta.get_field("channel_name")
+
+        self.assertEqual(column.max_length, views.WebSocketView.MAX_CHANNEL_NAME_LENGTH)
+
+    def test_get_channel_name_rejects_a_channel_longer_than_the_column(self):
+        request = self.factory.get("/", {"channel": "a" * 129})
+        view = views.WebSocketView(api_gateway=self.api_gateway)
+
+        with self.assertRaises(ValueError):
+            view._get_channel_name(request)
+
+    def test_get_channel_name_accepts_a_channel_as_long_as_the_column(self):
+        request = self.factory.get("/", {"channel": "a" * 128})
+        view = views.WebSocketView(api_gateway=self.api_gateway)
+
+        self.assertEqual("a" * 128, view._get_channel_name(request))
+
     def test_get_channel_name_uses_api_gateway_default(self):
         request = self.factory.get("/")
         view = views.WebSocketView(api_gateway=self.api_gateway)
@@ -223,6 +245,13 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
 
     def setUp(self) -> None:
         self.factory = RequestFactory()
+        # These tests use no database, so the default can_join_channel must not look up a
+        # ChannelPermission row. No row means the channel is open.
+        patcher = patch.object(
+            views.WebSocketView, "get_channel_permission", return_value=None
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def test_change_channel_updates_websocket_session_channel_name(self):
         request = self.factory.post("/")
@@ -236,7 +265,9 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
 
         self.assertIsNone(response)
         self.assertEqual("new-channel", websocket_session.channel_name)
-        websocket_session.save.assert_called_once_with()
+        websocket_session.save.assert_called_once_with(
+            update_fields=["channel_name", "updated_on"]
+        )
 
     def test_default_required_headers(self):
         self.assertEqual(
@@ -591,116 +622,142 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
 
         self.assertFalse(obj._allowed_apigateway(request=request))
 
-    def test__expected_useragent_returns_true_when_aws_api_key_is_set_and_is_in_the_user_agent(
-        self,
-    ):
-        """_expected_useragent should return False if the AWS API Gateway is making the request
+    # _expected_useragent
+    #
+    # API Gateway calls Django with its own User-Agent, AmazonAPIGateway_<api id>, on the
+    # $connect route only. Messages and $disconnect carry the client's real User-Agent.
 
-        That is determined by the useragent matching a particular string of "AmazonAPIGateway_" followed the API ID
-        of the API Gateway. Only the "connect" call should use that user agent, all other connections should either
-        use the REAL client useragent or nothing. In this test we are testing as if the API Gateway user agent was used
-        """
-        allowed_api_id = "ABC123AB"
-
-        post_data = {"action": "default", "key": "value"}
-        request = self.factory.post(
+    def _ua_request(self, user_agent=None, api_id="ABC123AB"):
+        extra = {"HTTP_X_AMZN_APIGATEWAY_API_ID": api_id}
+        if user_agent is not None:
+            extra["HTTP_USER_AGENT"] = user_agent
+        return self.factory.post(
             "",
-            data=json.dumps(post_data),
+            data=json.dumps({}),
             content_type="application/json",
-            HTTP_USER_AGENT=f"AmazonAPIGateway_{allowed_api_id}",
+            **extra,
         )
 
-        obj = views.WebSocketView()
-        obj.aws_api_gateway_id = allowed_api_id
+    def _ua_view(self, route, pinned_id=None, registered_id="ABC123AB"):
+        view = views.WebSocketView()
+        view.kwargs = {"route": route}
+        view.aws_api_gateway_id = pinned_id
+        view.api_gateway = MagicMock(api_id=registered_id) if registered_id else None
+        return view
 
-        self.assertFalse(obj._expected_useragent(request=request))
+    def test__expected_useragent_connect_accepts_the_gateways_own_useragent(self):
+        view = self._ua_view("connect")
 
-    def test__expected_useragent_returns_true_when_useragent_is_not_the_exepcted_api_gateways_useragent(
-        self,
-    ):
-        """
-        If the aws_api_gateway_id is set and the useragent is NOT the useragent we expect to receive from the API Gateway
-        I.E AmazonAPIGateway_ then a API Gateway ID, then the method should return True
-        """
-        allowed_api_id = "ABC123AB"
-
-        post_data = {"action": "default", "key": "value"}
-        request = self.factory.post(
-            "",
-            data=json.dumps(post_data),
-            content_type="application/json",
-            HTTP_USER_AGENT="AmazonAPIGateway_ANOTHER_ID",
+        self.assertTrue(
+            view._expected_useragent(self._ua_request("AmazonAPIGateway_ABC123AB"))
         )
 
-        obj = views.WebSocketView()
-        obj.aws_api_gateway_id = allowed_api_id
+    def test__expected_useragent_connect_rejects_a_real_clients_useragent(self):
+        view = self._ua_view("connect")
 
-        self.assertTrue(obj._expected_useragent(request=request))
+        for user_agent in ("Mozilla/5.0", "curl/8.0", "", None):
+            with self.subTest(user_agent=user_agent):
+                self.assertFalse(view._expected_useragent(self._ua_request(user_agent)))
 
-    def test__expected_useragent_returns_false_when_useragent_is_not_the_exepcted_api_gateways_useragent(
-        self,
-    ):
-        """
-        If the aws_api_gateway_id is set and the user agent is the useragent we expect to receive from the API Gateway
-        I.E where the useragent is AmazonAPIGateway_ then a API Gateway ID, then the method should return False
-        """
-        allowed_api_id = "ABC123AB"
+    def test__expected_useragent_connect_rejects_another_gateways_useragent(self):
+        view = self._ua_view("connect")
 
-        post_data = {"action": "default", "key": "value"}
-        request = self.factory.post(
-            "",
-            data=json.dumps(post_data),
-            content_type="application/json",
-            HTTP_USER_AGENT=f"AmazonAPIGateway_{allowed_api_id}",
+        self.assertFalse(
+            view._expected_useragent(self._ua_request("AmazonAPIGateway_OTHERID"))
         )
 
-        obj = views.WebSocketView()
-        obj.aws_api_gateway_id = allowed_api_id
+    def test__expected_useragent_connect_requires_an_exact_match(self):
+        view = self._ua_view("connect")
 
-        self.assertFalse(obj._expected_useragent(request=request))
+        for user_agent in (
+            "AmazonAPIGateway_ABC123AB-extra",
+            "AmazonAPIGateway_ABC123A",
+            "xAmazonAPIGateway_ABC123AB",
+            "amazonapigateway_abc123ab",
+            "Mozilla/5.0 AmazonAPIGateway_ABC123AB",
+        ):
+            with self.subTest(user_agent=user_agent):
+                self.assertFalse(view._expected_useragent(self._ua_request(user_agent)))
 
-    def test__expected_useragent_with_no_allowed_api_id_but_an_apigateway_made_the_call__should_return_true(
-        self,
-    ):
-        """
-        If the aws_api_gateway_id is set and the user agent is the useragent we expect to receive from the API Gateway
-        I.E where the useragent is AmazonAPIGateway_ then a API Gateway ID, then the method should return False
-        """
-        allowed_api_id = ""
+    def test__expected_useragent_connect_uses_the_pinned_gateway_id(self):
+        view = self._ua_view("connect", pinned_id="PINNED1", registered_id=None)
 
-        post_data = {"action": "default", "key": "value"}
-        request = self.factory.post(
-            "",
-            data=json.dumps(post_data),
-            content_type="application/json",
-            HTTP_USER_AGENT=f"AmazonAPIGateway_SomeOtherId",
+        self.assertTrue(
+            view._expected_useragent(
+                self._ua_request("AmazonAPIGateway_PINNED1", api_id="PINNED1")
+            )
+        )
+        self.assertFalse(
+            view._expected_useragent(
+                self._ua_request("AmazonAPIGateway_ABC123AB", api_id="PINNED1")
+            )
         )
 
-        obj = views.WebSocketView()
-        obj.aws_api_gateway_id = allowed_api_id
-
-        self.assertTrue(obj._expected_useragent(request=request))
-
-    def test__expected_useragent_with_no_allowed_api_id_and_an_apigateway_didnt_make_the_call__should_return_false(
+    def test__expected_useragent_connect_without_a_registered_gateway_uses_the_header_id(
         self,
     ):
-        """
-        If the aws_api_gateway_id is not set and the user agent is a normal user then False should be returned
-        """
-        allowed_api_id = ""
+        view = self._ua_view("connect", registered_id=None)
 
-        post_data = {"action": "default", "key": "value"}
-        request = self.factory.post(
-            "",
-            data=json.dumps(post_data),
-            content_type="application/json",
-            HTTP_USER_AGENT=f"Mozzila/5.0",
+        self.assertTrue(
+            view._expected_useragent(self._ua_request("AmazonAPIGateway_ABC123AB"))
+        )
+        self.assertFalse(view._expected_useragent(self._ua_request("Mozilla/5.0")))
+
+    def test__expected_useragent_connect_honours_a_custom_prefix(self):
+        view = self._ua_view("connect")
+        view.expected_useragent_prefix = "MyGateway/"
+
+        self.assertTrue(
+            view._expected_useragent(self._ua_request("MyGateway/ABC123AB"))
+        )
+        self.assertFalse(
+            view._expected_useragent(self._ua_request("AmazonAPIGateway_ABC123AB"))
         )
 
-        obj = views.WebSocketView()
-        obj.aws_api_gateway_id = allowed_api_id
+    def test__expected_useragent_connect_with_no_gateway_id_at_all_is_rejected(self):
+        view = self._ua_view("connect", registered_id=None)
+        request = self.factory.post(
+            "",
+            data=json.dumps({}),
+            content_type="application/json",
+            HTTP_USER_AGENT="AmazonAPIGateway_ABC123AB",
+        )
 
-        self.assertFalse(obj._expected_useragent(request=request))
+        self.assertFalse(view._expected_useragent(request))
+
+    def test__expected_useragent_accepts_a_real_useragent_on_message_and_disconnect(
+        self,
+    ):
+        """The client's own User-Agent is forwarded on these routes, whatever it is."""
+        for route in ("disconnect", "chat", "default"):
+            for pinned_id in (None, "ABC123AB"):
+                for user_agent in ("Mozilla/5.0", "curl/8.0", "okhttp/4.9", ""):
+                    with self.subTest(
+                        route=route, pinned_id=pinned_id, user_agent=user_agent
+                    ):
+                        view = self._ua_view(route, pinned_id=pinned_id)
+
+                        self.assertTrue(
+                            view._expected_useragent(self._ua_request(user_agent))
+                        )
+
+    def test__expected_useragent_does_not_fail_when_a_client_sends_no_useragent(self):
+        for route in ("disconnect", "chat"):
+            with self.subTest(route=route):
+                view = self._ua_view(route)
+
+                self.assertTrue(view._expected_useragent(self._ua_request(None)))
+
+    def test__expected_useragent_reads_the_route_from_the_arguments_too(self):
+        view = views.WebSocketView()
+        view.api_gateway = MagicMock(api_id="ABC123AB")
+
+        self.assertFalse(
+            view._expected_useragent(self._ua_request("Mozilla/5.0"), route="connect")
+        )
+        self.assertTrue(
+            view._expected_useragent(self._ua_request("Mozilla/5.0"), route="chat")
+        )
 
     @override_settings(ALLOWED_HOSTS=["www.example.com"])
     def test__check_allowed_hosts__when_host_is_allowed__return_true(self):
@@ -858,7 +915,7 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
 
         MockWebSocketSession.objects.select_for_update.assert_called_with()
         MockWebSocketSession.objects.select_for_update.return_value.get.assert_called_with(
-            connection_id=con_id
+            connection_id=con_id, connected=True, api_gateway=None
         )
 
         self.assertFalse(hasattr(request, "user"))
@@ -902,7 +959,9 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
 
                 MockWebSocketSession.objects.select_for_update.assert_called_with()
                 MockWebSocketSession.objects.select_for_update.return_value.get.assert_called_with(
-                    connection_id=request.headers["Connectionid"]
+                    connection_id=request.headers["Connectionid"],
+                    connected=True,
+                    api_gateway=None,
                 )
 
                 if config["user"]:
@@ -964,11 +1023,16 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
             HTTP_Connectionid="1234",
         )
         obj = views.WebSocketView()
-        obj._load_session(request)
+        obj.api_gateway = None
 
-        MockWebSocketSession.objects.get.assert_called_with(connection_id="1234")
+        self.assertTrue(obj._load_session(request))
+
+        MockWebSocketSession.objects.filter.assert_called_with(
+            connection_id="1234", connected=True, api_gateway=None
+        )
         self.assertEqual(
-            obj.websocket_session, MockWebSocketSession.objects.get.return_value
+            obj.websocket_session,
+            MockWebSocketSession.objects.filter.return_value.first.return_value,
         )
 
     def test__additional_connection_checks(self):
@@ -980,9 +1044,8 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
 
     @patch("django_aws_api_gateway_websockets.views.WebSocketSession")
     def test_disconnect(self, MockWebSocketSession):
-        """The disconnect method should load the websocket session, update a property then call the save method"""
-        wss = MagicMock(connected=True)
-        MockWebSocketSession.objects.get.return_value = wss
+        """The disconnect method should update only the connected flag, with one query"""
+        MockWebSocketSession.objects.filter.return_value.update.return_value = 1
 
         request = self.factory.post(
             "",
@@ -992,15 +1055,16 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
         )
         obj = views.WebSocketView()
 
-        self.assertTrue(wss.connected)
+        res = obj.disconnect(request)
 
-        obj.disconnect(request)
-
-        MockWebSocketSession.objects.get.assert_called_with(
+        self.assertIsNone(res)
+        MockWebSocketSession.objects.filter.assert_called_with(
             connection_id=request.headers["Connectionid"]
         )
-        MockWebSocketSession.objects.get.return_value.save.assert_called_with()
-        self.assertFalse(MockWebSocketSession.objects.get.return_value.connected)
+        update = MockWebSocketSession.objects.filter.return_value.update
+        update.assert_called_once()
+        self.assertFalse(update.call_args.kwargs["connected"])
+        self.assertIn("updated_on", update.call_args.kwargs)
 
     def test_default(self):
         """The method handling default actions should raise a NotImplemented error by default"""
@@ -1378,7 +1442,7 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
             HTTP_X_Forwarded_Proto="https",
             HTTP_Content_Length=123,
             HTTP_Connectionid="1234",
-            HTTP_User_Agent="Mozilla/5.0",
+            HTTP_User_Agent="AmazonAPIGateway_APIGateway-1",
             HTTP_X_Amzn_Apigateway_Api_Id="APIGateway-1",
             HTTP_Connection="",
             HTTP_X_Amzn_Trace_Id="123456787654",
@@ -2447,3 +2511,1390 @@ class WebSocketViewConsolidatedFinalCoverageTestCase(TestCase):
         )
         mocked_check_rate_limit.assert_not_called()
         mocked_record_attempt.assert_not_called()
+
+
+class WebSocketViewSessionTrustTestCase(TestCase):
+    """The ``Connectionid`` header is only trusted for a live session on this gateway."""
+
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.user = User.objects.create_user(username="trust-user", password="pw")
+        self.api_gateway = ApiGateway.objects.create(
+            api_name="Trust Gateway",
+            api_description="A test api gateway",
+            target_base_endpoint="http://www.example1.com/",
+            api_id="APIGateway-1",
+        )
+        self.other_gateway = ApiGateway.objects.create(
+            api_name="Other Trust Gateway",
+            api_description="A second api gateway",
+            target_base_endpoint="http://www.example2.com/",
+            api_id="APIGateway-2",
+        )
+
+    def _request(self, connection_id="CONNECTION-123", body=None, query=None):
+        request = self.factory.post(
+            "/",
+            data=json.dumps(body if body is not None else {}),
+            content_type="application/json",
+            QUERY_STRING=query or "",
+            HTTP_HOST="www.example.com",
+            HTTP_X_FORWARDED_FOR="123.123.123.123",
+            HTTP_X_FORWARDED_PROTO="https",
+            HTTP_CONTENT_LENGTH="123",
+            HTTP_CONNECTIONID=connection_id,
+            HTTP_USER_AGENT="AmazonAPIGateway_APIGateway-1",
+            HTTP_X_AMZN_APIGATEWAY_API_ID="APIGateway-1",
+            HTTP_X_AMZN_TRACE_ID="123456787654",
+            HTTP_X_FORWARDED_PORT="443",
+            HTTP_X_REAL_IP="172.0.0.1",
+            HTTP_COOKIE="some-cookie",
+            HTTP_ORIGIN="https://www.example.com",
+            HTTP_SEC_WEBSOCKET_EXTENSIONS="some-value",
+            HTTP_SEC_WEBSOCKET_KEY="some-key",
+            HTTP_SEC_WEBSOCKET_VERSION="1.2.3",
+        )
+        request.user = AnonymousUser()
+        request.session = MagicMock(session_key="session-key")
+        return request
+
+    def _session(self, connected=True, api_gateway=None, **kwargs):
+        return WebSocketSession.objects.create(
+            connection_id=kwargs.pop("connection_id", "CONNECTION-123"),
+            channel_name="test-channel",
+            connected=connected,
+            api_gateway=api_gateway or self.api_gateway,
+            **kwargs,
+        )
+
+    def _view(self, api_gateway=None, **kwargs):
+        view = views.WebSocketView(**kwargs)
+        view.api_gateway = api_gateway or self.api_gateway
+        return view
+
+    # connect: the ID must be well formed before a session is stored
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    def test_connect_rejects_malformed_connection_id(self):
+        for connection_id in ("bad id<script>", "a" * 129, "has/slash"):
+            with self.subTest(connection_id=connection_id):
+                view = self._view()
+                view.USE_WS_TOKEN = False
+                view.RATE_LIMIT_ENABLED = False
+
+                response = view.connect(
+                    self._request(connection_id=connection_id), route="connect"
+                )
+
+                self.assertEqual(400, response.status_code)
+                self.assertFalse(WebSocketSession.objects.exists())
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    def test_connect_accepts_well_formed_connection_id(self):
+        view = self._view()
+        view.USE_WS_TOKEN = False
+        view.RATE_LIMIT_ENABLED = False
+
+        response = view.connect(
+            self._request(connection_id="abcABC123_=-"), route="connect"
+        )
+
+        self.assertEqual(200, response.status_code)
+        self.assertTrue(
+            WebSocketSession.objects.filter(connection_id="abcABC123_=-").exists()
+        )
+
+    # _load_session
+
+    def test_load_session_finds_connected_session_on_this_gateway(self):
+        session = self._session()
+
+        view = self._view()
+
+        self.assertTrue(view._load_session(self._request()))
+        self.assertEqual(session, view.websocket_session)
+
+    def test_load_session_ignores_a_disconnected_session(self):
+        self._session(connected=False)
+
+        view = self._view()
+
+        self.assertFalse(view._load_session(self._request()))
+        self.assertIsNone(view.websocket_session)
+
+    def test_load_session_ignores_a_session_from_another_gateway(self):
+        self._session(api_gateway=self.other_gateway)
+
+        view = self._view()
+
+        self.assertFalse(view._load_session(self._request()))
+
+    def test_load_session_returns_false_for_an_unknown_connection_id(self):
+        self.assertFalse(self._view()._load_session(self._request()))
+
+    # _add_user_to_request
+
+    def test_add_user_to_request_sets_user_for_connected_session(self):
+        start = self._session(user=self.user).request_count
+        request = self._request()
+
+        self._view()._add_user_to_request(request)
+
+        self.assertEqual(self.user, request.user)
+        self.assertEqual(start + 1, WebSocketSession.objects.get().request_count)
+
+    def test_add_user_to_request_ignores_a_disconnected_session(self):
+        """A closed session must not act as a credential for its user."""
+        start = self._session(connected=False, user=self.user).request_count
+        request = self._request()
+
+        self._view()._add_user_to_request(request)
+
+        self.assertTrue(request.user.is_anonymous)
+        self.assertEqual(start, WebSocketSession.objects.get().request_count)
+
+    def test_add_user_to_request_ignores_a_session_from_another_gateway(self):
+        start = self._session(
+            api_gateway=self.other_gateway, user=self.user
+        ).request_count
+        request = self._request()
+
+        self._view()._add_user_to_request(request)
+
+        self.assertTrue(request.user.is_anonymous)
+        self.assertEqual(start, WebSocketSession.objects.get().request_count)
+
+    # dispatch
+
+    def test_dispatch_rejects_a_message_for_a_disconnected_session(self):
+        self._session(connected=False, user=self.user)
+        called = []
+
+        class ChatView(views.WebSocketView):
+            ALLOWED_HANDLERS = {"chat"}
+
+            def chat(self, request, *args, **kwargs):
+                called.append(request.user)
+                return JsonResponse({"ok": True})
+
+        request = self._request(body={"action": "chat"})
+        view = ChatView()
+        view.setup(request, route="default")
+
+        response = view.dispatch(request, route="default")
+
+        self.assertEqual(400, response.status_code)
+        self.assertEqual([], called)
+
+    def test_dispatch_runs_handler_for_a_connected_session(self):
+        self._session(user=self.user)
+        called = []
+
+        class ChatView(views.WebSocketView):
+            ALLOWED_HANDLERS = {"chat"}
+
+            def chat(self, request, *args, **kwargs):
+                called.append(request.user)
+                return JsonResponse({"ok": True})
+
+        request = self._request(body={"action": "chat"})
+        view = ChatView()
+        view.setup(request, route="default")
+
+        response = view.dispatch(request, route="default")
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual([self.user], called)
+
+
+class WebSocketViewBodyParsingSimpleTestCase(SimpleTestCase):
+    """A malformed request body is treated as empty rather than raising."""
+
+    def setUp(self):
+        self.factory = RequestFactory()
+
+    def _body_after_setup(self, raw: bytes):
+        request = self.factory.post("/", data=raw, content_type="application/json")
+        view = views.WebSocketView(debug=True)
+        view.setup(request)
+        return view.body
+
+    def test_setup_coerces_non_dict_json_to_empty_dict(self):
+        for raw in (b"[1, 2]", b'"action"', b"5", b"null", b"true"):
+            with self.subTest(raw=raw):
+                self.assertEqual({}, self._body_after_setup(raw))
+
+    def test_setup_keeps_a_json_object(self):
+        self.assertEqual({"a": 1}, self._body_after_setup(b'{"a": 1}'))
+
+    def test_setup_uses_empty_dict_for_invalid_utf8(self):
+        self.assertEqual({}, self._body_after_setup(b'{"a": "\xff\xfe"}'))
+
+    def test_setup_uses_empty_dict_for_excessively_nested_json(self):
+        self.assertEqual({}, self._body_after_setup(b"[" * 50000))
+
+    def test_send_exception_mail_keeps_its_original_default(self):
+        """Backwards compatible: handler exceptions are emailed unless a view opts out."""
+        self.assertTrue(views.WebSocketView.SEND_EXCEPTION_MAIL)
+
+
+class WebSocketViewClientInputTestCase(TestCase):
+    """Bad client input gets a 4xx response, not an exception and an admin email."""
+
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.user = User.objects.create_user(username="input-user", password="pw")
+        self.api_gateway = ApiGateway.objects.create(
+            api_name="Input Gateway",
+            api_description="A test api gateway",
+            target_base_endpoint="http://www.example1.com/",
+            api_id="APIGateway-1",
+        )
+
+    def _request(self, body=None, query=None, raw=None):
+        request = self.factory.post(
+            "/",
+            data=(
+                raw if raw is not None else json.dumps(body if body is not None else {})
+            ),
+            content_type="application/json",
+            QUERY_STRING=query or "",
+            HTTP_HOST="www.example.com",
+            HTTP_X_FORWARDED_FOR="123.123.123.123",
+            HTTP_X_FORWARDED_PROTO="https",
+            HTTP_CONTENT_LENGTH="123",
+            HTTP_CONNECTIONID="CONNECTION-123",
+            HTTP_USER_AGENT="AmazonAPIGateway_APIGateway-1",
+            HTTP_X_AMZN_APIGATEWAY_API_ID="APIGateway-1",
+            HTTP_X_AMZN_TRACE_ID="123456787654",
+            HTTP_X_FORWARDED_PORT="443",
+            HTTP_X_REAL_IP="172.0.0.1",
+            HTTP_COOKIE="some-cookie",
+            HTTP_ORIGIN="https://www.example.com",
+            HTTP_SEC_WEBSOCKET_EXTENSIONS="some-value",
+            HTTP_SEC_WEBSOCKET_KEY="some-key",
+            HTTP_SEC_WEBSOCKET_VERSION="1.2.3",
+        )
+        request.user = self.user
+        request.session = MagicMock(session_key="session-key")
+        return request
+
+    def _session(self, **kwargs):
+        return WebSocketSession.objects.create(
+            connection_id="CONNECTION-123",
+            channel_name=kwargs.pop("channel_name", "test-channel"),
+            connected=kwargs.pop("connected", True),
+            api_gateway=self.api_gateway,
+            user=self.user,
+            **kwargs,
+        )
+
+    # dispatch with a non-object body
+
+    def test_dispatch_with_non_object_body_returns_400(self):
+        self._session()
+        for raw in ("[1, 2]", '"action"', "5"):
+            with self.subTest(raw=raw):
+                request = self._request(raw=raw)
+                view = views.WebSocketView()
+                view.setup(request, route="default")
+
+                response = view.dispatch(request, route="default")
+
+                self.assertEqual(400, response.status_code)
+
+    # disconnect
+
+    def test_disconnect_for_unknown_connection_returns_400(self):
+        request = self._request()
+        view = views.WebSocketView()
+        view.api_gateway = self.api_gateway
+
+        response = view.disconnect(request, route="disconnect")
+
+        self.assertEqual(400, response.status_code)
+
+    def test_disconnect_marks_known_session_disconnected(self):
+        session = self._session()
+        view = views.WebSocketView()
+
+        response = view.disconnect(self._request(), route="disconnect")
+
+        session.refresh_from_db()
+        self.assertIsNone(response)
+        self.assertFalse(session.connected)
+
+    def test_dispatch_disconnect_for_unknown_connection_does_not_raise(self):
+        request = self._request()
+        view = views.WebSocketView()
+        view.setup(request, route="disconnect")
+
+        response = view.dispatch(request, route="disconnect")
+
+        self.assertEqual(400, response.status_code)
+
+    # connect: the channel is validated before the one-time token is spent
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    @patch("django_aws_api_gateway_websockets.views.WebSocketToken")
+    def test_connect_with_invalid_channel_returns_400_without_consuming_token(
+        self, MockWebSocketToken
+    ):
+        for channel in ("bad channel", "a" * 192, "semi;colon"):
+            with self.subTest(channel=channel):
+                request = self._request(query=f"ws_token=abc&channel={channel}")
+                view = views.WebSocketView()
+                view.api_gateway = self.api_gateway
+                view.RATE_LIMIT_ENABLED = False
+
+                response = view.connect(request, route="connect")
+
+                self.assertEqual(400, response.status_code)
+                MockWebSocketToken.validate_and_consume.assert_not_called()
+                self.assertFalse(WebSocketSession.objects.exists())
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    @patch("django_aws_api_gateway_websockets.views.ConnectionRateLimit")
+    @patch("django_aws_api_gateway_websockets.views.WebSocketToken")
+    def test_connect_with_invalid_channel_records_failed_attempt(
+        self, MockWebSocketToken, MockConnectionRateLimit
+    ):
+        MockConnectionRateLimit.check_rate_limit.return_value = (True, 0)
+        request = self._request(query="ws_token=abc&channel=bad channel")
+        view = views.WebSocketView()
+        view.api_gateway = self.api_gateway
+
+        response = view.connect(request, route="connect")
+
+        self.assertEqual(400, response.status_code)
+        MockConnectionRateLimit.record_attempt.assert_called_once_with(
+            "123.123.123.123", self.user, successful=False
+        )
+
+    # change_channel
+
+    def test_change_channel_rejects_missing_non_string_and_invalid_channels(self):
+        for body in (
+            {},
+            {"channel": 5},
+            {"channel": ["a"]},
+            {"channel": "bad channel"},
+        ):
+            with self.subTest(body=body):
+                session = self._session(channel_name="old-channel")
+                view = views.WebSocketView()
+                view.websocket_session = session
+                view.body = body
+
+                response = view.change_channel(self._request())
+
+                self.assertEqual(400, response.status_code)
+                session.refresh_from_db()
+                self.assertEqual("old-channel", session.channel_name)
+                session.delete()
+
+    def test_change_channel_length_limit_matches_the_database_column(self):
+        session = self._session(channel_name="old-channel")
+        view = views.WebSocketView()
+        view.websocket_session = session
+
+        view.body = {"channel": "a" * 129}
+        self.assertEqual(400, view.change_channel(self._request()).status_code)
+
+        view.body = {"channel": "a" * 128}
+        self.assertIsNone(view.change_channel(self._request()))
+        session.refresh_from_db()
+        self.assertEqual("a" * 128, session.channel_name)
+
+    def test_change_channel_accepts_a_valid_channel(self):
+        session = self._session(channel_name="old-channel")
+        view = views.WebSocketView()
+        view.websocket_session = session
+        view.body = {"channel": "new-channel_1"}
+
+        response = view.change_channel(self._request())
+
+        self.assertIsNone(response)
+        session.refresh_from_db()
+        self.assertEqual("new-channel_1", session.channel_name)
+
+    # exception mail
+
+    def _raising_view(self, **attrs):
+        class RaisingView(views.WebSocketView):
+            ALLOWED_HANDLERS = {"boom"}
+
+            def boom(self, request, *args, **kwargs):
+                raise RuntimeError("boom")
+
+        for name, value in attrs.items():
+            setattr(RaisingView, name, value)
+        return RaisingView()
+
+    @patch("django_aws_api_gateway_websockets.views.mail_admins")
+    def test_handler_exception_mails_admins_by_default(self, mocked_mail):
+        self._session()
+        request = self._request(body={"action": "boom"})
+        view = self._raising_view()
+        view.setup(request, route="default")
+
+        with (
+            self.assertLogs("django_aws_api_gateway_websockets.views", level="ERROR"),
+            self.assertRaises(RuntimeError),
+        ):
+            view.dispatch(request, route="default")
+
+        mocked_mail.assert_called_once()
+
+    @patch("django_aws_api_gateway_websockets.views.mail_admins")
+    def test_handler_exception_does_not_mail_admins_when_disabled(self, mocked_mail):
+        self._session()
+        request = self._request(body={"action": "boom"})
+        view = self._raising_view(SEND_EXCEPTION_MAIL=False)
+        view.setup(request, route="default")
+
+        with (
+            self.assertLogs("django_aws_api_gateway_websockets.views", level="ERROR"),
+            self.assertRaises(RuntimeError),
+        ):
+            view.dispatch(request, route="default")
+
+        mocked_mail.assert_not_called()
+
+    @patch("django_aws_api_gateway_websockets.views.mail_admins")
+    def test_bad_client_input_does_not_mail_admins_even_by_default(self, mocked_mail):
+        """The input handling fixes mean client mistakes no longer raise at all."""
+        self._session()
+        view = views.WebSocketView()
+        request = self._request(raw="[1, 2]")
+        view.setup(request, route="default")
+
+        response = view.dispatch(request, route="default")
+
+        self.assertEqual(400, response.status_code)
+        mocked_mail.assert_not_called()
+
+
+class WebSocketViewChannelAuthorisationTestCase(TestCase):
+    """``can_join_channel`` and the permission attributes are enforced on connect."""
+
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.user = User.objects.create_user(username="chan-user", password="pw")
+        self.api_gateway = ApiGateway.objects.create(
+            api_name="Channel Gateway",
+            api_description="A test api gateway",
+            target_base_endpoint="http://www.example1.com/",
+            api_id="APIGateway-1",
+        )
+
+    def _request(self, query="channel=room-1", user=None):
+        request = self.factory.post(
+            "/",
+            data=json.dumps({}),
+            content_type="application/json",
+            QUERY_STRING=query,
+            HTTP_HOST="www.example.com",
+            HTTP_X_FORWARDED_FOR="123.123.123.123",
+            HTTP_X_FORWARDED_PROTO="https",
+            HTTP_CONTENT_LENGTH="123",
+            HTTP_CONNECTIONID="CONNECTION-123",
+            HTTP_USER_AGENT="AmazonAPIGateway_APIGateway-1",
+            HTTP_X_AMZN_APIGATEWAY_API_ID="APIGateway-1",
+            HTTP_X_AMZN_TRACE_ID="123456787654",
+            HTTP_X_FORWARDED_PORT="443",
+            HTTP_X_REAL_IP="172.0.0.1",
+            HTTP_COOKIE="some-cookie",
+            HTTP_ORIGIN="https://www.example.com",
+            HTTP_SEC_WEBSOCKET_EXTENSIONS="some-value",
+            HTTP_SEC_WEBSOCKET_KEY="some-key",
+            HTTP_SEC_WEBSOCKET_VERSION="1.2.3",
+        )
+        request.user = user or self.user
+        request.session = MagicMock(session_key="session-key")
+        return request
+
+    def _view(self, view_class=views.WebSocketView):
+        view = view_class()
+        view.api_gateway = self.api_gateway
+        view.USE_WS_TOKEN = False
+        view.RATE_LIMIT_ENABLED = False
+        return view
+
+    def _session(self, channel_name="old-channel"):
+        return WebSocketSession.objects.create(
+            connection_id="CONNECTION-123",
+            channel_name=channel_name,
+            api_gateway=self.api_gateway,
+            user=self.user,
+        )
+
+    def _recording_view_class(self, allow):
+        calls = []
+
+        class RecordingView(views.WebSocketView):
+            def can_join_channel(self, request, channel_name):
+                calls.append((request.user, channel_name))
+                return allow
+
+        RecordingView.calls = calls
+        return RecordingView
+
+    # the default hook
+
+    def test_default_can_join_channel_allows_any_channel(self):
+        view = views.WebSocketView()
+
+        for channel in ("", "room-1", "tenant_456"):
+            with self.subTest(channel=channel):
+                self.assertTrue(view.can_join_channel(self._request(), channel))
+
+    # connect
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    def test_connect_is_refused_when_can_join_channel_returns_false(self):
+        view_class = self._recording_view_class(allow=False)
+        view = self._view(view_class)
+
+        response = view.connect(self._request(), route="connect")
+
+        self.assertEqual(403, response.status_code)
+        self.assertFalse(WebSocketSession.objects.exists())
+        self.assertEqual([(self.user, "room-1")], view_class.calls)
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    def test_connect_creates_the_session_when_can_join_channel_returns_true(self):
+        view_class = self._recording_view_class(allow=True)
+
+        response = self._view(view_class).connect(self._request(), route="connect")
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual(
+            "room-1",
+            WebSocketSession.objects.get(connection_id="CONNECTION-123").channel_name,
+        )
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    def test_connect_passes_the_gateway_default_channel_to_the_hook(self):
+        self.api_gateway.default_channel_name = "lobby"
+        self.api_gateway.save()
+        view_class = self._recording_view_class(allow=True)
+
+        self._view(view_class).connect(self._request(query=""), route="connect")
+
+        self.assertEqual([(self.user, "lobby")], view_class.calls)
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    def test_connect_is_not_checked_by_the_hook_for_an_invalid_channel(self):
+        view_class = self._recording_view_class(allow=True)
+
+        response = self._view(view_class).connect(
+            self._request(query="channel=bad channel"), route="connect"
+        )
+
+        self.assertEqual(400, response.status_code)
+        self.assertEqual([], view_class.calls)
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    @patch("django_aws_api_gateway_websockets.views.ConnectionRateLimit")
+    def test_refused_connect_records_a_failed_attempt(self, MockConnectionRateLimit):
+        MockConnectionRateLimit.check_rate_limit.return_value = (True, 0)
+        view = self._view(self._recording_view_class(allow=False))
+        view.RATE_LIMIT_ENABLED = True
+
+        view.connect(self._request(), route="connect")
+
+        MockConnectionRateLimit.record_attempt.assert_called_once_with(
+            "123.123.123.123", self.user, successful=False
+        )
+
+    # permissions on connect
+
+    def _grant(self, codename):
+        self.user.user_permissions.add(Permission.objects.get(codename=codename))
+        return User.objects.get(pk=self.user.pk)  # drop the cached permissions
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    def test_connect_enforces_permissions_required_when_opted_in(self):
+        class GuardedView(views.WebSocketView):
+            CHECK_PERMISSIONS_ON_CONNECT = True
+            permissions_required = ["auth.view_user"]
+
+        denied = self._view(GuardedView).connect(self._request(), route="connect")
+        self.assertEqual(403, denied.status_code)
+        self.assertFalse(WebSocketSession.objects.exists())
+
+        allowed = self._view(GuardedView).connect(
+            self._request(user=self._grant("view_user")), route="connect"
+        )
+        self.assertEqual(200, allowed.status_code)
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    def test_connect_enforces_all_permissions_required_when_opted_in(self):
+        class GuardedView(views.WebSocketView):
+            CHECK_PERMISSIONS_ON_CONNECT = True
+            all_permissions_required = ["auth.view_user", "auth.view_group"]
+
+        user = self._grant("view_user")  # only one of the two
+        denied = self._view(GuardedView).connect(
+            self._request(user=user), route="connect"
+        )
+        self.assertEqual(403, denied.status_code)
+
+        user = self._grant("view_group")
+        allowed = self._view(GuardedView).connect(
+            self._request(user=user), route="connect"
+        )
+        self.assertEqual(200, allowed.status_code)
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    def test_connect_denies_an_anonymous_user_when_permissions_are_required(self):
+        class GuardedView(views.WebSocketView):
+            CHECK_PERMISSIONS_ON_CONNECT = True
+            permissions_required = ["auth.view_user"]
+
+        response = self._view(GuardedView).connect(
+            self._request(user=AnonymousUser()), route="connect"
+        )
+
+        self.assertEqual(403, response.status_code)
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    def test_connect_does_not_check_view_permissions_by_default(self):
+        """Backwards compatible: permissions_required has only ever applied to messages."""
+
+        class GuardedView(views.WebSocketView):
+            permissions_required = ["auth.view_user"]
+            all_permissions_required = ["auth.view_group"]
+
+        self.assertFalse(GuardedView.CHECK_PERMISSIONS_ON_CONNECT)
+
+        response = self._view(GuardedView).connect(self._request(), route="connect")
+
+        self.assertEqual(200, response.status_code)
+
+    # change_channel
+
+    def test_change_channel_is_refused_when_can_join_channel_returns_false(self):
+        view_class = self._recording_view_class(allow=False)
+        session = self._session()
+        view = self._view(view_class)
+        view.websocket_session = session
+        view.body = {"channel": "tenant_456"}
+
+        response = view.change_channel(self._request())
+
+        self.assertEqual(403, response.status_code)
+        session.refresh_from_db()
+        self.assertEqual("old-channel", session.channel_name)
+        self.assertEqual([(self.user, "tenant_456")], view_class.calls)
+
+    def test_change_channel_moves_the_session_when_can_join_channel_returns_true(self):
+        session = self._session()
+        view = self._view(self._recording_view_class(allow=True))
+        view.websocket_session = session
+        view.body = {"channel": "tenant_456"}
+
+        response = view.change_channel(self._request())
+
+        self.assertIsNone(response)
+        session.refresh_from_db()
+        self.assertEqual("tenant_456", session.channel_name)
+
+    def test_change_channel_does_not_call_the_hook_for_an_invalid_channel(self):
+        view_class = self._recording_view_class(allow=True)
+        view = self._view(view_class)
+        view.websocket_session = self._session()
+        view.body = {"channel": "bad channel"}
+
+        response = view.change_channel(self._request())
+
+        self.assertEqual(400, response.status_code)
+        self.assertEqual([], view_class.calls)
+
+
+class WebSocketViewChannelPermissionTestCase(TestCase):
+    """The default ``can_join_channel`` enforces ``ChannelPermission`` rows."""
+
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.user = User.objects.create_user(username="cp-user", password="pw")
+        self.staff = User.objects.create_user(
+            username="cp-staff", password="pw", is_staff=True
+        )
+        self.superuser = User.objects.create_superuser(
+            username="cp-root", password="pw"
+        )
+        self.api_gateway = ApiGateway.objects.create(
+            api_name="CP Gateway",
+            api_description="A test api gateway",
+            target_base_endpoint="http://www.example1.com/",
+            api_id="APIGateway-1",
+        )
+
+    def _request(self, query="channel=room-1", user=None):
+        request = self.factory.post(
+            "/",
+            data=json.dumps({}),
+            content_type="application/json",
+            QUERY_STRING=query,
+            HTTP_HOST="www.example.com",
+            HTTP_X_FORWARDED_FOR="123.123.123.123",
+            HTTP_X_FORWARDED_PROTO="https",
+            HTTP_CONTENT_LENGTH="123",
+            HTTP_CONNECTIONID="CONNECTION-123",
+            HTTP_USER_AGENT="AmazonAPIGateway_APIGateway-1",
+            HTTP_X_AMZN_APIGATEWAY_API_ID="APIGateway-1",
+            HTTP_X_AMZN_TRACE_ID="123456787654",
+            HTTP_X_FORWARDED_PORT="443",
+            HTTP_X_REAL_IP="172.0.0.1",
+            HTTP_COOKIE="some-cookie",
+            HTTP_ORIGIN="https://www.example.com",
+            HTTP_SEC_WEBSOCKET_EXTENSIONS="some-value",
+            HTTP_SEC_WEBSOCKET_KEY="some-key",
+            HTTP_SEC_WEBSOCKET_VERSION="1.2.3",
+        )
+        request.user = user or self.user
+        request.session = MagicMock(session_key="session-key")
+        return request
+
+    def _view(self, view_class=views.WebSocketView):
+        view = view_class()
+        view.api_gateway = self.api_gateway
+        view.USE_WS_TOKEN = False
+        view.RATE_LIMIT_ENABLED = False
+        return view
+
+    def _channel(self, name, access):
+        return ChannelPermission.objects.create(channel_name=name, access=access)
+
+    def _connect(self, view, channel, user):
+        return view.connect(
+            self._request(query=f"channel={channel}", user=user), route="connect"
+        )
+
+    # unlisted channels
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    def test_a_channel_with_no_row_is_open_by_default(self):
+        self.assertTrue(views.WebSocketView.ALLOW_UNLISTED_CHANNELS)
+
+        response = self._connect(self._view(), "anything", AnonymousUser())
+
+        self.assertEqual(200, response.status_code)
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    def test_unlisted_channels_can_be_refused(self):
+        class ClosedView(views.WebSocketView):
+            ALLOW_UNLISTED_CHANNELS = False
+
+        self._channel("listed", ChannelPermission.Access.ALLOW_ALL)
+
+        refused = self._connect(self._view(ClosedView), "unlisted", self.user)
+        allowed = self._connect(self._view(ClosedView), "listed", self.user)
+
+        self.assertEqual(403, refused.status_code)
+        self.assertEqual(200, allowed.status_code)
+
+    # listed channels
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    def test_allow_all_channel_admits_anonymous_users(self):
+        self._channel("lobby", ChannelPermission.Access.ALLOW_ALL)
+
+        response = self._connect(self._view(), "lobby", AnonymousUser())
+
+        self.assertEqual(200, response.status_code)
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    def test_superuser_only_channel(self):
+        self._channel("root", ChannelPermission.Access.SUPERUSER_ONLY)
+
+        self.assertEqual(
+            403, self._connect(self._view(), "root", self.user).status_code
+        )
+        self.assertEqual(
+            403, self._connect(self._view(), "root", self.staff).status_code
+        )
+        self.assertFalse(WebSocketSession.objects.exists())
+        self.assertEqual(
+            200, self._connect(self._view(), "root", self.superuser).status_code
+        )
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    def test_staff_only_channel(self):
+        self._channel("staff", ChannelPermission.Access.STAFF_ONLY)
+
+        self.assertEqual(
+            403, self._connect(self._view(), "staff", self.user).status_code
+        )
+        self.assertEqual(
+            403, self._connect(self._view(), "staff", AnonymousUser()).status_code
+        )
+        self.assertEqual(
+            200, self._connect(self._view(), "staff", self.staff).status_code
+        )
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    def test_permissions_channel_uses_the_rules(self):
+        channel = self._channel("reports", ChannelPermission.Access.PERMISSIONS)
+        rule = ChannelPermissionRule.objects.create(channel_permission=channel)
+        rule.permissions.set([Permission.objects.get(codename="view_user")])
+        self.user.user_permissions.add(Permission.objects.get(codename="view_user"))
+        allowed_user = User.objects.get(pk=self.user.pk)
+
+        self.assertEqual(
+            403, self._connect(self._view(), "reports", self.staff).status_code
+        )
+        self.assertEqual(
+            200, self._connect(self._view(), "reports", allowed_user).status_code
+        )
+
+    # change_channel uses the same rules
+
+    def test_change_channel_enforces_the_rows(self):
+        self._channel("root", ChannelPermission.Access.SUPERUSER_ONLY)
+        session = WebSocketSession.objects.create(
+            connection_id="CONNECTION-123",
+            channel_name="room-1",
+            api_gateway=self.api_gateway,
+            user=self.user,
+        )
+        view = self._view()
+        view.websocket_session = session
+        view.body = {"channel": "root"}
+
+        response = view.change_channel(self._request(user=self.user))
+
+        self.assertEqual(403, response.status_code)
+        session.refresh_from_db()
+        self.assertEqual("room-1", session.channel_name)
+
+        self.assertIsNone(view.change_channel(self._request(user=self.superuser)))
+        session.refresh_from_db()
+        self.assertEqual("root", session.channel_name)
+
+    # extension points
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    def test_get_channel_permission_can_be_overridden(self):
+        class TenantView(views.WebSocketView):
+            def get_channel_permission(self, channel_name):
+                if channel_name.startswith("tenant_"):
+                    return ChannelPermission(
+                        channel_name=channel_name,
+                        access=ChannelPermission.Access.STAFF_ONLY,
+                    )
+                return None
+
+        self.assertEqual(
+            403,
+            self._connect(self._view(TenantView), "tenant_1", self.user).status_code,
+        )
+        self.assertEqual(
+            200, self._connect(self._view(TenantView), "room-1", self.user).status_code
+        )
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    def test_can_join_channel_override_can_add_to_the_model_checks(self):
+        class OwnChannelView(views.WebSocketView):
+            def can_join_channel(self, request, channel_name):
+                if channel_name.startswith("user_"):
+                    return channel_name == f"user_{request.user.pk}"
+                return super().can_join_channel(request, channel_name)
+
+        self._channel("root", ChannelPermission.Access.SUPERUSER_ONLY)
+        own = f"user_{self.user.pk}"
+
+        def status(channel, user):
+            WebSocketSession.objects.all().delete()
+            return self._connect(self._view(OwnChannelView), channel, user).status_code
+
+        self.assertEqual(200, status(own, self.user))
+        self.assertEqual(403, status(f"user_{self.staff.pk}", self.user))
+        self.assertEqual(403, status("root", self.user))  # super() still enforces rows
+        self.assertEqual(200, status("room-1", self.user))
+
+    def test_checking_an_unlisted_channel_takes_one_query(self):
+        view = self._view()
+
+        with self.assertNumQueries(1):
+            view.can_join_channel(self._request(), "room-1")
+
+
+GATEWAY_SECRET = "s3cr3t-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+OLD_GATEWAY_SECRET = "0ld-" + "y" * 40
+
+
+class WebSocketViewGatewaySecretTestCase(TestCase):
+    """With ``WEBSOCKETS["gateway_secret"]`` set, only API Gateway can reach the view."""
+
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.user = User.objects.create_user(username="secret-user", password="pw")
+        self.api_gateway = ApiGateway.objects.create(
+            api_name="Secret Gateway",
+            api_description="A test api gateway",
+            target_base_endpoint="http://www.example1.com/",
+            api_id="APIGateway-1",
+        )
+        WebSocketSession.objects.create(
+            connection_id="CONNECTION-123",
+            channel_name="room-1",
+            api_gateway=self.api_gateway,
+            user=self.user,
+        )
+
+    def _request(self, secret=None, body=None):
+        headers = {}
+        if secret is not None:
+            headers["HTTP_" + GATEWAY_SECRET_HEADER.upper().replace("-", "_")] = secret
+        request = self.factory.post(
+            "/",
+            data=json.dumps(body if body is not None else {"action": "chat"}),
+            content_type="application/json",
+            HTTP_HOST="www.example.com",
+            HTTP_X_FORWARDED_FOR="123.123.123.123",
+            HTTP_X_FORWARDED_PROTO="https",
+            HTTP_CONTENT_LENGTH="123",
+            HTTP_CONNECTIONID="CONNECTION-123",
+            HTTP_USER_AGENT="AmazonAPIGateway_APIGateway-1",
+            HTTP_X_AMZN_APIGATEWAY_API_ID="APIGateway-1",
+            HTTP_X_AMZN_TRACE_ID="123456787654",
+            HTTP_X_FORWARDED_PORT="443",
+            HTTP_X_REAL_IP="172.0.0.1",
+            HTTP_COOKIE="some-cookie",
+            HTTP_ORIGIN="https://www.example.com",
+            HTTP_SEC_WEBSOCKET_EXTENSIONS="some-value",
+            HTTP_SEC_WEBSOCKET_KEY="some-key",
+            HTTP_SEC_WEBSOCKET_VERSION="1.2.3",
+            **headers,
+        )
+        request.user = AnonymousUser()
+        request.session = MagicMock(session_key="session-key")
+        return request
+
+    def _dispatch(self, request, route="default"):
+        class ChatView(views.WebSocketView):
+            ALLOWED_HANDLERS = {"chat"}
+
+            def chat(self, request, *args, **kwargs):
+                return JsonResponse({"ok": True})
+
+        view = ChatView()
+        view.setup(request, route=route)
+        return view.dispatch(request, route=route)
+
+    def test_without_a_configured_secret_no_header_is_needed(self):
+        """Backwards compatible: the check is opt-in."""
+        with override_settings(WEBSOCKETS={}):
+            response = self._dispatch(self._request())
+
+        self.assertEqual(200, response.status_code)
+
+    @override_settings(WEBSOCKETS={"gateway_secret": GATEWAY_SECRET})
+    def test_a_request_without_the_secret_is_refused(self):
+        response = self._dispatch(self._request())
+
+        self.assertEqual(403, response.status_code)
+
+    @override_settings(WEBSOCKETS={"gateway_secret": GATEWAY_SECRET})
+    def test_a_request_with_the_wrong_secret_is_refused(self):
+        for wrong in ("wrong", GATEWAY_SECRET[:-1], GATEWAY_SECRET + "x", ""):
+            with self.subTest(secret=wrong):
+                response = self._dispatch(self._request(secret=wrong))
+
+                self.assertEqual(403, response.status_code)
+
+    @override_settings(WEBSOCKETS={"gateway_secret": GATEWAY_SECRET})
+    def test_a_request_with_the_right_secret_is_handled(self):
+        response = self._dispatch(self._request(secret=GATEWAY_SECRET))
+
+        self.assertEqual(200, response.status_code)
+
+    @override_settings(
+        WEBSOCKETS={"gateway_secret": [GATEWAY_SECRET, OLD_GATEWAY_SECRET]}
+    )
+    def test_every_configured_secret_is_accepted_to_allow_rotation(self):
+        for secret in (GATEWAY_SECRET, OLD_GATEWAY_SECRET):
+            with self.subTest(secret=secret):
+                response = self._dispatch(self._request(secret=secret))
+
+                self.assertEqual(200, response.status_code)
+
+    @override_settings(WEBSOCKETS={"gateway_secret": GATEWAY_SECRET})
+    def test_connect_and_disconnect_routes_are_checked_too(self):
+        for route in ("connect", "disconnect"):
+            with self.subTest(route=route):
+                response = self._dispatch(self._request(), route=route)
+
+                self.assertEqual(403, response.status_code)
+        self.assertTrue(WebSocketSession.objects.get().connected)
+        self.assertEqual(1, WebSocketSession.objects.count())
+
+    @override_settings(WEBSOCKETS={"gateway_secret": GATEWAY_SECRET})
+    def test_a_forged_request_is_refused_before_any_database_work(self):
+        with self.assertNumQueries(0):
+            response = self._dispatch(self._request())
+
+        self.assertEqual(403, response.status_code)
+
+    @override_settings(WEBSOCKETS={"gateway_secret": GATEWAY_SECRET})
+    def test_refusal_does_not_reveal_the_secret(self):
+        with self.assertLogs(
+            "django_aws_api_gateway_websockets.views", level="WARNING"
+        ) as logs:
+            response = self._dispatch(self._request(secret="guess"))
+
+        self.assertNotIn(GATEWAY_SECRET, response.content.decode())
+        self.assertNotIn(GATEWAY_SECRET, "".join(logs.output))
+        self.assertNotIn("guess", "".join(logs.output))
+
+    @override_settings(WEBSOCKETS={"gateway_secret": GATEWAY_SECRET})
+    @patch("django_aws_api_gateway_websockets.views.mail_admins")
+    def test_a_refused_request_does_not_email_admins(self, mocked_mail):
+        self._dispatch(self._request())
+
+        mocked_mail.assert_not_called()
+
+
+class WebSocketViewUserAgentDispatchTestCase(TestCase):
+    """The User-Agent rules as ``dispatch`` applies them to each route."""
+
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.user = User.objects.create_user(username="ua-user", password="pw")
+        self.api_gateway = ApiGateway.objects.create(
+            api_name="UA Gateway",
+            api_description="A test api gateway",
+            target_base_endpoint="http://www.example1.com/",
+            api_id="APIGateway-1",
+        )
+        WebSocketSession.objects.create(
+            connection_id="CONNECTION-123",
+            channel_name="room-1",
+            api_gateway=self.api_gateway,
+            user=self.user,
+        )
+
+    def _request(self, user_agent, body=None, query=""):
+        request = self.factory.post(
+            "/",
+            data=json.dumps(body if body is not None else {"action": "chat"}),
+            content_type="application/json",
+            QUERY_STRING=query,
+            HTTP_HOST="www.example.com",
+            HTTP_X_FORWARDED_FOR="123.123.123.123",
+            HTTP_X_FORWARDED_PROTO="https",
+            HTTP_CONTENT_LENGTH="123",
+            HTTP_CONNECTIONID="CONNECTION-NEW",
+            HTTP_USER_AGENT=user_agent,
+            HTTP_X_AMZN_APIGATEWAY_API_ID="APIGateway-1",
+            HTTP_X_AMZN_TRACE_ID="123456787654",
+            HTTP_X_FORWARDED_PORT="443",
+            HTTP_X_REAL_IP="172.0.0.1",
+            HTTP_COOKIE="some-cookie",
+            HTTP_ORIGIN="https://www.example.com",
+            HTTP_SEC_WEBSOCKET_EXTENSIONS="some-value",
+            HTTP_SEC_WEBSOCKET_KEY="some-key",
+            HTTP_SEC_WEBSOCKET_VERSION="1.2.3",
+        )
+        request.user = self.user
+        request.session = MagicMock(session_key="session-key")
+        return request
+
+    def _dispatch(self, request, route, view_class=None):
+        class ChatView(views.WebSocketView):
+            ALLOWED_HANDLERS = {"chat"}
+            USE_WS_TOKEN = False
+            RATE_LIMIT_ENABLED = False
+
+            def chat(self, request, *args, **kwargs):
+                return JsonResponse({"ok": True})
+
+        view = (view_class or ChatView)()
+        view.setup(request, route=route)
+        return view.dispatch(request, route=route)
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    def test_connect_with_the_gateway_useragent_creates_the_session(self):
+        request = self._request("AmazonAPIGateway_APIGateway-1")
+
+        response = self._dispatch(request, "connect")
+
+        self.assertEqual(200, response.status_code)
+        self.assertTrue(
+            WebSocketSession.objects.filter(connection_id="CONNECTION-NEW").exists()
+        )
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    def test_connect_with_a_real_useragent_is_refused_and_creates_nothing(self):
+        request = self._request("Mozilla/5.0")
+
+        response = self._dispatch(request, "connect")
+
+        self.assertEqual(400, response.status_code)
+        self.assertFalse(
+            WebSocketSession.objects.filter(connection_id="CONNECTION-NEW").exists()
+        )
+
+    def test_a_message_with_a_real_useragent_is_handled(self):
+        """The case the old code got wrong in the default mode."""
+        request = self._request("Mozilla/5.0")
+        request.META["HTTP_CONNECTIONID"] = "CONNECTION-123"
+
+        response = self._dispatch(request, "default")
+
+        self.assertEqual(200, response.status_code)
+
+    def test_a_message_with_a_real_useragent_is_handled_when_the_view_is_pinned(self):
+        class PinnedView(views.WebSocketView):
+            ALLOWED_HANDLERS = {"chat"}
+            aws_api_gateway_id = "APIGateway-1"
+
+            def chat(self, request, *args, **kwargs):
+                return JsonResponse({"ok": True})
+
+        request = self._request("Mozilla/5.0")
+        request.META["HTTP_CONNECTIONID"] = "CONNECTION-123"
+
+        response = self._dispatch(request, "default", view_class=PinnedView)
+
+        self.assertEqual(200, response.status_code)
+
+    def test_disconnect_with_a_real_useragent_is_handled(self):
+        request = self._request("Mozilla/5.0")
+        request.META["HTTP_CONNECTIONID"] = "CONNECTION-123"
+
+        response = self._dispatch(request, "disconnect")
+
+        self.assertEqual(200, response.status_code)
+        self.assertFalse(
+            WebSocketSession.objects.get(connection_id="CONNECTION-123").connected
+        )
+
+    def test_a_message_without_a_useragent_is_refused_by_the_header_check(self):
+        """User-Agent is a required header, so this is a 400 response and not an error."""
+        request = self._request("x")
+        del request.META["HTTP_USER_AGENT"]
+        request.META["HTTP_CONNECTIONID"] = "CONNECTION-123"
+
+        response = self._dispatch(request, "default")
+
+        self.assertEqual(400, response.status_code)
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    def test_a_connect_without_a_useragent_is_refused_not_an_error(self):
+        request = self._request("x")
+        del request.META["HTTP_USER_AGENT"]
+
+        response = self._dispatch(request, "connect")
+
+        self.assertEqual(400, response.status_code)
+
+
+class WebSocketViewPartialWritesTestCase(TestCase):
+    """Handlers write only the fields they change, so they do not undo other requests."""
+
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.user = User.objects.create_user(username="pw-user", password="pw")
+        self.api_gateway = ApiGateway.objects.create(
+            api_name="PW Gateway",
+            api_description="A test api gateway",
+            target_base_endpoint="http://www.example1.com/",
+            api_id="APIGateway-1",
+        )
+        self.session = WebSocketSession.objects.create(
+            connection_id="CONNECTION-123",
+            channel_name="room-1",
+            api_gateway=self.api_gateway,
+            user=self.user,
+        )
+
+    def _request(self):
+        request = self.factory.post(
+            "/",
+            data=json.dumps({}),
+            content_type="application/json",
+            HTTP_CONNECTIONID="CONNECTION-123",
+        )
+        request.user = self.user
+        return request
+
+    def _concurrent_update(self, **fields):
+        """Another request changes the row after this one loaded its copy."""
+        WebSocketSession.objects.filter(pk=self.session.pk).update(**fields)
+
+    def test_change_channel_does_not_overwrite_a_concurrent_update(self):
+        stale = WebSocketSession.objects.get(pk=self.session.pk)
+        view = views.WebSocketView()
+        view.websocket_session = stale
+        view.body = {"channel": "room-2"}
+        self._concurrent_update(request_count=99, connected=False)
+
+        view.change_channel(self._request())
+
+        row = WebSocketSession.objects.get(pk=self.session.pk)
+        self.assertEqual("room-2", row.channel_name)
+        self.assertEqual(99, row.request_count)
+        self.assertFalse(row.connected)
+
+    def test_change_channel_refreshes_updated_on(self):
+        before = WebSocketSession.objects.get(pk=self.session.pk).updated_on
+        view = views.WebSocketView()
+        view.websocket_session = WebSocketSession.objects.get(pk=self.session.pk)
+        view.body = {"channel": "room-2"}
+
+        view.change_channel(self._request())
+
+        self.assertGreater(
+            WebSocketSession.objects.get(pk=self.session.pk).updated_on, before
+        )
+
+    def test_disconnect_changes_only_the_connected_flag_in_one_query(self):
+        self._concurrent_update(channel_name="room-9", request_count=42)
+        view = views.WebSocketView()
+
+        with self.assertNumQueries(1):
+            response = view.disconnect(self._request())
+
+        row = WebSocketSession.objects.get(pk=self.session.pk)
+        self.assertIsNone(response)
+        self.assertFalse(row.connected)
+        self.assertEqual("room-9", row.channel_name)
+        self.assertEqual(42, row.request_count)
+
+    def test_disconnect_refreshes_updated_on(self):
+        before = WebSocketSession.objects.get(pk=self.session.pk).updated_on
+
+        views.WebSocketView().disconnect(self._request())
+
+        self.assertGreater(
+            WebSocketSession.objects.get(pk=self.session.pk).updated_on, before
+        )
+
+    def test_disconnect_for_an_unknown_connection_is_a_400_and_writes_nothing(self):
+        request = self._request()
+        request.META["HTTP_CONNECTIONID"] = "UNKNOWN"
+
+        with self.assertNumQueries(1):
+            response = views.WebSocketView().disconnect(request)
+
+        self.assertEqual(400, response.status_code)
+
+
+class WebSocketViewConfiguredSettingsTestCase(TestCase):
+    """The ``WEBSOCKETS`` settings are all read the same way, and each one takes effect."""
+
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.user = User.objects.create_user(username="conf-user", password="pw")
+
+    # token expiry
+
+    def _token_post(self):
+        request = self.factory.post("/")
+        request.user = self.user
+        request.session = MagicMock(session_key="session-key")
+        return views.WebSocketTokenView().post(request)
+
+    def test_the_token_endpoint_reports_the_default_expiry(self):
+        with override_settings(WEBSOCKETS={}):
+            self.assertEqual(60, json.loads(self._token_post().content)["expires_in"])
+
+    @override_settings(WEBSOCKETS={"token_expiry_seconds": 15})
+    def test_the_token_endpoint_reports_the_configured_expiry(self):
+        self.assertEqual(15, json.loads(self._token_post().content)["expires_in"])
+
+    def _connect_with_token_aged(self, seconds):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        token = WebSocketToken.generate_token(self.user, "session-key")
+        WebSocketToken.objects.filter(pk=token.pk).update(
+            created_at=timezone.now() - timedelta(seconds=seconds)
+        )
+        request = RequestFactory().post(
+            "/",
+            QUERY_STRING=f"ws_token={token.token}&channel=room-1",
+            HTTP_HOST="www.example.com",
+            HTTP_CONNECTIONID="CONNECTION-123",
+            HTTP_USER_AGENT="AmazonAPIGateway_APIGateway-1",
+            HTTP_X_AMZN_APIGATEWAY_API_ID="APIGateway-1",
+            HTTP_COOKIE="c",
+            HTTP_ORIGIN="https://www.example.com",
+            HTTP_SEC_WEBSOCKET_EXTENSIONS="e",
+            HTTP_SEC_WEBSOCKET_KEY="k",
+            HTTP_SEC_WEBSOCKET_VERSION="1",
+            HTTP_X_FORWARDED_FOR="123.123.123.123",
+        )
+        request.user = AnonymousUser()
+        request.session = MagicMock(session_key="session-key")
+        view = views.WebSocketView()
+        view.api_gateway = None
+        view.RATE_LIMIT_ENABLED = False
+        return view.connect(request, route="connect")
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"], WEBSOCKETS={})
+    def test_a_token_older_than_the_default_expiry_is_refused(self):
+        self.assertEqual(400, self._connect_with_token_aged(90).status_code)
+
+    @override_settings(
+        ALLOWED_HOSTS=["www.example.com"], WEBSOCKETS={"token_expiry_seconds": 120}
+    )
+    def test_a_longer_configured_expiry_is_honoured(self):
+        """Clients were told 120 seconds but tokens were refused after 60."""
+        self.assertEqual(200, self._connect_with_token_aged(90).status_code)
+
+    @override_settings(
+        ALLOWED_HOSTS=["www.example.com"], WEBSOCKETS={"token_expiry_seconds": 10}
+    )
+    def test_a_shorter_configured_expiry_is_enforced(self):
+        """A shorter window was reported to clients but not applied."""
+        self.assertEqual(400, self._connect_with_token_aged(30).status_code)
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"], WEBSOCKETS={})
+    def test_a_fresh_token_is_accepted(self):
+        self.assertEqual(200, self._connect_with_token_aged(1).status_code)
+
+    # the other settings
+
+    @override_settings(WEBSOCKETS={"token_rate_limit_per_minute": 1})
+    def test_the_token_rate_limit_setting_is_applied(self):
+        self.assertEqual(200, self._token_post().status_code)
+        self.assertEqual(403, self._token_post().status_code)
+
+    @override_settings(
+        WEBSOCKETS={"rate_limit_max_attempts": 7, "rate_limit_window_minutes": 3}
+    )
+    def test_the_connection_rate_limit_settings_are_applied_to_a_view(self):
+        view = views.WebSocketView()
+
+        self.assertEqual(7, view.RATE_LIMIT_MAX_ATTEMPTS)
+        self.assertEqual(3, view.RATE_LIMIT_WINDOW_MINUTES)
+
+    @override_settings(WEBSOCKETS=None)
+    def test_a_view_can_be_created_when_the_setting_is_none(self):
+        view = views.WebSocketView()
+
+        self.assertEqual(20, view.RATE_LIMIT_MAX_ATTEMPTS)
+        self.assertEqual(1, view.RATE_LIMIT_WINDOW_MINUTES)
+
+    def test_a_view_can_be_created_when_the_setting_is_missing(self):
+        from django.conf import settings
+
+        with override_settings():
+            del settings.WEBSOCKETS
+
+            view = views.WebSocketView()
+
+        self.assertEqual(20, view.RATE_LIMIT_MAX_ATTEMPTS)
+
+    @override_settings(WEBSOCKETS={"rate_limit_max_attempts": 7})
+    def test_a_class_attribute_still_overrides_the_setting(self):
+        class StrictView(views.WebSocketView):
+            RATE_LIMIT_MAX_ATTEMPTS = 2
+
+        self.assertEqual(2, StrictView().RATE_LIMIT_MAX_ATTEMPTS)

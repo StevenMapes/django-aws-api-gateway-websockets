@@ -353,25 +353,38 @@ because the requested channel is ``admin``.
 
 Always verify that the user is allowed to join or use a sensitive channel.
 
+Every channel is open to every user unless you add a rule for it. Use
+:doc:`channel_permissions` to restrict a channel to superusers, staff, or users
+who hold particular Django permissions, in any combination of AND and OR. For
+rules that do not fit a stored row, override ``can_join_channel`` on your view.
+
+.. versionadded:: 4.1
+
 Example:
 
 .. code-block:: python
 
-   from django.http import JsonResponse
-
    from django_aws_api_gateway_websockets.views import WebSocketView
 
 
-   class AdminNotificationsWebSocketView(WebSocketView):
-       all_permissions_required = [
-           "staff.can_receive_admin_notifications",
-       ]
+   class NotificationsWebSocketView(WebSocketView):
+       def can_join_channel(self, request, channel_name: str) -> bool:
+           if channel_name.startswith("notifications_user_"):
+               user = request.user
+               return (
+                   user.is_authenticated
+                   and channel_name == f"notifications_user_{user.pk}"
+               )
 
-       def default(self, request, *args, **kwargs):
-           return JsonResponse({"ok": True})
+           return super().can_join_channel(request, channel_name)
 
-For more complex channel rules, validate the requested channel during connection
-or in the first subscription message.
+.. warning::
+
+   ``permissions_required`` and ``all_permissions_required`` apply to the
+   messages a connected client sends, not to the connection or the channel it
+   joins. A user without the permission can still connect and join a channel.
+   Set ``CHECK_PERMISSIONS_ON_CONNECT = True`` to apply them to the connect
+   route too, and use ``ChannelPermission`` rows to protect channels.
 
 Recommended patterns
 --------------------

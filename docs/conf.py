@@ -62,6 +62,8 @@ extensions = [
 exclude_patterns = [
     ".venv",
     "_build",
+    # A guide for contributors and tooling (see CLAUDE.md). It is not part of the published docs
+    "WRITING.rst",
 ]
 
 # -- Options for HTML output -------------------------------------------

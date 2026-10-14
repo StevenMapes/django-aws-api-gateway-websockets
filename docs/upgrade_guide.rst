@@ -474,6 +474,46 @@ after setup where possible.
 
 See :doc:`aws_iam_setup`.
 
+Upgrading for the gateway secret
+--------------------------------
+
+Version 4.1 adds an optional gateway secret. The upgrade does not turn it on, and
+nothing changes until you set ``WEBSOCKETS["gateway_secret"]``.
+
+To turn it on for an API Gateway you have already deployed, you must first
+update its integrations in AWS so that API Gateway sends the header:
+
+.. code-block:: console
+
+   python manage.py updateApiGatewayIntegrations
+
+Then deploy the secret to your web processes. If you deploy the secret first, the
+view refuses every WebSocket request.
+
+See :doc:`gateway_secret`.
+
+Upgrading for AWS syncing
+-------------------------
+
+Version 4.1 sends changes to a deployed API Gateway to AWS when you save or delete
+an ``ApiGateway`` or ``ApiGatewayAdditionalRoute`` record. Before you upgrade:
+
+#. Run ``python manage.py migrate``. The new migration adds the ``route_id`` and
+   ``integration_id`` columns to ``ApiGatewayAdditionalRoute``. It does not call
+   AWS, and existing routes are found by their route key until they are synced.
+#. Add ``apigateway:DELETE`` to the IAM policy used by Django. Deleting an
+   additional route now deletes its route and integration in AWS. See
+   :doc:`aws_iam_setup`.
+#. If local records and AWS already differ, run the ``Sync from AWS`` admin action
+   first to take the AWS values, or ``Sync to AWS`` to overwrite AWS with the local
+   values. Otherwise the next save of a record sends its local values to AWS.
+#. To keep the earlier behaviour, where saving and deleting change only the local
+   records, set ``push_changes_to_aws`` to ``False`` in the ``WEBSOCKETS``
+   setting. A new additional route is still created in AWS when it is saved. You
+   can then change AWS yourself with the ``Sync to AWS`` action.
+
+See :ref:`api-gateway-auto-sync`.
+
 Upgrading Django settings
 -------------------------
 

@@ -41,6 +41,13 @@ The usual flow is:
 #. Django handles the message and can send messages back through API Gateway.
 #. When the client disconnects, API Gateway sends a ``$disconnect`` event.
 
+.. note::
+
+   API Gateway can add a secret header to every request it sends, so that Django
+   can tell the request came from your gateway. This is off by default. Set
+   ``WEBSOCKETS["gateway_secret"]`` before you create the gateway to turn it on,
+   or see :doc:`gateway_secret` for an existing gateway.
+
 Create the Django URL route
 ---------------------------
 
@@ -287,7 +294,12 @@ If you use Django Admin, follow these steps:
 #. Click ``Go``.
 
 After the action completes, the API Gateway record should be updated with the
-AWS API ID and endpoint details.
+AWS API ID and endpoint details, and its provisioning status should be
+``Deployed``.
+
+If creation stops part way, the status shows the last step that worked and
+``Last error`` shows the cause. Run the action again to continue from that step.
+See :doc:`admin`.
 
 Create the API Gateway using a management command
 -------------------------------------------------
@@ -302,6 +314,10 @@ record manually, then run:
 Replace ``1`` with the primary key of your API Gateway record.
 
 This performs the same API Gateway creation action as the Django Admin action.
+
+If an earlier run stopped part way, run the same command again. It continues from
+the recorded step. If the gateway is already complete, the command stops with an
+error and changes nothing.
 
 Set up a custom domain
 ----------------------
@@ -468,8 +484,122 @@ They can be managed:
 * through your own deployment process.
 
 If the parent API Gateway has already been deployed, additional routes are
-deployed automatically when created. If the parent API Gateway has not yet been
-deployed, they are created during the main API Gateway deployment.
+deployed automatically when created, changed or deleted. If the parent API
+Gateway has not yet been deployed, they are created during the main API Gateway
+deployment.
+
+Each route is marked as deployed once it exists in AWS, and the deployment ID of
+the API Gateway is saved. Saving the route again, for example to rename it, does
+not create it a second time.
+
+.. versionchanged:: 4.1
+   Routes created while the API Gateway was first created are now marked as
+   deployed. Before, saving one of them afterwards tried to create it again, which
+   failed with a conflict and left an unused integration in AWS. The deployment ID
+   was also set only in memory, and is now saved.
+
+.. versionchanged:: 4.1
+   Changing the ``route_key`` or ``integration_url`` of a deployed route, or
+   deleting it, now changes AWS as well. See :ref:`api-gateway-auto-sync`.
+
+.. _api-gateway-auto-sync:
+
+Keeping AWS in line with your changes
+-------------------------------------
+
+.. versionadded:: 4.1
+
+Once an ``ApiGateway`` is deployed, saving a change to it or to one of its
+``ApiGatewayAdditionalRoute`` records changes the deployed API in AWS, and
+deploys the stage again.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 45 55
+
+   * - Local change
+     - Change in AWS
+   * - Add an additional route
+     - Creates the integration and the route.
+   * - Change ``integration_url`` of an additional route
+     - Updates the route's integration.
+   * - Change ``route_key`` of an additional route
+     - Renames the route.
+   * - Delete an additional route
+     - Deletes the route and its integration.
+   * - Change ``api_name``, ``api_description``,
+       ``api_key_selection_expression`` or ``route_selection_expression``
+     - Updates the API.
+   * - Change ``target_base_endpoint``
+     - Points the ``$connect``, ``$disconnect`` and ``$default`` integrations at
+       the new URL.
+   * - Change ``stage_description``
+     - Deploys the stage with the new description.
+
+Changes to other fields, such as the domain name, certificate or tags, are not
+sent to AWS. Changing ``stage_name`` does not rename the stage.
+
+Each additional route stores its AWS route ID and integration ID, so a route is
+still found after you rename its key. A route saved before version 4.1 has no
+stored IDs, and is found by its route key instead.
+
+If AWS rejects a change, the local change is kept, the error code is saved in
+``last_error`` and ``ApiGatewaySyncError`` is raised. In Django Admin the error
+shows as a message instead. Fix the cause, then run the ``Sync to AWS`` admin
+action. A deletion that fails in AWS is not made locally.
+
+Turning the syncing off
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Syncing on save and delete is on by default. To go back to the behaviour before
+version 4.1, where editing or deleting a record changes only the local record,
+set ``push_changes_to_aws`` to ``False`` in the ``WEBSOCKETS`` setting:
+
+.. code-block:: python
+
+   WEBSOCKETS = {
+       "push_changes_to_aws": False,
+   }
+
+With it off:
+
+* editing a deployed ``ApiGateway`` changes only the local record;
+* editing a deployed ``ApiGatewayAdditionalRoute`` changes only the local record;
+* deleting an ``ApiGatewayAdditionalRoute``, one at a time or with a queryset,
+  deletes only the local record;
+* saving a **new** additional route still creates it in AWS, as it always has, and
+  a failure raises the original AWS error (``botocore.exceptions.ClientError``)
+  and not ``ApiGatewaySyncError``.
+
+The ``Sync to AWS`` and ``Sync from AWS`` actions and the ``sync_to_aws()`` and
+``sync_from_aws()`` methods work whatever the setting says. Use them to change AWS
+when you choose to. See :doc:`settings`.
+
+For a single call, pass ``push_to_aws``. ``False`` saves or deletes without calling
+AWS at all, and ``True`` changes AWS whatever the setting says:
+
+.. code-block:: python
+
+   gateway.save(push_to_aws=False)
+   route.delete(push_to_aws=False)
+   route.save(push_to_aws=True)
+
+You can also run the whole comparison yourself. ``sync_to_aws()`` and
+``sync_from_aws()`` return a list of sentences describing each change:
+
+.. code-block:: python
+
+   changes = gateway.sync_to_aws()
+   changes = gateway.sync_from_aws()
+
+.. warning::
+
+   Deleting an ``ApiGateway`` record does not delete the API in AWS, and does
+   not delete its routes there. Deleting an additional route from a queryset
+   with ``.delete()`` does delete its route in AWS.
+
+   The credentials used by Django need the ``apigateway:DELETE`` permission to
+   delete a route. See :doc:`aws_iam_setup`.
 
 Testing the setup
 -----------------
@@ -489,6 +619,15 @@ After setup, test the full flow:
 
 Troubleshooting
 ---------------
+
+Creating the API Gateway stops part way
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Open the API Gateway record. The ``Provisioning status`` shows the last step that
+worked, and ``Last error`` shows what stopped the next one. Fix the cause, which
+is often a missing IAM permission or an AWS limit, then run the
+``Create API Gateway`` action or the ``createApiGateway`` command again. See
+:doc:`admin`.
 
 Connection fails
 ~~~~~~~~~~~~~~~~

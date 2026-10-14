@@ -14,15 +14,7 @@ Documentation Format
   - ``docs/sessions/``: session handoff notes (the file name format is set in ``CLAUDE.md``).
 
   Sphinx only reads ``.rst`` files, so these folders are never part of the built documentation.
-- ``README.md`` files outside ``docs/`` (for example ``docker/README.md`` and ``infrastructure/README.md``) stay in Markdown, because GitHub shows them next to the code. Keep them short and link to the full ``.rst`` page in ``docs/``.
 - When converting a Markdown page, keep its content, then fix it to the rules below: the heading hierarchy, admonitions instead of block quotes, and ``.. code-block::`` directives.
-- Never put documentation under ``static/``. Everything there is published to S3 and CloudFront.
-- ``docs/dependencies.rst`` is generated. After changing any requirement file, run ``.venv/bin/python docs/tools/generate_dependencies.py`` instead of editing the page.
-
-Public-Facing Documentation
-===========================
-
-Documentation written for attendees or the public, such as ``docs/guides/attendees.rst`` and its PDF, never mentions refunds: how to get one, when they are given, or the refund choices after a cancelled event. Point people to the contact form (``/contact/``) for help instead (Steve, 28 September 2026). Staff guides, process documents and the developer documentation may describe refunds in full.
 
 Core Clarity Rules (after Orwell)
 =================================

@@ -338,12 +338,80 @@ A dictionary that controls the WebSocket token settings as well as the rate limi
 WebSocketView and WebSocketToken classes. All keys shown below are optional, all values shown below are the defaults
 
 .. code-block:: python
+
     WEBSOCKETS = {
         "token_rate_limit_per_minute": 20,  # The number of tokens a user can request per minute
         "token_expiry_seconds": 60,  # The time, in seconds, that the token is valid for
         "rate_limit_max_attempts": 20,  # The number of connection attempts a user can make within the rate limit window
         "rate_limit_window_minutes": 1,  # The rate limit window for the connection attempts
+        "push_changes_to_aws": True,  # Change AWS when a deployed gateway or route is saved or deleted
     }
+
+``token_rate_limit_per_minute``
+   The number of WebSocket tokens one user can request each minute.
+
+``token_expiry_seconds``
+   How long a token can be used for. The token endpoint reports this value to the
+   client as ``expires_in``, and the connect route refuses a token older than it.
+   Keep it short: the browser should connect straight after it gets the token.
+
+``rate_limit_max_attempts``
+   The number of connection attempts one IP address or user can make within the
+   window before the connection is refused.
+
+``rate_limit_window_minutes``
+   The length of that window, in minutes.
+
+.. versionchanged:: 4.1
+   ``token_expiry_seconds`` is now enforced. Before, it changed only the
+   ``expires_in`` value sent to the client, and the connect route always refused a
+   token after 60 seconds. If you set a value other than 60, tokens are now valid
+   for the time you set. Tokens are deleted by ``cleanupWebSocketTokens``, whose
+   default age is now never shorter than this value.
+
+``push_changes_to_aws``
+   ``True`` by default. Whether saving or deleting a deployed ``ApiGateway`` or
+   ``ApiGatewayAdditionalRoute`` also changes it in AWS. Set it to ``False`` to change
+   only the local records, as before version 4.1. A new additional route is still
+   created in AWS when it is saved, and the ``Sync to AWS`` and ``Sync from AWS``
+   actions still work. See :ref:`api-gateway-auto-sync`.
+
+.. versionadded:: 4.1
+   ``push_changes_to_aws``.
+
+Each number must be a whole number of 1 or more. ``push_changes_to_aws`` must be
+``True`` or ``False``. A value that is not is ignored in
+favour of the default, and the system check
+``django_aws_api_gateway_websockets.E002`` reports it. The check
+``django_aws_api_gateway_websockets.W002`` warns about a key it does not
+recognise, which catches a misspelt name. Neither check shows the value. Run
+``python manage.py check`` to see them.
+
+``ConnectionRateLimit.check_rate_limit()`` called directly, without a window,
+uses a window of 5 minutes. ``WebSocketView`` always passes the window above, so
+the 1 minute default applies to the view.
+
+A view can override the two rate limit values with the class attributes
+``RATE_LIMIT_MAX_ATTEMPTS`` and ``RATE_LIMIT_WINDOW_MINUTES``. See
+:doc:`rate_limiting`.
+
+The ``gateway_secret`` key is also read from this dictionary. It is not set by default.
+
+.. code-block:: python
+
+    WEBSOCKETS = {
+        "gateway_secret": os.environ[
+            "WS_GATEWAY_SECRET"
+        ],  # A string, or a list of strings to rotate it
+    }
+
+.. versionadded:: 4.1
+
+``gateway_secret``
+   A secret that API Gateway sends in the ``X-Ws-Gateway-Secret`` header with every request. When it is set, ``WebSocketView``
+   refuses a request without it. It must be at least 32 characters from ``A-Z a-z 0-9 . _ ~ + / = -``. A list is accepted to
+   rotate the secret: API Gateway is sent the first value, and every value is accepted. Setting it needs the integrations of
+   deployed gateways to be updated first. See :doc:`gateway_secret`.
 
 
 WebSocketView settings
@@ -355,8 +423,8 @@ Many runtime options are configured as class attributes on your
 SEND_EXCEPTION_MAIL
 ~~~~~~~~~~~~~~~~~~~
 
-Controls whether the project sends an email via ``mail_admins``  if an exception is raised during the dispatch method
-calling the handler function
+Controls whether the project sends an email via ``mail_admins`` if an exception is raised during the dispatch method
+calling the handler function. The exception is always written to the ``django_aws_api_gateway_websockets.views`` logger.
 
 Default: True
 
@@ -364,6 +432,48 @@ Default: True
 
    SEND_EXCEPTION_MAIL = False
 
+.. note::
+
+   A handler that fails on every request sends an email for every request. Set this to ``False`` and attach Django's
+   ``AdminEmailHandler`` to the logger if you want the notifications rate limited or filtered.
+
+
+ALLOW_UNLISTED_CHANNELS
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Controls whether a client may join a channel that has no ``ChannelPermission``
+row. See :doc:`channel_permissions`.
+
+Default: True
+
+.. code-block:: python
+
+   ALLOW_UNLISTED_CHANNELS = False
+
+.. versionadded:: 4.1
+
+.. important::
+
+   The default is planned to change to ``False`` in a future major version.
+
+CHECK_PERMISSIONS_ON_CONNECT
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Controls whether ``permissions_required`` and ``all_permissions_required`` also
+apply to the connect route. By default they apply only to the messages a
+connected client sends.
+
+Default: False
+
+.. code-block:: python
+
+   CHECK_PERMISSIONS_ON_CONNECT = True
+
+.. versionadded:: 4.1
+
+.. important::
+
+   The default is planned to change to ``True`` in a future major version.
 
 USE_WS_TOKEN
 ~~~~~~~~~~~~
@@ -468,11 +578,19 @@ MAX_CHANNEL_NAME_LENGTH
 
 Maximum channel name length.
 
+Default: 128
+
+This matches the ``max_length`` of ``WebSocketSession.channel_name``. Do not set a larger value: a name that passes
+validation but does not fit the column fails at the database on PostgreSQL and MySQL.
+
+.. versionchanged:: 4.1
+   The default changed from 191 to 128 to match the database column.
+
 Example:
 
 .. code-block:: python
 
-   MAX_CHANNEL_NAME_LENGTH = 191
+   MAX_CHANNEL_NAME_LENGTH = 64
 
 CHANNEL_NAME_PATTERN
 ~~~~~~~~~~~~~~~~~~~~
@@ -611,7 +729,9 @@ aws_api_gateway_id
 
 Optional API Gateway ID restriction.
 
-If set, the view only accepts requests from that specific API Gateway ID.
+If set, the view only accepts requests from that specific API Gateway ID. The
+``$connect`` request must also carry the User-Agent that API Gateway sends for
+that ID. See ``expected_useragent_prefix``.
 
 Example:
 
@@ -651,6 +771,27 @@ expected_useragent_prefix
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Expected API Gateway user-agent prefix.
+
+Default: ``"AmazonAPIGateway_"``
+
+API Gateway calls Django with its own User-Agent, the prefix followed by the API
+ID, for example ``AmazonAPIGateway_abc123``, on the ``$connect`` route. The view
+requires an exact match on that route and answers anything else with a 400
+response.
+
+Messages and ``$disconnect`` carry the client's own User-Agent, so the view does
+not check it on those routes.
+
+.. versionchanged:: 4.1
+   The User-Agent is now checked on ``$connect``, and no longer checked on
+   messages and ``$disconnect``. Before, the checks were the wrong way round, and
+   a view with ``aws_api_gateway_id`` set refused the genuine gateway User-Agent.
+
+.. note::
+
+   This is a sanity check, not authentication, because a client can send any
+   User-Agent. Use the gateway secret to authenticate API Gateway. See
+   :doc:`gateway_secret`.
 
 Most users should not change this.
 

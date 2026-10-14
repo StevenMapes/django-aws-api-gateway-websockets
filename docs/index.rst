@@ -114,8 +114,10 @@ Security and operations
    :caption: Security and operations
 
    security
+   gateway_secret
    websocket_tokens
    permissions
+   channel_permissions
    rate_limiting
    deployment
    local_development

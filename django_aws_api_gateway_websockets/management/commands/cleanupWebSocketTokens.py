@@ -1,5 +1,6 @@
 from django.core.management.base import BaseCommand
 
+from django_aws_api_gateway_websockets.conf import get_setting
 from django_aws_api_gateway_websockets.models import ConnectionRateLimit, WebSocketToken
 
 
@@ -10,8 +11,12 @@ class Command(BaseCommand):
         parser.add_argument(
             "--token-age",
             type=int,
-            default=300,
-            help="Delete tokens older than this many seconds (default: 300 = 5 minutes)",
+            default=None,
+            help=(
+                "Delete tokens older than this many seconds (default: 300, or "
+                'WEBSOCKETS["token_expiry_seconds"] if that is longer, so a token that '
+                "is still valid is never deleted)"
+            ),
         )
         parser.add_argument(
             "--rate-limit-age",
@@ -22,6 +27,8 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         token_age = options["token_age"]
+        if token_age is None:
+            token_age = max(300, get_setting("token_expiry_seconds"))
         rate_limit_age = options["rate_limit_age"]
 
         # Cleanup expired tokens

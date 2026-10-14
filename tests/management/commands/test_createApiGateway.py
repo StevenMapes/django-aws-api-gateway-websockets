@@ -1,7 +1,7 @@
 from io import StringIO
 from unittest.mock import patch
 
-from django.core.management import call_command
+from django.core.management import CommandError, call_command
 from django.test import SimpleTestCase
 
 
@@ -23,5 +23,28 @@ class CreateApiGatewayTestCase(SimpleTestCase):
     )
     def test_add_argument(self, MockApiGateway):
         self.call_command("--pk=123")
-        MockApiGateway.objects.get.assert_called_with(pk=123, api_created=False)
+        MockApiGateway.objects.get.assert_called_with(pk=123)
         MockApiGateway.objects.get.return_value.create_gateway.assert_called_with()
+
+    @patch(
+        "django_aws_api_gateway_websockets.management.commands.createApiGateway.ApiGateway"
+    )
+    def test_a_gateway_that_is_complete_is_refused_with_a_clear_message(
+        self, MockApiGateway
+    ):
+        MockApiGateway.objects.get.return_value.needs_api_creation = False
+
+        with self.assertRaises(CommandError):
+            self.call_command("--pk=123")
+
+        MockApiGateway.objects.get.return_value.create_gateway.assert_not_called()
+
+    @patch(
+        "django_aws_api_gateway_websockets.management.commands.createApiGateway.ApiGateway"
+    )
+    def test_a_half_built_gateway_is_resumed(self, MockApiGateway):
+        MockApiGateway.objects.get.return_value.needs_api_creation = True
+
+        self.call_command("--pk=123")
+
+        MockApiGateway.objects.get.return_value.create_gateway.assert_called_once_with()

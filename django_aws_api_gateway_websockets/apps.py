@@ -6,3 +6,7 @@ class DjangoAwsApiGatewayWebsocketsConfig(AppConfig):
     name = "django_aws_api_gateway_websockets"
     default_auto_field = "django.db.models.BigAutoField"
     verbose_name = _("Django AWS ApiGateway Websockets")
+
+    def ready(self) -> None:
+        # Registers the system checks
+        from django_aws_api_gateway_websockets import checks  # noqa: F401

@@ -1,4 +1,4 @@
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 
 from django_aws_api_gateway_websockets.models import ApiGateway
 
@@ -15,5 +15,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         """Handles the request"""
-        api = ApiGateway.objects.get(pk=options["pk"], api_created=False)
+        api = ApiGateway.objects.get(pk=options["pk"])
+        if not api.needs_api_creation:
+            raise CommandError(f"{api.api_name} is already created")
         api.create_gateway()

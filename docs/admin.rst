@@ -66,17 +66,76 @@ The list page shows useful deployment information, including:
 * AWS API ID;
 * AWS API endpoint;
 * API Gateway domain name;
+* provisioning status;
 * whether the API has been created;
+* the deployment ID;
 * whether the custom domain has been created;
 * created and updated timestamps.
+
+.. versionchanged:: 4.1
+   The list page and the change page show ``deployment_id``, and the change page
+   shows ``api_created``. Both are read-only: AWS sets them.
 
 Filters
 ~~~~~~~
 
 The admin includes filters for:
 
+* provisioning status;
 * API created;
 * custom domain created.
+
+Provisioning status
+~~~~~~~~~~~~~~~~~~~
+
+.. versionadded:: 4.1
+
+Creating the API in AWS takes several calls. The ``Provisioning status`` field
+records how far they got, and each step is saved as soon as it succeeds:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 25 75
+
+   * - Status
+     - Meaning
+   * - Pending
+     - Nothing has been created in AWS.
+   * - API created
+     - The API exists in AWS and its ID is saved. The routes are not finished.
+   * - Routes created
+     - The routes exist. The stage and deployment are not finished.
+   * - Deployed
+     - The API is complete.
+   * - Custom domain created
+     - The custom domain exists. Its mapping to the API is not finished.
+   * - Custom domain mapped
+     - The custom domain is complete.
+
+If a step fails, the status stays at the last step that worked, and the
+**Last error** field shows what stopped it: the kind of error, and for an AWS
+error its code. Fix the cause, then run the same action again. It continues from
+the recorded status and does not create the API a second time.
+
+The ``Create API Gateway`` and ``Create Custom Domain`` actions resume in this
+way. So do the ``createApiGateway`` and ``createCustomDomain`` management
+commands. See :doc:`troubleshooting`.
+
+The ``API created`` and ``Custom domain created`` fields keep their earlier
+meaning: they become true as soon as the API or the custom domain exists in AWS,
+even if later steps have not finished. Use the status to see whether a gateway is
+complete.
+
+.. note::
+
+   A record created before this version, or one you registered by hand for an API
+   that already exists, shows ``Pending`` with ``API created`` set. It is treated
+   as complete and is never provisioned again, because nothing shows how far an
+   older run got.
+
+   If one of these is in fact half built, set ``Provisioning status`` to match
+   what exists in AWS. For an API with no routes, choose *API created*. For one
+   with routes but no stage, choose *Routes created*. Then run the action again.
 
 Search
 ~~~~~~
@@ -136,13 +195,63 @@ name and custom domain state.
 If using external DNS, use the API Gateway domain name shown on the record when
 creating your DNS entry.
 
+Sync to AWS and Sync from AWS actions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. versionadded:: 4.1
+
+Two actions compare the local record with the deployed API in AWS. Both work only
+on a deployed API Gateway, and report an error for any other record.
+
+Both work whatever ``WEBSOCKETS["push_changes_to_aws"]`` is set to. With that
+setting off, saving a record changes only the local record, and these actions are
+how you change AWS. See :ref:`api-gateway-auto-sync`.
+
+``Sync to AWS``
+   Writes the local values to AWS: the API name, description and selection
+   expressions, the URL of each default route, and the URL and key of each
+   additional route. It creates a local additional route that is missing in AWS,
+   and deploys the stage if anything changed. It changes only what differs, so
+   running it on a record that already matches changes nothing. It never deletes
+   a route that exists only in AWS.
+
+``Sync from AWS``
+   Reads the deployed API in AWS into the local records: the same values, the
+   base URL taken from the ``$default`` route, the stage description and the
+   deployment ID. It adds a local additional route for each route that exists
+   only in AWS. It deletes nothing: a local route that is missing in AWS is kept
+   and marked as not deployed, so ``Sync to AWS`` creates it again.
+
+Each action reports what it changed for each selected record. Both are logged
+server-side and need the change permission, in the same way as the other actions.
+
+Changes made on this page are also sent to AWS when you save. See
+:ref:`api-gateway-auto-sync`.
+
 Required permissions
 ~~~~~~~~~~~~~~~~~~~~
 
 The Django admin user needs the appropriate Django admin permissions.
 
+.. versionchanged:: 4.1
+   The ``Create API Gateway``, ``Create Custom Domain``, ``Sync to AWS`` and
+   ``Sync from AWS`` actions are available
+   only to users who have the ``Can change api gateway`` permission, and to
+   superusers. A user who can only view the page no longer sees them. Django
+   enforces this when the action is submitted, not only in the dropdown.
+
+These actions create resources in AWS with the credentials of the Django
+application, so give the change permission only to people you trust to do that.
+
 The AWS credentials available to Django also need permissions to create or update
 API Gateway resources.
+
+.. note::
+
+   Saving an additional route deploys it to API Gateway immediately, and its
+   integration URL can be any URL. Give the ``Can add api gateway additional
+   route`` and ``Can change api gateway additional route`` permissions with the
+   same care.
 
 See :doc:`aws_iam_setup`.
 
@@ -214,6 +323,10 @@ connection records.
 This is useful for debugging connection issues and understanding which users are
 connected to which channels.
 
+.. versionchanged:: 4.1
+   The page is read-only. Sessions are created by the connect route, and editing the ``user`` of a session would
+   attach a live connection to any account. You can still view and delete sessions with the matching permissions.
+
 List display
 ~~~~~~~~~~~~
 
@@ -267,6 +380,28 @@ Disconnected sessions can be removed with:
 
 See :doc:`cleanup`.
 
+ChannelPermission admin
+-----------------------
+
+The ``ChannelPermission`` admin page controls who may join each WebSocket
+channel. See :doc:`channel_permissions` for what the access levels and rules mean.
+
+.. versionadded:: 4.1
+
+The list page shows the channel name, the access level, a summary of the rules
+and the last update. You can filter by access level and search by channel name
+or description.
+
+Each channel has a **Channel permission rules** section. Each rule holds one or
+more Django permissions, and the user needs all the permissions in a rule. The
+user needs to satisfy any one rule. The rules are used only when the access
+level is *Requires Django permissions*.
+
+.. warning::
+
+   Anyone who can add or change channel permissions controls who can join
+   channels. Give that permission only to people you trust with that decision.
+
 WebSocketToken admin
 --------------------
 
@@ -283,7 +418,6 @@ The list page shows:
 
 * a shortened token preview;
 * user;
-* session key;
 * created timestamp;
 * whether the token has been used.
 
@@ -301,8 +435,7 @@ Search
 You can search by:
 
 * username;
-* email;
-* session key.
+* email.
 
 Read-only behaviour
 ~~~~~~~~~~~~~~~~~~~
@@ -311,6 +444,11 @@ Token records are read-only in the admin.
 
 The token value is intentionally shown only as a preview in list views to reduce
 the risk of exposing full token values.
+
+.. versionchanged:: 4.1
+   The session key is neither shown nor searchable. A Django session key works as a login credential until its session
+   expires, so ``WebSocketToken.session_key`` now stores a keyed SHA-256 hash of it (see
+   :func:`django_aws_api_gateway_websockets.models.hash_session_key`) instead of the key itself.
 
 Common uses
 ~~~~~~~~~~~
