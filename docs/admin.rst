@@ -101,6 +101,8 @@ records how far they got, and each step is saved as soon as it succeeds:
      - Meaning
    * - Pending
      - Nothing has been created in AWS.
+   * - Creating
+     - A run has started and is creating the API. A second run is refused while this shows, so two requests cannot create two APIs.
    * - API created
      - The API exists in AWS and its ID is saved. The routes are not finished.
    * - Routes created
@@ -116,6 +118,12 @@ If a step fails, the status stays at the last step that worked, and the
 **Last error** field shows what stopped it: the kind of error, and for an AWS
 error its code. Fix the cause, then run the same action again. It continues from
 the recorded status and does not create the API a second time.
+
+If a run fails before AWS creates the API, the status returns to Pending. If the
+process stops after AWS creates the API but before the ID is saved, for example
+because the database goes down, the status stays at Creating and the next run
+is refused with a message. Check AWS. If the API is not there, set the status to
+Pending. If it is, delete it or record its ID, and set the status to match.
 
 The ``Create API Gateway`` and ``Create Custom Domain`` actions resume in this
 way. So do the ``createApiGateway`` and ``createCustomDomain`` management
@@ -556,6 +564,30 @@ For a new API Gateway setup, a typical admin workflow is:
 #. configure DNS;
 #. connect from a browser;
 #. inspect ``WebSocketSession`` records to confirm connections are recorded.
+
+.. _admin-integration-permissions:
+
+Who may change where traffic goes
+---------------------------------
+
+.. warning::
+
+   The change permission on **API gateways** and **additional routes** is as
+   powerful as a superuser's for your WebSocket traffic. The ``target_base_endpoint``
+   of a gateway and the ``integration_url`` of a route decide where API Gateway
+   sends every connect, disconnect and message event. Each request carries the
+   connection ID and, if you set one, the :doc:`gateway secret <gateway_secret>`.
+   Someone who can change these fields can send those requests to a server they
+   control, and answer them.
+
+Give the change permission only to people who may redirect your traffic, and put
+them in a group of their own. To limit the damage, set
+``WEBSOCKETS["allowed_integration_hosts"]`` to your own hosts. A save that points
+an integration anywhere else is then refused. See :doc:`settings`.
+
+Saving an additional route validates it, as saving an API gateway does. Before
+version 4.1, ``ApiGatewayAdditionalRoute.save()`` did not call ``full_clean()``.
+A save with ``update_fields`` still skips validation.
 
 Admin security
 --------------

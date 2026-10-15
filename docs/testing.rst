@@ -571,6 +571,26 @@ Example with ``unittest.mock``:
 
        client.post_to_connection.assert_called_once()
 
+Testing code that saves an API Gateway
+--------------------------------------
+
+Saving a deployed ``ApiGateway``, editing an additional route, or deleting one,
+calls AWS when the transaction commits. Django's ``TestCase`` wraps each test in a
+transaction that never commits, so wrap the save in ``captureOnCommitCallbacks``
+to run the call:
+
+.. code-block:: python
+
+   with patch("django_aws_api_gateway_websockets.models.get_boto3_client") as get_client:
+       with self.captureOnCommitCallbacks(execute=True):
+           gateway.api_description = "New"
+           gateway.save()
+
+   get_client.return_value.update_api.assert_called_once()
+
+A ``TransactionTestCase`` calls AWS at once, as production code does outside a
+transaction. See :ref:`api-gateway-auto-sync-transactions`.
+
 Testing broadcast behaviour
 ---------------------------
 

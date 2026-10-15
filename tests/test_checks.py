@@ -1,5 +1,8 @@
+from unittest.mock import patch
+
 from django.core import checks
 from django.test import SimpleTestCase, override_settings
+from django.urls import path
 
 from django_aws_api_gateway_websockets import checks as ws_checks
 
@@ -176,3 +179,135 @@ class WebSocketsSettingChecksSimpleTestCase(SimpleTestCase):
         self.assertIn(ws_checks.check_websockets_setting, not_deploy)
         self.assertIn(ws_checks.check_aws_region_is_set, registered)
         self.assertNotIn(ws_checks.check_aws_region_is_set, not_deploy)
+
+
+class UnlistedChannelsCheckSimpleTestCase(SimpleTestCase):
+    def test_a_routed_view_that_allows_unlisted_channels_is_found(self):
+        from tests import urls
+
+        found = ws_checks._routed_views_allowing_unlisted_channels()
+
+        self.assertEqual(
+            [urls.ChatWebSocketView, urls.OpenChatWebSocketView],
+            sorted(found, key=lambda view: view.__name__),
+        )
+
+    def test_a_warning_names_each_view_that_allows_unlisted_channels(self):
+        result = ws_checks.check_unlisted_channels_are_refused(None)
+
+        self.assertEqual(
+            ["django_aws_api_gateway_websockets.W004"] * 2, [r.id for r in result]
+        )
+        self.assertIsInstance(result[0], checks.Warning)
+        self.assertIn("ChatWebSocketView", result[0].msg)
+        self.assertIn("OpenChatWebSocketView", result[1].msg)
+        self.assertIn("ALLOW_UNLISTED_CHANNELS = False", result[0].hint)
+
+    def test_no_warning_when_every_routed_view_refuses_unlisted_channels(self):
+        with patch.object(
+            ws_checks, "_routed_views_allowing_unlisted_channels", return_value=[]
+        ):
+            self.assertEqual([], ws_checks.check_unlisted_channels_are_refused(None))
+
+    def test_a_view_that_refuses_unlisted_channels_is_not_reported(self):
+        from tests import urls
+
+        class Closed(urls.ChatWebSocketView):
+            ALLOW_UNLISTED_CHANNELS = False
+
+        patterns = [path("closed/<slug:route>", Closed.as_view())]
+        with patch.object(ws_checks, "_url_patterns", return_value=patterns):
+            self.assertEqual([], ws_checks._routed_views_allowing_unlisted_channels())
+
+    def test_the_check_is_a_deploy_check(self):
+        self.assertIn(
+            ws_checks.check_unlisted_channels_are_refused,
+            checks.registry.registry.get_checks(include_deployment_checks=True),
+        )
+        self.assertNotIn(
+            ws_checks.check_unlisted_channels_are_refused,
+            checks.registry.registry.get_checks(include_deployment_checks=False),
+        )
+
+
+class AllowedIntegrationHostsCheckSimpleTestCase(SimpleTestCase):
+    def test_a_string_or_a_list_of_strings_is_accepted(self):
+        for value in ("www.example.com", ["a.example.com", "*.example.com"], []):
+            with self.subTest(value=value):
+                with override_settings(WEBSOCKETS={"allowed_integration_hosts": value}):
+                    self.assertEqual([], ws_checks.check_websockets_setting(None))
+
+    def test_anything_else_is_an_error_that_does_not_show_the_value(self):
+        for value in (5, True, {"a": "b"}, ["ok.example.com", 7], ["", "x"]):
+            with self.subTest(value=value):
+                with override_settings(WEBSOCKETS={"allowed_integration_hosts": value}):
+                    result = ws_checks.check_websockets_setting(None)
+
+                self.assertEqual(
+                    ["django_aws_api_gateway_websockets.E002"], [r.id for r in result]
+                )
+                self.assertIn("allowed_integration_hosts", result[0].msg)
+
+
+class ImplicitHandlersCheckSimpleTestCase(SimpleTestCase):
+    def _view(self, **attrs):
+        from django_aws_api_gateway_websockets.views import WebSocketView
+
+        def chat(self, request, *args, **kwargs):
+            return None
+
+        methods = {"chat": chat}
+        methods.update(attrs)
+        return type("ChatView", (WebSocketView,), methods)
+
+    def test_a_view_with_methods_and_no_explicit_list_is_reported(self):
+        view = self._view()
+        with patch.object(ws_checks, "_routed_view_classes", return_value=[view]):
+            result = ws_checks.check_handlers_are_listed(None)
+
+        self.assertEqual(
+            ["django_aws_api_gateway_websockets.W005"], [r.id for r in result]
+        )
+        self.assertIsInstance(result[0], checks.Warning)
+        self.assertIn("ChatView", result[0].msg)
+        self.assertIn("ALLOWED_HANDLERS", result[0].hint)
+
+    def test_a_view_with_an_explicit_list_is_not_reported(self):
+        view = self._view(ALLOWED_HANDLERS={"chat"})
+        with patch.object(ws_checks, "_routed_view_classes", return_value=[view]):
+            self.assertEqual([], ws_checks.check_handlers_are_listed(None))
+
+    def test_a_view_with_no_methods_of_its_own_is_not_reported(self):
+        from django_aws_api_gateway_websockets.views import WebSocketView
+
+        with patch.object(
+            ws_checks, "_routed_view_classes", return_value=[WebSocketView]
+        ):
+            self.assertEqual([], ws_checks.check_handlers_are_listed(None))
+
+    def test_a_view_that_only_overrides_hooks_is_not_reported(self):
+        view = type(
+            "HookView",
+            (self._view().__mro__[1],),
+            {"can_join_channel": lambda self, request, channel_name: True},
+        )
+        with patch.object(ws_checks, "_routed_view_classes", return_value=[view]):
+            self.assertEqual([], ws_checks.check_handlers_are_listed(None))
+
+    def test_the_routed_views_in_the_project_are_found(self):
+        from tests import urls
+
+        found = ws_checks._routed_view_classes()
+
+        self.assertIn(urls.ChatWebSocketView, found)
+        self.assertEqual(len(found), len(set(found)))
+
+    def test_the_check_is_a_deploy_check(self):
+        self.assertIn(
+            ws_checks.check_handlers_are_listed,
+            checks.registry.registry.get_checks(include_deployment_checks=True),
+        )
+        self.assertNotIn(
+            ws_checks.check_handlers_are_listed,
+            checks.registry.registry.get_checks(include_deployment_checks=False),
+        )

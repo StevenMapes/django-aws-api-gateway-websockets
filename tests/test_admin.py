@@ -1,9 +1,11 @@
 from unittest.mock import MagicMock, patch
 
 from botocore import exceptions
+from django.contrib.admin import ModelAdmin
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth.models import Permission, User
-from django.test import RequestFactory, SimpleTestCase, TestCase
+from django.db import transaction
+from django.test import RequestFactory, SimpleTestCase, TestCase, TransactionTestCase
 
 from django_aws_api_gateway_websockets import admin, models
 from django_aws_api_gateway_websockets.sync import ApiGatewaySyncError
@@ -720,6 +722,15 @@ class ApiGatewayDeploymentFieldsAdminTestCase(TestCase):
         messages.error.assert_called_once()
         formset.save_m2m.assert_called_once()
 
+    def test_an_aws_failure_on_bulk_delete_is_reported(self):
+        request = MagicMock()
+        queryset = MagicMock()
+        queryset.delete.side_effect = ApiGatewaySyncError("ClientError: Denied")
+        with patch("django_aws_api_gateway_websockets.admin.messages") as messages:
+            self.model_admin.delete_queryset(request, queryset)
+        messages.error.assert_called_once()
+        self.assertIn("ClientError: Denied", str(messages.error.call_args.args[1]))
+
     def test_an_aws_failure_on_inline_delete_is_reported(self):
         request = MagicMock()
         formset = MagicMock()
@@ -731,3 +742,77 @@ class ApiGatewayDeploymentFieldsAdminTestCase(TestCase):
         with patch("django_aws_api_gateway_websockets.admin.messages") as messages:
             self.model_admin.save_formset(request, MagicMock(), formset, True)
         messages.error.assert_called_once()
+
+
+class DeferredSyncErrorsAdminTestCase(TransactionTestCase):
+    """The admin runs a view in a transaction, so AWS failures arrive as it commits."""
+
+    def setUp(self):
+        self.model_admin = admin.ApiGatewayAdmin(models.ApiGateway, AdminSite())
+        self.request = RequestFactory().post("/admin/")
+
+    @staticmethod
+    def _view_whose_aws_call_fails(request, *args):
+        """A view that queues an AWS call that fails, inside its own transaction"""
+
+        def failing_call():
+            raise ApiGatewaySyncError("ClientError: Denied")
+
+        with transaction.atomic():
+            models.run_aws_after_commit(failing_call)
+        return "response"
+
+    def _assert_reported(self, call):
+        with patch("django_aws_api_gateway_websockets.admin.messages") as messages:
+            response = call()
+        self.assertEqual("response", response)
+        messages.error.assert_called_once()
+        self.assertIn("ClientError: Denied", str(messages.error.call_args.args[1]))
+
+    def test_a_failure_while_saving_is_reported_as_a_message(self):
+        with patch.object(
+            ModelAdmin, "changeform_view", self._view_whose_aws_call_fails
+        ):
+            self._assert_reported(
+                lambda: self.model_admin.changeform_view(self.request, "1")
+            )
+
+    def test_a_failure_while_deleting_is_reported_as_a_message(self):
+        with patch.object(ModelAdmin, "delete_view", self._view_whose_aws_call_fails):
+            self._assert_reported(
+                lambda: self.model_admin.delete_view(self.request, "1")
+            )
+
+    def test_a_failure_in_a_bulk_action_is_reported_as_a_message(self):
+        with patch.object(
+            ModelAdmin, "changelist_view", self._view_whose_aws_call_fails
+        ):
+            self._assert_reported(
+                lambda: self.model_admin.changelist_view(self.request)
+            )
+
+    def test_several_failures_are_each_reported(self):
+        def view(request, *args):
+            with transaction.atomic():
+                for text in ("one", "two"):
+                    models.run_aws_after_commit(
+                        lambda text=text: (_ for _ in ()).throw(
+                            ApiGatewaySyncError(text)
+                        )
+                    )
+            return "response"
+
+        with patch.object(ModelAdmin, "changelist_view", view):
+            with patch("django_aws_api_gateway_websockets.admin.messages") as messages:
+                self.model_admin.changelist_view(self.request)
+
+        self.assertEqual(2, messages.error.call_count)
+
+    def test_a_view_with_no_failure_reports_nothing(self):
+        with patch.object(
+            ModelAdmin, "changelist_view", lambda self_, request, *args: "response"
+        ):
+            with patch("django_aws_api_gateway_websockets.admin.messages") as messages:
+                self.model_admin.changelist_view(self.request)
+
+        messages.error.assert_not_called()

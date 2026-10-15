@@ -413,6 +413,25 @@ The ``gateway_secret`` key is also read from this dictionary. It is not set by d
    rotate the secret: API Gateway is sent the first value, and every value is accepted. Setting it needs the integrations of
    deployed gateways to be updated first. See :doc:`gateway_secret`.
 
+The ``allowed_integration_hosts`` key limits where an API Gateway sends its requests.
+It is not set by default, which allows any host.
+
+.. code-block:: python
+
+    WEBSOCKETS = {
+        "allowed_integration_hosts": ["www.example.com", "*.apps.example.com"],
+    }
+
+.. versionadded:: 4.1
+
+``allowed_integration_hosts``
+   A host name, or a list of them. When it is set, the host of ``ApiGateway.target_base_endpoint`` and of
+   ``ApiGatewayAdditionalRoute.integration_url`` must match an entry, or saving the record raises a
+   ``ValidationError`` and the admin shows it on the field. Names are compared in lower case, without the port. An
+   entry that starts with ``*.`` matches sub-domains, and not the domain itself, so ``*.apps.example.com`` does not
+   match ``apps.example.com``. Routes that ``Sync from AWS`` reads from AWS are recorded as they are, whatever the
+   setting says. See :ref:`admin-integration-permissions`.
+
 
 WebSocketView settings
 ----------------------
@@ -434,8 +453,24 @@ Default: True
 
 .. note::
 
-   A handler that fails on every request sends an email for every request. Set this to ``False`` and attach Django's
-   ``AdminEmailHandler`` to the logger if you want the notifications rate limited or filtered.
+   The emails are limited to one for each view and exception type every ``EXCEPTION_MAIL_INTERVAL`` seconds (60 by default)
+   in each process, so a client that triggers an exception again and again cannot flood the inbox. Every exception is
+   still logged. Set the interval to ``0`` to send an email every time. Set ``SEND_EXCEPTION_MAIL`` to ``False`` and
+   attach Django's ``AdminEmailHandler`` to the logger if you want your own limits or filters.
+
+EXCEPTION_MAIL_INTERVAL
+~~~~~~~~~~~~~~~~~~~~~~~
+
+The minimum number of seconds between two exception emails for the same view and exception type, counted in each
+process. See ``SEND_EXCEPTION_MAIL``.
+
+Default: 60
+
+.. code-block:: python
+
+   EXCEPTION_MAIL_INTERVAL = 300
+
+.. versionadded:: 4.1
 
 
 ALLOW_UNLISTED_CHANNELS
@@ -636,6 +671,9 @@ Example:
            return None
 
 Use this to prevent arbitrary method invocation.
+
+Set it on every view. Without it, the list is built from the plain methods your subclass defines, so a helper
+you add later is callable from the WebSocket. See :doc:`views`.
 
 ADDITIONAL_ALLOWED_HANDLERS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~

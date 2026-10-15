@@ -352,6 +352,10 @@ For example, if a client connects to:
 
 you should still check whether the user is allowed to receive admin messages.
 
+.. warning::
+
+   Names such as ``admin``, ``general`` and ``support`` are easy to guess, and the examples in this documentation use them for clarity. In a real project, add a ``ChannelPermission`` row for each channel and set ``ALLOW_UNLISTED_CHANNELS = False`` on your view. A mistyped channel name is then refused instead of open.
+
 Every channel is open to every user unless you add a rule. Use
 :doc:`channel_permissions` to restrict a channel, or override ``can_join_channel``
 on your view for custom rules. Both run on connect and on ``change_channel``.

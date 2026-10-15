@@ -335,6 +335,22 @@ During connection, the package checks host and origin information.
 This helps ensure that the connection request is consistent with the Django host
 configuration and the origin that initiated the connection.
 
+On the connect route, the ``Origin`` header must name the ``Host`` header, or a
+sub-domain of it. The package parses the ``Origin`` and compares only its host
+name, so ``https://www.example.com.attacker.net`` does not match a host of
+``www.example.com``. A site on ``www.example.com`` may connect to an application
+at ``example.com``. The ``Origin`` must use ``http`` or ``https``, and its port
+must agree with the port in the ``Host``, or be the default port for its scheme
+if the ``Host`` has none.
+
+.. versionchanged:: 4.1
+   The check compared text before, so any ``Origin`` that contained the ``Host``
+   anywhere passed.
+
+This check is a second line of defence. The one-time token, which ``USE_WS_TOKEN``
+turns on by default, is what stops a page on another site from opening a
+connection with a user's cookie.
+
 For production deployments, configure Django settings carefully:
 
 * ``ALLOWED_HOSTS`` should include the correct application hosts;
@@ -530,6 +546,17 @@ For authenticated WebSocket features:
 If anonymous WebSocket access is allowed, treat all incoming messages as
 untrusted and apply strict validation and rate limiting.
 
+Integration targets
+-------------------
+
+The ``target_base_endpoint`` of an API gateway and the ``integration_url`` of an
+additional route decide where API Gateway sends every connect, disconnect and
+message event, with the connection ID and the gateway secret. A user who can
+change them can send that traffic to a server they control. Give the change
+permission on these models only to people who may redirect your traffic, and set
+``WEBSOCKETS["allowed_integration_hosts"]`` to your own hosts so that a save to
+any other host is refused. See :ref:`admin-integration-permissions`.
+
 IAM security
 ------------
 
@@ -579,6 +606,29 @@ Be careful not to scope cookies more broadly than necessary.
 
 If you change the session cookie name or domain, clear old sessions where
 appropriate.
+
+Sessions that outlive a login
+-----------------------------
+
+A WebSocket connection stays open after the user who made it logs out or changes
+their password, or after an administrator deactivates them. The library closes
+the session in these cases:
+
+* **Logging out** closes the sessions opened under that Django session. The
+  library listens for Django's ``user_logged_out`` signal.
+* **Deactivating a user**, or **changing their password**, closes their session
+  on the next message the client sends. The reply is a 400 response, the same as
+  for an unknown session. A user who changes their own password therefore has to
+  reconnect.
+
+The library stores a keyed hash of the Django session key and of the user's
+authentication hash on each ``WebSocketSession``. It never stores the session
+key itself. A closed session stops receiving broadcasts sent with
+``WebSocketSession.objects.filter(...).send_message()``, but the connection in
+API Gateway stays open until the client or AWS closes it. A session opened
+before upgrading has no hashes, so it is closed for a deactivated user only.
+
+.. versionchanged:: 4.1
 
 Cleanup and stale sessions
 --------------------------

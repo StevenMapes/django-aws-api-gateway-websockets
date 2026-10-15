@@ -92,7 +92,7 @@ These are filled in as the API is created. Do not edit them, apart from ``provis
    * - ``api_created`` and ``custom_domain_created``
      - ``True`` as soon as the API, or the custom domain, exists in AWS, even if later steps have not finished.
    * - ``provisioning_status``
-     - How far provisioning has got: ``pending``, ``api_created``, ``routes_created``, ``deployed``, ``domain_created`` or ``mapped``. See :doc:`admin`.
+     - How far provisioning has got: ``pending``, ``creating``, ``api_created``, ``routes_created``, ``deployed``, ``domain_created`` or ``mapped``. See :doc:`admin`.
    * - ``last_error``
      - The kind of error, and the AWS error code, that stopped the last step. It is empty after a step succeeds.
    * - ``created_on`` and ``updated_on``
@@ -194,9 +194,22 @@ Send to every connected session in a queryset:
        {"type": "notification", "message": "Hello"}
    )
 
-On an instance, ``send_message(data)`` returns the AWS response. It raises ``ValueError`` if the JSON is over 128 KB, and raises the AWS error if AWS refuses. If the client has gone away, it marks the session as not connected and returns ``None``.
+On an instance, ``send_message(data)`` returns the AWS response. It reads the two columns it needs from the session's API Gateway, one query, unless you loaded the gateway with ``select_related("api_gateway")``, when it reads none. It raises ``ValueError`` if the JSON is over 128 KB or the session has no API Gateway, and raises the AWS error if AWS refuses. If the client has gone away, it marks the session as not connected and returns ``None``.
 
-On a queryset, ``send_message(data, max_workers=10)`` posts to the connected sessions at the same time, up to ``max_workers`` at once for each API Gateway. A recipient that fails does not stop the others: the failure is logged on the ``django_aws_api_gateway_websockets.models`` logger. Sessions whose client has gone away are marked as not connected in one query. The return value is a list of the AWS responses for the posts that worked. The call waits for every post, so send from a background task if the channel is large. See :doc:`message_patterns`.
+On a queryset, ``send_message(data, max_workers=10)`` posts to the connected sessions at the same time, up to ``max_workers`` at once for each API Gateway. A recipient that fails does not stop the others: the failure is logged on the ``django_aws_api_gateway_websockets.models`` logger. Sessions whose client has gone away are marked as not connected in one query. Sessions with no API Gateway are skipped, with one warning that gives their number, and stay marked as connected. A session has none when the view uses a fixed ``aws_api_gateway_id`` and you have no ``ApiGateway`` records. The return value is a list of the AWS responses for the posts that worked. The call waits for every post, so send from a background task if the channel is large. See :doc:`message_patterns`.
+
+To send the same message to many sessions, use the queryset form. Calling ``send_message`` on each session in a loop makes one HTTP call after another and, without ``select_related("api_gateway")``, one query for each session:
+
+.. code-block:: python
+
+   # Slow: one query and one request at a time
+   for session in WebSocketSession.objects.filter(channel_name="support"):
+       session.send_message(data)
+
+   # Fast: one query, and concurrent requests
+   WebSocketSession.objects.filter(channel_name="support").send_message(data)
+
+Deleting an ``ApiGateway`` marks its sessions as not connected before it clears their ``api_gateway``, because they could no longer be sent to.
 
 ``WebSocketToken``
 ==================
@@ -278,7 +291,10 @@ Helper functions
 These are also in ``django_aws_api_gateway_websockets.models``.
 
 ``get_boto3_client(service="apigatewayv2", **kwargs)``
-   Returns the boto3 client the package uses. It uses a named profile if ``AWS_IAM_PROFILE`` is set, then the keys in ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY`` if both are set, and otherwise the credentials of the machine, such as an IAM role. With keys or a role it needs a region. With a named profile, the region comes from the profile. Extra keyword arguments go to boto3.
+   Returns the boto3 client the package uses. It uses a named profile if ``AWS_IAM_PROFILE`` is set, then the keys in ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY`` if both are set, and otherwise the credentials of the machine, such as an IAM role. With keys or a role it needs a region. With a named profile, the region comes from the profile. Extra keyword arguments go to boto3. The client has a 5 second connect timeout, a 20 second read timeout and up to 3 attempts, unless you pass your own ``config``. It is built once for each process and set of arguments, and reused, so a web server that runs many workers builds one per worker. boto3 clients can be shared between threads. A role's temporary credentials refresh on their own.
+
+``clear_boto3_client_cache()``
+   Forgets the cached clients. Call it after changing the AWS credential settings in a running process. Changing a setting with ``override_settings`` needs no call, because the settings are part of the cache key.
 
 ``get_region_name()``
    Returns ``AWS_GATEWAY_REGION_NAME``, or ``AWS_REGION_NAME`` if that is not set, and raises ``RuntimeError`` if neither is.

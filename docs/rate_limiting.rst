@@ -296,6 +296,19 @@ Cleaning up rate limit records
 Rate limit checks use database records. Old records should be cleaned up
 regularly to avoid unnecessary database growth.
 
+Each connection attempt adds one row to ``ConnectionRateLimit``, whether it
+succeeds or fails, and a check counts the rows for the client's IP address and
+user in one query. The table grows with your connection traffic, and a client
+that connects and fails again and again adds a row each time.
+
+As a safety net, about one in every 100 recorded attempts also deletes up to 500
+rows older than 7 days. That keeps the table bounded if the cleanup command is
+never scheduled, and it stops rows piling up between runs. It is not a
+replacement for the command. On a busy service it may not keep up, and it never
+deletes rows newer than 7 days. Schedule the command as well.
+
+.. versionchanged:: 4.1
+
 The project includes a cleanup command for old WebSocket token and rate limit
 records.
 

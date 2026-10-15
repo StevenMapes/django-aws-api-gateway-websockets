@@ -1,7 +1,8 @@
 import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 from django.contrib.auth.models import AnonymousUser, Permission, User
+from django.contrib.auth.signals import user_logged_out
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import HttpResponseBadRequest, JsonResponse
 from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
@@ -14,6 +15,8 @@ from django_aws_api_gateway_websockets.models import (
     ChannelPermissionRule,
     WebSocketSession,
     WebSocketToken,
+    hash_session_key,
+    hash_user_auth,
 )
 
 
@@ -825,6 +828,170 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
 
         self.assertFalse(obj._check_host_is_in_origin(request=request))
 
+    def test_the_automatic_handler_list_has_the_plain_methods_of_the_subclass(self):
+        class ChatView(views.WebSocketView):
+            def chat(self, request, *args, **kwargs):
+                return None
+
+            def _private(self):
+                return None
+
+        self.assertEqual({"default", "chat"}, ChatView().ALLOWED_HANDLERS)
+
+    def test_the_automatic_handler_list_leaves_out_overridden_hooks(self):
+        """Hooks a view overrides are not handlers a client can name"""
+
+        class HookView(views.WebSocketView):
+            def can_join_channel(self, request, channel_name):
+                return True
+
+            def get_channel_permission(self, channel_name):
+                return None
+
+            def has_any_permission(self, request):
+                return True
+
+            def connect(self, request, *args, **kwargs):
+                return None
+
+            def disconnect(self, request, *args, **kwargs):
+                return None
+
+            def session_not_found(self, request, *args, **kwargs):
+                return None
+
+            def chat(self, request, *args, **kwargs):
+                return None
+
+        self.assertEqual({"default", "chat"}, HookView().ALLOWED_HANDLERS)
+
+    def test_the_automatic_handler_list_keeps_default_and_change_channel(self):
+        class ChatView(views.WebSocketView):
+            def default(self, request, *args, **kwargs):
+                return None
+
+            def change_channel(self, request, *args, **kwargs):
+                return super().change_channel(request, *args, **kwargs)
+
+        self.assertEqual({"default", "change_channel"}, ChatView().ALLOWED_HANDLERS)
+
+    def test_the_automatic_handler_list_leaves_out_things_that_are_not_plain_functions(
+        self,
+    ):
+        class Model:
+            pass
+
+        class ChatView(views.WebSocketView):
+            model = Model
+            helper = staticmethod(lambda: None)
+            callable_instance = MagicMock()
+
+            @classmethod
+            def build(cls, request, *args, **kwargs):
+                return None
+
+            @property
+            def computed(self):
+                return None
+
+            def chat(self, request, *args, **kwargs):
+                return None
+
+        self.assertEqual({"default", "chat", "helper"}, ChatView().ALLOWED_HANDLERS)
+
+    def test_an_explicit_allow_list_is_used_exactly_as_given(self):
+        class ChatView(views.WebSocketView):
+            ALLOWED_HANDLERS = {"connect", "chat"}
+
+        self.assertEqual({"connect", "chat"}, ChatView().ALLOWED_HANDLERS)
+
+    def test_additional_allowed_handlers_are_still_added(self):
+        class ChatView(views.WebSocketView):
+            ADDITIONAL_ALLOWED_HANDLERS = ["change_channel"]
+
+            def chat(self, request, *args, **kwargs):
+                return None
+
+        self.assertEqual(
+            {"default", "change_channel", "chat"}, ChatView().ALLOWED_HANDLERS
+        )
+
+    def _origin_check(self, host, origin):
+        headers = {"HTTP_HOST": host}
+        if origin is not None:
+            headers["HTTP_ORIGIN"] = origin
+        request = self.factory.post("", **headers)
+        return views.WebSocketView()._check_host_is_in_origin(request=request)
+
+    def test__check_host_is_in_origin__accepts_the_same_host(self):
+        for host, origin in (
+            ("www.example.com", "https://www.example.com"),
+            ("www.example.com", "http://www.example.com"),
+            ("WWW.Example.com", "https://www.EXAMPLE.com"),
+            ("www.example.com", "https://www.example.com:443"),
+            ("www.example.com:8000", "http://www.example.com:8000"),
+            ("localhost:8000", "http://localhost:8000"),
+            ("[::1]:8000", "http://[::1]:8000"),
+        ):
+            with self.subTest(host=host, origin=origin):
+                self.assertTrue(self._origin_check(host, origin))
+
+    def test__check_host_is_in_origin__accepts_a_sub_domain_of_the_host(self):
+        """A site on www.example.com may connect to an app at example.com"""
+        for host, origin in (
+            ("example.com", "https://www.example.com"),
+            ("example.com", "https://a.b.example.com"),
+            ("example.com:8000", "http://app.example.com:8000"),
+        ):
+            with self.subTest(host=host, origin=origin):
+                self.assertTrue(self._origin_check(host, origin))
+
+    def test__check_host_is_in_origin__refuses_a_look_alike_origin(self):
+        for host, origin in (
+            ("www.example.com", "https://www.example.com.attacker.net"),
+            ("example.com", "https://notexample.com"),
+            ("example.com", "https://example.com.attacker.net"),
+            ("www.example.com", "https://evil.net/?www.example.com"),
+            ("www.example.com", "https://evil.net/www.example.com"),
+            ("www.example.com", "https://evil.net#www.example.com"),
+            ("www.example.com", "https://www.example.com@evil.net"),
+            ("www.example.com", "https://evil.net:443@www.example.com.evil.net"),
+            ("www.example.com", "https://example.com"),  # a parent of the host
+        ):
+            with self.subTest(host=host, origin=origin):
+                self.assertFalse(self._origin_check(host, origin))
+
+    def test__check_host_is_in_origin__refuses_a_different_port(self):
+        for host, origin in (
+            ("www.example.com:8000", "http://www.example.com:9000"),
+            ("www.example.com:8000", "http://www.example.com"),
+            ("www.example.com", "https://www.example.com:8443"),
+        ):
+            with self.subTest(host=host, origin=origin):
+                self.assertFalse(self._origin_check(host, origin))
+
+    def test__check_host_is_in_origin__refuses_an_origin_that_is_not_http_or_https(
+        self,
+    ):
+        for origin in (
+            "null",
+            "",
+            "www.example.com",
+            "ftp://www.example.com",
+            "file://www.example.com",
+            "ws://www.example.com",
+            "javascript:www.example.com",
+            "https://",
+        ):
+            with self.subTest(origin=origin):
+                self.assertFalse(self._origin_check("www.example.com", origin))
+
+    def test__check_host_is_in_origin__refuses_a_missing_origin_or_host(self):
+        self.assertFalse(self._origin_check("www.example.com", None))
+        request = self.factory.post("", HTTP_ORIGIN="https://www.example.com")
+        request.META.pop("HTTP_HOST", None)
+        self.assertFalse(views.WebSocketView._check_host_is_in_origin(request))
+
     def test__expected_connection_headers(self):
         """Ensure the methods returns True when all headers are present otherwise should return False"""
         post_data = {"action": "default", "key": "value"}
@@ -884,19 +1051,11 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
                     headers["name"],
                 )
 
-    @patch("django_aws_api_gateway_websockets.views.transaction")
-    @patch("django_aws_api_gateway_websockets.views.F")
     @patch("django_aws_api_gateway_websockets.views.WebSocketSession")
-    def test__add_user_to_request_raises_when_object_not_found(
-        self, MockWebSocketSession, mock_F, mock_transaction
-    ):
-        """An exception should be raised if the object can not be found"""
-        # Setup DoesNotExist exception
-        MockWebSocketSession.DoesNotExist = ObjectDoesNotExist
-        MockWebSocketSession.objects.select_for_update.return_value.get.side_effect = (
-            ObjectDoesNotExist("no match found")
-        )
-
+    def test__add_user_to_request_when_session_not_found(self, MockWebSocketSession):
+        """A session that can not be found is handled, and the request keeps its user"""
+        chain = MockWebSocketSession.objects.select_related.return_value
+        chain.filter.return_value.first.return_value = None
         con_id = "ABC123xyz_-="
 
         obj = views.WebSocketView()
@@ -910,28 +1069,23 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
 
         self.assertFalse(hasattr(request, "user"))
 
-        # Should not raise exception - it's caught and handled
-        obj._add_user_to_request(request)
+        self.assertTrue(obj._add_user_to_request(request))
 
-        MockWebSocketSession.objects.select_for_update.assert_called_with()
-        MockWebSocketSession.objects.select_for_update.return_value.get.assert_called_with(
+        MockWebSocketSession.objects.select_related.assert_called_with("user")
+        chain.filter.assert_called_with(
             connection_id=con_id, connected=True, api_gateway=None
         )
-
+        MockWebSocketSession.objects.filter.assert_not_called()
         self.assertFalse(hasattr(request, "user"))
-        # Debug log should contain the error message
         self.assertIn(f"Session not found: {con_id}", obj.debug_log)
 
-    @patch("django_aws_api_gateway_websockets.views.transaction")
     @patch("django_aws_api_gateway_websockets.views.F")
     @patch("django_aws_api_gateway_websockets.views.WebSocketSession")
     def test__add_user_to_request_when_session_found(
-        self, MockWebSocketSession, mock_F, mock_transaction
+        self, MockWebSocketSession, mock_F
     ):
-        """When a WebSocketSession is found then the user will be added to the request IF it's set against the session"""
-        # Set up DoesNotExist exception properly
-        MockWebSocketSession.DoesNotExist = type("DoesNotExist", (Exception,), {})
-
+        """The user is added to the request if one is set against the loaded session, and
+        the request is counted with one UPDATE on the session's primary key"""
         mocked_user = MagicMock(pk=12)
         configs = [
             {"name": "No User in session", "user": None},
@@ -940,37 +1094,34 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
 
         for config in configs:
             with self.subTest(config=config):
-                wss = MagicMock(user=config["user"], request_count=0)
-                MockWebSocketSession.objects.select_for_update.return_value.get.return_value = (
-                    wss
+                MockWebSocketSession.reset_mock()
+                wss = MagicMock(
+                    pk=5, user=config["user"], connection_id="12345", auth_hash=""
                 )
-                con_id = "12345"
-
                 obj = views.WebSocketView()
+                obj.websocket_session = wss
                 request = self.factory.post(
                     "",
                     data=json.dumps({}),
                     content_type="application/json",
-                    HTTP_Connectionid=con_id,
+                    HTTP_Connectionid="12345",
                 )
 
                 self.assertFalse(hasattr(request, "user"))
-                obj._add_user_to_request(request)
+                self.assertTrue(obj._add_user_to_request(request))
 
-                MockWebSocketSession.objects.select_for_update.assert_called_with()
-                MockWebSocketSession.objects.select_for_update.return_value.get.assert_called_with(
-                    connection_id=request.headers["Connectionid"],
-                    connected=True,
-                    api_gateway=None,
+                # The loaded session is used, and nothing is fetched again or locked
+                MockWebSocketSession.objects.select_related.assert_not_called()
+                MockWebSocketSession.objects.select_for_update.assert_not_called()
+                MockWebSocketSession.objects.filter.assert_called_once_with(pk=5)
+                MockWebSocketSession.objects.filter.return_value.update.assert_called_once_with(
+                    request_count=mock_F.return_value.__add__.return_value
                 )
 
                 if config["user"]:
-                    self.assertTrue(hasattr(request, "user"))
                     self.assertEqual(mocked_user, request.user)
                 else:
                     self.assertFalse(hasattr(request, "user"))
-
-                wss.save.assert_called_with(update_fields=["request_count"])
 
     def test__get_channel_name(self):
         """Ensure the method returns the channel either from the GET string of set against the API Gateway"""
@@ -1027,12 +1178,13 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
 
         self.assertTrue(obj._load_session(request))
 
-        MockWebSocketSession.objects.filter.assert_called_with(
+        MockWebSocketSession.objects.select_related.assert_called_with("user")
+        chain = MockWebSocketSession.objects.select_related.return_value
+        chain.filter.assert_called_with(
             connection_id="1234", connected=True, api_gateway=None
         )
         self.assertEqual(
-            obj.websocket_session,
-            MockWebSocketSession.objects.filter.return_value.first.return_value,
+            obj.websocket_session, chain.filter.return_value.first.return_value
         )
 
     def test__additional_connection_checks(self):
@@ -1059,12 +1211,31 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
 
         self.assertIsNone(res)
         MockWebSocketSession.objects.filter.assert_called_with(
-            connection_id=request.headers["Connectionid"]
+            connection_id=request.headers["Connectionid"], api_gateway=None
         )
         update = MockWebSocketSession.objects.filter.return_value.update
         update.assert_called_once()
         self.assertFalse(update.call_args.kwargs["connected"])
         self.assertIn("updated_on", update.call_args.kwargs)
+
+    @patch("django_aws_api_gateway_websockets.views.WebSocketSession")
+    def test_disconnect_is_scoped_to_the_calling_gateway(self, MockWebSocketSession):
+        """A request from one gateway cannot disconnect a session on another"""
+        MockWebSocketSession.objects.filter.return_value.update.return_value = 1
+        request = self.factory.post(
+            "",
+            data=json.dumps({}),
+            content_type="application/json",
+            HTTP_Connectionid="1234",
+        )
+        gateway = MagicMock()
+        obj = views.WebSocketView(api_gateway=gateway)
+
+        obj.disconnect(request)
+
+        MockWebSocketSession.objects.filter.assert_called_with(
+            connection_id="1234", api_gateway=gateway
+        )
 
     def test_default(self):
         """The method handling default actions should raise a NotImplemented error by default"""
@@ -1127,6 +1298,8 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
             channel_name=obj._get_channel_name(request),
             user=request.user if request.user.is_authenticated else None,
             api_gateway=obj.api_gateway,
+            session_key_hash=ANY,
+            auth_hash=ANY,
         )
         MockJsonResponse.assert_called_with({})
         self.assertEqual(MockJsonResponse.return_value, res)
@@ -2248,6 +2421,8 @@ class WebSocketViewRemainingBranchTestCase(TestCase):
             channel_name="token-channel",
             user=validated_user,
             api_gateway=self.api_gateway,
+            session_key_hash=ANY,
+            auth_hash=ANY,
         )
         mocked_record_attempt.assert_called_with(
             "123.123.123.123",
@@ -2803,6 +2978,209 @@ class WebSocketViewClientInputTestCase(TestCase):
 
                 self.assertEqual(400, response.status_code)
 
+    # login still holds
+
+    def _opened_session(self, **kwargs):
+        return self._session(
+            auth_hash=hash_user_auth(self.user),
+            session_key_hash=hash_session_key("session-key"),
+            **kwargs,
+        )
+
+    def test_a_message_from_an_active_user_sets_the_user(self):
+        self._opened_session()
+        request = self._request()
+        request.user = AnonymousUser()
+        view = views.WebSocketView(api_gateway=self.api_gateway)
+
+        self.assertTrue(view._add_user_to_request(request))
+
+        self.assertEqual(self.user, request.user)
+
+    def test_a_message_for_a_deactivated_user_closes_the_session(self):
+        session = self._opened_session()
+        User.objects.filter(pk=self.user.pk).update(is_active=False)
+        request = self._request()
+        request.user = AnonymousUser()
+        view = views.WebSocketView(api_gateway=self.api_gateway)
+
+        self.assertFalse(view._add_user_to_request(request))
+
+        session.refresh_from_db()
+        self.assertFalse(session.connected)
+        self.assertIsInstance(request.user, AnonymousUser)
+
+    def test_a_message_after_a_password_change_closes_the_session(self):
+        session = self._opened_session()
+        self.user.set_password("a-new-password")
+        self.user.save()
+        request = self._request()
+        request.user = AnonymousUser()
+        view = views.WebSocketView(api_gateway=self.api_gateway)
+
+        self.assertFalse(view._add_user_to_request(request))
+
+        session.refresh_from_db()
+        self.assertFalse(session.connected)
+
+    def test_a_session_opened_before_the_hashes_existed_is_kept_for_an_active_user(
+        self,
+    ):
+        session = self._session()
+        request = self._request()
+        request.user = AnonymousUser()
+        view = views.WebSocketView(api_gateway=self.api_gateway)
+
+        self.assertTrue(view._add_user_to_request(request))
+
+        session.refresh_from_db()
+        self.assertTrue(session.connected)
+
+    def test_a_session_with_no_user_is_not_checked(self):
+        session = self._session()
+        WebSocketSession.objects.filter(pk=session.pk).update(user=None)
+        view = views.WebSocketView(api_gateway=self.api_gateway)
+
+        self.assertTrue(view._add_user_to_request(self._request()))
+
+    def _dispatch_chat(self):
+        """Send a ``chat`` message through ``dispatch``, returning the response and whether the handler ran"""
+
+        class ChatView(views.WebSocketView):
+            ALLOWED_HANDLERS = {"chat"}
+            ran = False
+
+            def chat(self, request, *args, **kwargs):
+                type(self).ran = True
+                return JsonResponse({"ok": True})
+
+        request = self._request(body={"action": "chat"})
+        view = ChatView()
+        view.setup(request, route="chat")
+        response = view.dispatch(request, route="chat")
+        return response, ChatView.ran
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    def test_dispatch_runs_the_handler_for_a_message_from_an_active_user(self):
+        self._opened_session()
+
+        response, handled = self._dispatch_chat()
+
+        self.assertEqual(200, response.status_code)
+        self.assertTrue(handled)
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    def test_a_message_costs_three_queries(self):
+        """The gateway, the session with its user, and the request counter"""
+        self._opened_session()
+
+        with self.assertNumQueries(3):
+            response, handled = self._dispatch_chat()
+
+        self.assertEqual(200, response.status_code)
+        self.assertTrue(handled)
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    def test_a_message_counts_one_request(self):
+        session = self._opened_session()
+        before = session.request_count
+
+        self._dispatch_chat()
+
+        session.refresh_from_db()
+        self.assertEqual(before + 1, session.request_count)
+
+    def test_two_views_holding_the_same_session_both_count(self):
+        """The counter is one UPDATE, so neither message overwrites the other's count"""
+        session = self._opened_session()
+        before = session.request_count
+        views_ = []
+        for _ in range(2):
+            view = views.WebSocketView(api_gateway=self.api_gateway)
+            request = self._request()
+            view._load_session(request)
+            views_.append((view, request))
+
+        for view, request in views_:
+            self.assertTrue(view._add_user_to_request(request))
+
+        session.refresh_from_db()
+        self.assertEqual(before + 2, session.request_count)
+
+    def test_the_session_is_not_loaded_again_when_dispatch_already_has_it(self):
+        self._opened_session()
+        request = self._request()
+        view = views.WebSocketView(api_gateway=self.api_gateway)
+        view._load_session(request)
+
+        with self.assertNumQueries(1):  # the counter only
+            view._add_user_to_request(request)
+
+    def test_a_user_who_is_no_longer_active_is_found_without_a_second_query(self):
+        session = self._opened_session()
+        User.objects.filter(pk=self.user.pk).update(is_active=False)
+        request = self._request()
+        view = views.WebSocketView(api_gateway=self.api_gateway)
+        view._load_session(request)
+
+        with self.assertNumQueries(1):  # closing the session only
+            self.assertFalse(view._add_user_to_request(request))
+
+        session.refresh_from_db()
+        self.assertFalse(session.connected)
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    def test_dispatch_answers_a_message_from_a_deactivated_user_with_400(self):
+        self._opened_session()
+        User.objects.filter(pk=self.user.pk).update(is_active=False)
+
+        response, handled = self._dispatch_chat()
+
+        self.assertEqual(400, response.status_code)
+        self.assertFalse(handled)
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    def test_connect_stores_the_hashes_that_tie_the_session_to_the_login(self):
+        request = self._request(query="channel=test-channel")
+        view = views.WebSocketView(api_gateway=self.api_gateway)
+        view.USE_WS_TOKEN = False
+
+        response = view.connect(request, route="connect")
+
+        self.assertEqual(200, response.status_code)
+        session = WebSocketSession.objects.get(connection_id="CONNECTION-123")
+        self.assertEqual(hash_session_key("session-key"), session.session_key_hash)
+        self.assertEqual(hash_user_auth(self.user), session.auth_hash)
+        self.assertNotIn("session-key", session.session_key_hash)
+
+    def test_logging_out_closes_the_sessions_opened_under_that_login(self):
+        mine = self._opened_session()
+        other = WebSocketSession.objects.create(
+            connection_id="CONNECTION-456",
+            user=self.user,
+            api_gateway=self.api_gateway,
+            session_key_hash=hash_session_key("another-session-key"),
+        )
+        request = self._request()
+
+        user_logged_out.send(sender=User, request=request, user=self.user)
+
+        mine.refresh_from_db()
+        other.refresh_from_db()
+        self.assertFalse(mine.connected)
+        self.assertTrue(other.connected)
+
+    def test_logging_out_without_a_session_key_closes_nothing(self):
+        session = self._opened_session()
+        request = self._request()
+        request.session = MagicMock(session_key=None)
+
+        user_logged_out.send(sender=User, request=request, user=self.user)
+        user_logged_out.send(sender=User, request=None, user=None)
+
+        session.refresh_from_db()
+        self.assertTrue(session.connected)
+
     # disconnect
 
     def test_disconnect_for_unknown_connection_returns_400(self):
@@ -2817,6 +3195,7 @@ class WebSocketViewClientInputTestCase(TestCase):
     def test_disconnect_marks_known_session_disconnected(self):
         session = self._session()
         view = views.WebSocketView()
+        view.api_gateway = self.api_gateway
 
         response = view.disconnect(self._request(), route="disconnect")
 
@@ -2960,6 +3339,83 @@ class WebSocketViewClientInputTestCase(TestCase):
             view.dispatch(request, route="default")
 
         mocked_mail.assert_not_called()
+
+    def _dispatch_boom(self, view):
+        request = self._request(body={"action": "boom"})
+        view.setup(request, route="default")
+        with (
+            self.assertLogs("django_aws_api_gateway_websockets.views", level="ERROR"),
+            self.assertRaises(RuntimeError),
+        ):
+            view.dispatch(request, route="default")
+
+    @patch("django_aws_api_gateway_websockets.views.mail_admins")
+    def test_a_repeated_exception_mails_admins_once_for_each_interval(
+        self, mocked_mail
+    ):
+        self._session()
+        view = self._raising_view()
+
+        with patch("django_aws_api_gateway_websockets.views.time.monotonic") as clock:
+            clock.return_value = 1000.0
+            self._dispatch_boom(view)
+            clock.return_value = 1030.0
+            self._dispatch_boom(view)
+            self._dispatch_boom(view)
+            self.assertEqual(1, mocked_mail.call_count)
+
+            clock.return_value = 1061.0
+            self._dispatch_boom(view)
+
+        self.assertEqual(2, mocked_mail.call_count)
+
+    @patch("django_aws_api_gateway_websockets.views.mail_admins")
+    def test_every_exception_is_still_logged_when_the_mail_is_held_back(
+        self, mocked_mail
+    ):
+        self._session()
+        view = self._raising_view()
+        request = self._request(body={"action": "boom"})
+        view.setup(request, route="default")
+
+        with patch(
+            "django_aws_api_gateway_websockets.views.time.monotonic", return_value=5.0
+        ):
+            for _ in range(3):
+                with (
+                    self.assertLogs(
+                        "django_aws_api_gateway_websockets.views", level="ERROR"
+                    ) as logs,
+                    self.assertRaises(RuntimeError),
+                ):
+                    view.dispatch(request, route="default")
+                self.assertTrue(logs.records)
+
+        self.assertEqual(1, mocked_mail.call_count)
+
+    @patch("django_aws_api_gateway_websockets.views.mail_admins")
+    def test_a_different_exception_or_view_gets_its_own_mail(self, mocked_mail):
+        self._session()
+        with patch(
+            "django_aws_api_gateway_websockets.views.time.monotonic", return_value=5.0
+        ):
+            self._dispatch_boom(self._raising_view())
+            self._dispatch_boom(self._raising_view())  # another view class
+
+        self.assertEqual(2, mocked_mail.call_count)
+
+    @patch("django_aws_api_gateway_websockets.views.mail_admins")
+    def test_an_interval_of_zero_mails_every_time(self, mocked_mail):
+        self._session()
+        view = self._raising_view(EXCEPTION_MAIL_INTERVAL=0)
+
+        with patch(
+            "django_aws_api_gateway_websockets.views.time.monotonic", return_value=5.0
+        ):
+            self._dispatch_boom(view)
+            self._dispatch_boom(view)
+
+        self.assertEqual(2, mocked_mail.call_count)
 
     @patch("django_aws_api_gateway_websockets.views.mail_admins")
     def test_bad_client_input_does_not_mail_admins_even_by_default(self, mocked_mail):
@@ -3754,7 +4210,7 @@ class WebSocketViewPartialWritesTestCase(TestCase):
 
     def test_disconnect_changes_only_the_connected_flag_in_one_query(self):
         self._concurrent_update(channel_name="room-9", request_count=42)
-        view = views.WebSocketView()
+        view = views.WebSocketView(api_gateway=self.session.api_gateway)
 
         with self.assertNumQueries(1):
             response = view.disconnect(self._request())
@@ -3768,7 +4224,9 @@ class WebSocketViewPartialWritesTestCase(TestCase):
     def test_disconnect_refreshes_updated_on(self):
         before = WebSocketSession.objects.get(pk=self.session.pk).updated_on
 
-        views.WebSocketView().disconnect(self._request())
+        views.WebSocketView(api_gateway=self.session.api_gateway).disconnect(
+            self._request()
+        )
 
         self.assertGreater(
             WebSocketSession.objects.get(pk=self.session.pk).updated_on, before

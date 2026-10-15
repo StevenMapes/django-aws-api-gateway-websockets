@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock, patch
 
 from botocore.exceptions import ClientError
-from django.test import SimpleTestCase, TestCase
+from django.test import SimpleTestCase, TestCase, override_settings
 
 from django_aws_api_gateway_websockets import sync
 from django_aws_api_gateway_websockets.models import (
@@ -383,7 +383,7 @@ class PullGatewayTestCase(TestCase):
             api_gateway=self.gateway,
             name="Chat",
             route_key="chat",
-            integration_url="https://old/",
+            integration_url="https://old.example.com/",
             deployed=True,
             route_id="r9",
         )
@@ -400,6 +400,19 @@ class PullGatewayTestCase(TestCase):
             ("chat-new", "https://new/"), (route.route_key, route.integration_url)
         )
         self.assertEqual("i9", route.integration_id)
+
+    @override_settings(WEBSOCKETS={"allowed_integration_hosts": ["www.example.com"]})
+    def test_a_route_in_aws_at_a_host_that_is_not_allowed_is_still_recorded(self):
+        remote = {"RouteId": "r9", "RouteKey": "extra", "Target": "integrations/i9"}
+        client = self.aws(
+            extra_routes=[remote],
+            extra_integrations={"i9": "https://elsewhere.example.net/"},
+        )
+
+        self.gateway.sync_from_aws(client)
+
+        route = self.gateway.additional_routes.get()
+        self.assertEqual("https://elsewhere.example.net/", route.integration_url)
 
     def test_a_route_only_in_aws_is_added_locally_as_deployed(self):
         remote = {"RouteId": "r9", "RouteKey": "extra", "Target": "integrations/i9"}
@@ -422,7 +435,7 @@ class PullGatewayTestCase(TestCase):
             api_gateway=self.gateway,
             name="Gone",
             route_key="gone",
-            integration_url="https://gone/",
+            integration_url="https://gone.example.com/",
             deployed=True,
             route_id="r9",
         )

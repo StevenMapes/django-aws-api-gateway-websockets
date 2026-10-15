@@ -546,7 +546,36 @@ stored IDs, and is found by its route key instead.
 If AWS rejects a change, the local change is kept, the error code is saved in
 ``last_error`` and ``ApiGatewaySyncError`` is raised. In Django Admin the error
 shows as a message instead. Fix the cause, then run the ``Sync to AWS`` admin
-action. A deletion that fails in AWS is not made locally.
+action.
+
+.. _api-gateway-auto-sync-transactions:
+
+When the AWS call runs
+~~~~~~~~~~~~~~~~~~~~~~
+
+An AWS call can take seconds, or longer when AWS is slow. A call made inside a
+database `transaction <https://docs.djangoproject.com/en/stable/topics/db/transactions/>`_
+would hold the transaction open, and its row locks, until AWS answers. So when a
+transaction is open, the package saves or deletes the record first and calls AWS
+**when the transaction commits**:
+
+* The Django Admin wraps each change, delete and bulk action in a transaction, so
+  the AWS call runs after the admin saves the record. A failure shows as a message.
+* A call is never made for a change that is rolled back.
+* With no transaction open, as in a management command, the call runs at once and
+  ``ApiGatewaySyncError`` reaches your code, as described above.
+* Inside your own ``transaction.atomic()`` block, or with ``ATOMIC_REQUESTS``, the
+  call runs at the commit and ``ApiGatewaySyncError`` is raised there. The record
+  is already saved, and ``last_error`` holds the error.
+* A route is deleted from AWS **before** the local record when there is no
+  transaction, so a failure keeps the record. Inside a transaction the record goes
+  first, so a failure leaves the route in AWS. Run ``Sync from AWS`` to see it.
+* **Adding** an additional route calls AWS at once, whatever the transaction,
+  because the new route's AWS IDs are saved with it.
+
+Every call to AWS from provisioning and syncing uses a 5 second connect timeout, a
+20 second read timeout and up to 3 attempts. The client is built once for each
+process and reused.
 
 Turning the syncing off
 ~~~~~~~~~~~~~~~~~~~~~~~

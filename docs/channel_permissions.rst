@@ -148,6 +148,8 @@ The same rows can be created from code, for example in a data migration or a man
    other = ChannelPermissionRule.objects.create(channel_permission=channel)
    other.permissions.set(Permission.objects.filter(codename="administer"))
 
+.. _channel-permissions-unlisted:
+
 Unlisted channels
 =================
 
@@ -162,6 +164,8 @@ Unlisted channels
        ALLOW_UNLISTED_CHANNELS = False
 
 The default is ``True``. With ``False``, only channels that have a row can be joined, so you decide each channel in advance. This is the behaviour planned as the future default. An empty channel name, which is what a connection gets when it names no channel and the API Gateway has no default, has no row either, so it is refused too.
+
+``python manage.py check --deploy`` warns with ``django_aws_api_gateway_websockets.W004`` for each routed view that still has the default, so a view you forgot is reported before release.
 
 Permissions on the connection itself
 ====================================

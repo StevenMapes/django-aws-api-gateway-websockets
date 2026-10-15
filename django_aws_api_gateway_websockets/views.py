@@ -1,14 +1,17 @@
+import inspect
 import ipaddress
 import json
 import logging
 import re
+import threading
+import time
 import warnings
 from html import escape
 from typing import Union
+from urllib.parse import urlsplit
 
 from django.conf import settings
 from django.core.mail import mail_admins
-from django.db import transaction
 from django.db.models import F
 from django.http import HttpResponseBadRequest, HttpResponseForbidden, JsonResponse
 from django.utils import timezone
@@ -26,9 +29,15 @@ from django_aws_api_gateway_websockets.models import (
     WebSocketSession,
     WebSocketToken,
     get_gateway_secrets,
+    hash_session_key,
+    hash_user_auth,
 )
 
 logger = logging.getLogger(__name__)
+
+# When an exception email was last sent for each view class and exception type, in this process
+_exception_mail_sent: dict = {}
+_exception_mail_lock = threading.Lock()
 
 
 class WebSocketTokenView(View):
@@ -77,6 +86,9 @@ class WebSocketView(View):
     debug_log = None
 
     SEND_EXCEPTION_MAIL = True  # Set to False to supress the mail_admins send
+    # Send at most one exception email for each view and exception type in this many seconds
+    # for each process. Every exception is still logged. 0 sends an email every time.
+    EXCEPTION_MAIL_INTERVAL = 60
 
     MAX_BODY_SIZE = 1024 * 128  # 128KB
 
@@ -158,6 +170,31 @@ class WebSocketView(View):
 
         super().__init__(**kwargs)
 
+    def _exception_mail_is_due(self, error: Exception) -> bool:
+        """Whether to email the admins about ``error``, so a client cannot flood their inbox.
+
+        One email for each view class and exception type in ``EXCEPTION_MAIL_INTERVAL``
+        seconds, counted for each process. The exception is logged either way.
+        """
+        interval = self.EXCEPTION_MAIL_INTERVAL
+        if not interval:
+            return True
+        key = (type(self), type(error))
+        now = time.monotonic()
+        with _exception_mail_lock:
+            last_sent = _exception_mail_sent.get(key)
+            if last_sent is not None and now - last_sent < interval:
+                return False
+            if len(_exception_mail_sent) >= 256:
+                for stale in [
+                    old
+                    for old, sent in _exception_mail_sent.items()
+                    if now - sent >= interval
+                ]:
+                    del _exception_mail_sent[stale]
+            _exception_mail_sent[key] = now
+        return True
+
     def _debug(self, msg: str):
         if self.debug:
             # Security: Sanitize debug messages to prevent XSS if logs are ever displayed
@@ -187,27 +224,35 @@ class WebSocketView(View):
 
         self._debug("Setup completed")
 
+    # Handlers that WebSocketView provides. A subclass that defines one of these has chosen
+    # to let clients call it.
+    BASE_HANDLERS = frozenset({"default", "change_channel"})
+
+    @classmethod
+    def _automatic_handlers(cls) -> list:
+        """The handlers a client may call when ``ALLOWED_HANDLERS`` is not set.
+
+        These are the plain methods that the subclass defines itself. Names that
+        ``WebSocketView`` defines are left out, because they are hooks and routes, such as
+        ``connect``, ``can_join_channel`` and ``get_channel_permission``, and a client must
+        not be able to call them by name. ``default`` and ``change_channel`` are the
+        exceptions. Classes, class methods, properties and other callable objects are left
+        out too, because only a function can be a handler.
+        """
+        inherited = {
+            name for name in dir(WebSocketView) if not name.startswith("_")
+        } - cls.BASE_HANDLERS
+        return [
+            name
+            for name in vars(cls)
+            if not name.startswith("_")
+            and name not in inherited
+            and inspect.isfunction(getattr(cls, name))
+        ]
+
     def _get_current_class_methods(self):
-        """Get only the methods defined in the current class, ignoring inherited ones."""
-        # Get all methods from the current class
-        current_class = self.__class__
-
-        # Get methods defined directly in this class (not inherited)
-        methods = []
-        for name in dir(current_class):
-            # Skip private/magic methods if desired
-            if name.startswith("_"):
-                continue
-
-            attr = getattr(current_class, name)
-
-            # Check if it's a method/function
-            if callable(attr):
-                # Check if it's defined in the current class, not inherited
-                if name in current_class.__dict__:
-                    methods.append(name)
-
-        return methods
+        """The handlers defined on the current class, ignoring inherited ones."""
+        return self._automatic_handlers()
 
     def _return_bad_request(self, msg: str):
         """Common method for logging and returning the HTTP400 response"""
@@ -356,10 +401,30 @@ class WebSocketView(View):
 
     @staticmethod
     def _check_host_is_in_origin(request) -> bool:
-        """Check that the value of the Host header is within the Origin header. Origin will have the protocol as well"""
-        if request.headers["Host"] not in request.headers["Origin"]:
+        """Check that the Origin header names the Host, or a sub-domain of it.
+
+        The Origin is parsed, and only its host name is compared, so a look-alike such as
+        ``https://www.example.com.attacker.net`` or ``https://evil.net/?www.example.com``
+        does not match. A site on ``www.example.com`` may connect to a Host of
+        ``example.com``, as before. The Origin must use ``http`` or ``https``. Ports must
+        agree: no port in the Host means the default port of the Origin's scheme.
+        """
+        try:
+            host = urlsplit(f"//{request.headers.get('Host', '')}")
+            origin = urlsplit(request.headers.get("Origin", ""))
+            host_name, host_port = host.hostname, host.port
+            origin_name, origin_port = origin.hostname, origin.port
+        except ValueError:
             return False
-        return True
+
+        if origin.scheme not in ("http", "https") or not host_name or not origin_name:
+            return False
+
+        default_port = 443 if origin.scheme == "https" else 80
+        if (origin_port or default_port) != (host_port or default_port):
+            return False
+
+        return origin_name == host_name or origin_name.endswith(f".{host_name}")
 
     def _expected_connection_headers(self, request, *args, **kwargs) -> bool:
         """Run additional checks for the connection route for security"""
@@ -374,24 +439,59 @@ class WebSocketView(View):
             return False
         return bool(re.match(r"^[A-Za-z0-9_=-]+$", connection_id))
 
-    def _add_user_to_request(self, request):
-        """Fetch the user from the model and append it back into the request variable"""
+    @staticmethod
+    def _login_still_holds(wss) -> bool:
+        """Whether the user a session was opened for may still use it.
+
+        A user who has been deactivated, or whose password has changed since the
+        connection was made, no longer holds the login the connection was opened under.
+        """
+        user = wss.user
+        if not user.is_active:
+            return False
+        if wss.auth_hash and not constant_time_compare(
+            wss.auth_hash, hash_user_auth(user)
+        ):
+            return False
+        return True
+
+    def _add_user_to_request(self, request) -> bool:
+        """Set the session's user on the request, and count the request against the session.
+
+        Uses the session ``dispatch`` already loaded, with its user, so a message costs no
+        second lookup. The counter is one ``UPDATE`` that adds 1 in the database, so two
+        messages from one connection both count and neither waits for a row lock.
+
+        :returns: ``False`` when the session belongs to a user who no longer holds the
+            login it was opened under. The session is closed and the user is not set.
+            ``True`` otherwise.
+        """
         connection_id = request.headers["Connectionid"]
-        if self._validate_connection_id(request.headers["Connectionid"]):
-            try:
-                with transaction.atomic():
-                    wss = WebSocketSession.objects.select_for_update().get(
-                        connection_id=connection_id,
-                        connected=True,
-                        api_gateway=self.api_gateway or None,
-                    )
-                    if wss.user:
-                        request.user = wss.user
-                    wss.request_count = F("request_count") + 1
-                    wss.save(update_fields=["request_count"])
-            except WebSocketSession.DoesNotExist:
-                self._debug(f"Session not found: {request.headers['Connectionid']}")
+        if not self._validate_connection_id(connection_id):
+            return True
+
+        wss = self.websocket_session
+        if not wss or wss.connection_id != connection_id:
+            if not self._load_session(request):
+                self._debug(f"Session not found: {connection_id}")
                 # Handle gracefully
+                return True
+            wss = self.websocket_session
+
+        user = wss.user
+        if user and not self._login_still_holds(wss):
+            WebSocketSession.objects.filter(pk=wss.pk).update(
+                connected=False, updated_on=timezone.now()
+            )
+            wss.connected = False
+            self._debug(f"Session closed, login ended: {connection_id}")
+            return False
+        if user:
+            request.user = user
+        WebSocketSession.objects.filter(pk=wss.pk).update(
+            request_count=F("request_count") + 1
+        )
+        return True
 
     def _is_valid_channel_name(self, channel_name) -> bool:
         """Check that a client supplied channel name is a string of an allowed length and format"""
@@ -432,11 +532,15 @@ class WebSocketView(View):
 
         :returns: ``True`` if the session was found and set on ``websocket_session``.
         """
-        self.websocket_session = WebSocketSession.objects.filter(
-            connection_id=request.headers["Connectionid"],
-            connected=True,
-            api_gateway=self.api_gateway or None,
-        ).first()
+        self.websocket_session = (
+            WebSocketSession.objects.select_related("user")
+            .filter(
+                connection_id=request.headers["Connectionid"],
+                connected=True,
+                api_gateway=self.api_gateway or None,
+            )
+            .first()
+        )
         return self.websocket_session is not None
 
     def session_not_found(self, request, *args, **kwargs) -> HttpResponseBadRequest:
@@ -515,10 +619,12 @@ class WebSocketView(View):
                     if not self._expected_useragent(request, *args, **kwargs):
                         handler = self.invalid_useragent
                     else:
-                        self._add_user_to_request(request)
+                        session_open = self._add_user_to_request(request)
 
                         # Use Django Permissions to restrict the method
-                        if not self._passes_permission_checks(request):
+                        if not session_open:
+                            handler = self.session_not_found
+                        elif not self._passes_permission_checks(request):
                             handler = self.permission_denied
                 else:
                     handler = self.handler_selection_key_missing
@@ -531,7 +637,7 @@ class WebSocketView(View):
             res = handler(request, *args, **kwargs)
         except Exception as e:
             logger.exception(e)
-            if self.SEND_EXCEPTION_MAIL:
+            if self.SEND_EXCEPTION_MAIL and self._exception_mail_is_due(e):
                 mail_admins(
                     "Unexpected Websocket Exception", str(e), fail_silently=True
                 )
@@ -631,11 +737,15 @@ class WebSocketView(View):
                 ConnectionRateLimit.record_attempt(ip_address, user, successful=False)
             return self._return_bad_request(msg)
 
+        user_ = request.user if request.user.is_authenticated else None
+        session_key = getattr(getattr(request, "session", None), "session_key", None)
         WebSocketSession.objects.create(
             connection_id=request.headers["Connectionid"],
             channel_name=channel_name,
-            user=request.user if request.user.is_authenticated else None,
+            user=user_,
             api_gateway=self.api_gateway,
+            session_key_hash=hash_session_key(session_key) if session_key else "",
+            auth_hash=hash_user_auth(user_) if user_ else "",
         )
 
         # Record successful connection
@@ -671,7 +781,8 @@ class WebSocketView(View):
         # One UPDATE that touches only these fields, so it cannot overwrite a change
         # another request made to the same row.
         updated = WebSocketSession.objects.filter(
-            connection_id=request.headers["Connectionid"]
+            connection_id=request.headers["Connectionid"],
+            api_gateway=self.api_gateway or None,
         ).update(connected=False, updated_on=timezone.now())
         if not updated:
             return self.session_not_found(request, *args, **kwargs)

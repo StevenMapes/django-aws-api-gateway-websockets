@@ -302,16 +302,22 @@ def _pull_additional_routes(gateway, routes, integrations) -> list[str]:
         if route_id in seen:
             continue
         integration_id = integration_id_of(remote)
-        ApiGatewayAdditionalRoute.objects.create(
-            api_gateway=gateway,
-            name=remote["RouteKey"][:63],
-            route_key=remote["RouteKey"],
-            integration_url=integrations.get(integration_id, {}).get(
-                "IntegrationUri", ""
-            ),
-            route_id=route_id,
-            integration_id=integration_id,
-            deployed=True,
+        # What AWS holds is recorded as it is, so the record is not validated: a route
+        # the host does not allow is still a route that exists.
+        ApiGatewayAdditionalRoute.objects.bulk_create(
+            [
+                ApiGatewayAdditionalRoute(
+                    api_gateway=gateway,
+                    name=remote["RouteKey"][:63],
+                    route_key=remote["RouteKey"],
+                    integration_url=integrations.get(integration_id, {}).get(
+                        "IntegrationUri", ""
+                    ),
+                    route_id=route_id,
+                    integration_id=integration_id,
+                    deployed=True,
+                )
+            ]
         )
         changes.append(f"Added the {remote['RouteKey']} route")
     return changes

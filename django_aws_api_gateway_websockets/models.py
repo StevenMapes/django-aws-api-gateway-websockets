@@ -1,20 +1,27 @@
 import json
 import logging
+import os
 import re
 import secrets
+import threading
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import timedelta
 from functools import partial
+from urllib.parse import urlsplit
 
 import boto3
 from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
 from django.conf import settings
 from django.contrib.auth.models import Permission
+from django.contrib.auth.signals import user_logged_out
+from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
-from django.db import models, transaction
-from django.db.models import Prefetch, prefetch_related_objects
-from django.db.models.signals import post_delete
+from django.db import models, router, transaction
+from django.db.models import Count, Prefetch, Q, prefetch_related_objects
+from django.db.models.signals import post_delete, pre_delete
 from django.dispatch import receiver
 from django.utils import timezone
 from django.utils.crypto import salted_hmac
@@ -22,6 +29,7 @@ from django.utils.translation import gettext_lazy as _
 
 from django_aws_api_gateway_websockets import sync
 from django_aws_api_gateway_websockets.conf import (
+    get_allowed_integration_hosts,
     get_boolean_setting,
     get_websockets_config,
 )
@@ -34,6 +42,19 @@ BROADCAST_MAX_WORKERS = 10
 BROADCAST_CONNECT_TIMEOUT = 5  # seconds
 BROADCAST_READ_TIMEOUT = 10  # seconds
 BROADCAST_MAX_ATTEMPTS = 3
+
+# Timeouts for the calls that provision and sync an API Gateway. Without them botocore waits
+# 60 seconds to connect and 60 to read, with retries, while a database transaction may be open.
+AWS_CONNECT_TIMEOUT = 5  # seconds
+AWS_READ_TIMEOUT = 20  # seconds
+AWS_MAX_ATTEMPTS = 3
+
+# Connection attempts are kept this long. Recording an attempt deletes expired rows once in
+# RATE_LIMIT_PURGE_ONE_IN times, at most RATE_LIMIT_PURGE_BATCH at a time, so the table stays
+# bounded even when ``cleanupWebSocketTokens`` is never scheduled.
+RATE_LIMIT_RETENTION_DAYS = 7
+RATE_LIMIT_PURGE_ONE_IN = 100
+RATE_LIMIT_PURGE_BATCH = 500
 
 logger = logging.getLogger(__name__)
 
@@ -133,6 +154,60 @@ def hash_session_key(session_key: str) -> str:
     ).hexdigest()
 
 
+def hash_user_auth(user) -> str:
+    """Return a keyed hash of a user's Django session authentication hash.
+
+    The value changes when the user's password changes, so a ``WebSocketSession`` that
+    stored it can tell that the login it was opened under no longer holds. It is empty
+    for a user model without ``get_session_auth_hash()``.
+    """
+    get_auth_hash = getattr(user, "get_session_auth_hash", None)
+    if get_auth_hash is None:
+        return ""
+    return salted_hmac(
+        "django_aws_api_gateway_websockets.WebSocketSession.auth_hash",
+        get_auth_hash(),
+        algorithm="sha256",
+    ).hexdigest()
+
+
+def _host_is_allowed(url: str) -> bool:
+    """Whether ``url`` points at a host that ``allowed_integration_hosts`` lists.
+
+    Always ``True`` when the setting is empty. A ``*.`` entry matches sub-domains only.
+    """
+    allowed = get_allowed_integration_hosts()
+    if not allowed:
+        return True
+    try:
+        host = urlsplit(url).hostname
+    except ValueError:
+        return False
+    if not host:
+        return False
+    host = host.lower()
+    for entry in allowed:
+        if entry.startswith("*."):
+            if host.endswith(entry[1:]) and len(host) > len(entry) - 1:
+                return True
+        elif host == entry:
+            return True
+    return False
+
+
+def validate_integration_host(url: str, field: str) -> None:
+    """Raise a ``ValidationError`` on ``field`` if ``url`` is not at an allowed host.
+
+    The integration URL decides where API Gateway sends every connect, disconnect and message
+    event, with the connection ID and the gateway secret. The message does not list the
+    allowed hosts.
+    """
+    if url and not _host_is_allowed(url):
+        raise ValidationError(
+            {field: _('This host is not in WEBSOCKETS["allowed_integration_hosts"].')}
+        )
+
+
 def _push_enabled(push_to_aws) -> bool:
     """Whether a save or delete should also change AWS.
 
@@ -142,6 +217,54 @@ def _push_enabled(push_to_aws) -> bool:
     if push_to_aws is None:
         return get_boolean_setting("push_changes_to_aws")
     return bool(push_to_aws)
+
+
+_deferred_sync_errors: ContextVar = ContextVar("deferred_sync_errors", default=None)
+
+
+@contextmanager
+def collect_deferred_sync_errors():
+    """Collect the ``ApiGatewaySyncError`` of AWS calls that run when a transaction commits.
+
+    The Django admin uses it: it wraps each view in a transaction, so the AWS calls of the
+    records it saves run as the view finishes, and it reports each failure as a message.
+    Yields a list that fills as the transaction commits, inside the ``with`` block.
+    """
+    errors: list = []
+    token = _deferred_sync_errors.set(errors)
+    try:
+        yield errors
+    finally:
+        _deferred_sync_errors.reset(token)
+
+
+def run_aws_after_commit(operation) -> None:
+    """Run an AWS call once the open transaction commits, or now when there is none.
+
+    A call made inside a transaction holds its row locks, and the connection, for as long as
+    AWS takes to answer. Run after the commit, it holds neither, and a rollback cannot leave
+    AWS changed for a record that was never saved.
+
+    With no transaction, ``operation`` runs at once and its ``ApiGatewaySyncError`` reaches
+    the caller. Inside one, the error is passed to ``collect_deferred_sync_errors()`` if that
+    is active, and otherwise raised when the transaction commits. Either way, the error is
+    already logged, and recorded in the API Gateway's ``last_error``.
+    """
+    connection = transaction.get_connection(router.db_for_write(ApiGateway))
+    if not connection.in_atomic_block:
+        operation()
+        return
+
+    def run() -> None:
+        try:
+            operation()
+        except ApiGatewaySyncError as error:
+            errors = _deferred_sync_errors.get()
+            if errors is None:
+                raise
+            errors.append(error)
+
+    transaction.on_commit(run, using=connection.alias)
 
 
 def get_region_name():
@@ -161,6 +284,50 @@ def get_region_name():
         )
 
 
+def _default_client_config() -> Config:
+    return Config(
+        connect_timeout=AWS_CONNECT_TIMEOUT,
+        read_timeout=AWS_READ_TIMEOUT,
+        retries={"mode": "standard", "max_attempts": AWS_MAX_ATTEMPTS},
+    )
+
+
+_boto3_clients: dict = {}
+_boto3_clients_lock = threading.Lock()
+
+
+def clear_boto3_client_cache() -> None:
+    """Forget the cached boto3 clients, so the next call builds new ones.
+
+    Call it after changing the AWS credential settings while the process is running.
+    """
+    with _boto3_clients_lock:
+        _boto3_clients.clear()
+
+
+def _client_cache_key(service: str, kwargs: dict) -> tuple:
+    """Everything that decides which client is built, so a changed setting builds a new one.
+
+    The process ID is included so a client made before a worker forked is not shared with
+    the child.
+    """
+    options = []
+    for name, value in sorted(kwargs.items()):
+        if isinstance(value, Config):
+            value = repr(sorted(vars(value).items()))
+        options.append((name, value))
+    return (
+        os.getpid(),
+        service,
+        getattr(settings, "AWS_IAM_PROFILE", None),
+        getattr(settings, "AWS_ACCESS_KEY_ID", None),
+        getattr(settings, "AWS_SECRET_ACCESS_KEY", None),
+        getattr(settings, "AWS_GATEWAY_REGION_NAME", None),
+        getattr(settings, "AWS_REGION_NAME", None),
+        tuple(options),
+    )
+
+
 def get_boto3_client(service: str = "apigatewayv2", **kwargs):
     """Returns the boto3 client to use.
 
@@ -170,8 +337,25 @@ def get_boto3_client(service: str = "apigatewayv2", **kwargs):
     Otherwise you can either use a named profile using settings.AWS_IAM_PROFILE or you can set the credentials
     using both AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY.
 
+    The client has short connect and read timeouts unless you pass your own ``config``. It is
+    built once for each process and set of arguments, then reused: boto3 clients can be shared
+    between threads, and a role's temporary credentials refresh on their own. After changing
+    the credential settings in a running process, call ``clear_boto3_client_cache()``.
+
     :param str service: apigatewayv2 | apigatewaymanagementapi
     """
+    kwargs.setdefault("config", _default_client_config())
+    key = _client_cache_key(service, kwargs)
+    with _boto3_clients_lock:
+        client = _boto3_clients.get(key)
+        if client is None:
+            # The lock also covers boto3.Session, which is not safe to create in two threads
+            client = _build_boto3_client(service, **kwargs)
+            _boto3_clients[key] = client
+    return client
+
+
+def _build_boto3_client(service: str, **kwargs):
     if hasattr(settings, "AWS_IAM_PROFILE") and settings.AWS_IAM_PROFILE:
         # Used a named profile where credentials are stored within .aws folder
         session = boto3.Session(profile_name=settings.AWS_IAM_PROFILE)
@@ -217,7 +401,7 @@ class ApiGateway(models.Model):
 
     def clean(self):
         """Validate fields only when they have values"""
-        from django.core.exceptions import ValidationError
+        validate_integration_host(self.target_base_endpoint, "target_base_endpoint")
 
         # Validate domain_name only if provided
         if self.domain_name:
@@ -294,7 +478,7 @@ class ApiGateway(models.Model):
                 if previous.get(name, value) != value
             }
             if changed and self.is_deployed and _push_enabled(push_to_aws):
-                self.sync_to_aws(fields=changed)
+                run_aws_after_commit(lambda: self.sync_to_aws(fields=changed))
 
     def sync_to_aws(self, client=None, fields=None) -> list[str]:
         """Write the local values to the deployed API in AWS.
@@ -353,6 +537,7 @@ class ApiGateway(models.Model):
         """How far provisioning in AWS has got. Each step is recorded as soon as it succeeds."""
 
         PENDING = "pending", _("Pending")
+        CREATING = "creating", _("Creating")
         API_CREATED = "api_created", _("API created")
         ROUTES_CREATED = "routes_created", _("Routes created")
         DEPLOYED = "deployed", _("Deployed")
@@ -442,7 +627,9 @@ class ApiGateway(models.Model):
         help_text=_(
             "How far creating the API in AWS has got. If a run stopped part way, running the "
             "action again continues from here. Change it by hand only to match what exists in "
-            "AWS: for example set 'API created' for an API whose routes are missing."
+            "AWS: for example set 'API created' for an API whose routes are missing. 'Creating' "
+            "means a run has started, and stays until it records the API. If no run is "
+            "active and the API is not in AWS, set 'Pending'."
         ),
     )
     last_error = models.CharField(
@@ -534,6 +721,10 @@ class ApiGateway(models.Model):
 
         status = self.effective_provisioning_status
         Status = self.ProvisioningStatus
+        if status == Status.PENDING:
+            self._claim_for_creation()
+        elif status == Status.CREATING:
+            raise ValueError(self._CREATING_MESSAGE)
         client = get_boto3_client()
         try:
             if status == Status.PENDING:
@@ -582,10 +773,60 @@ class ApiGateway(models.Model):
                 last_error="",
             )
         except Exception as error:
+            self._release_claim()
             self._record_error(error)
             raise
 
         return True
+
+    _CREATING_MESSAGE = (
+        "The API is already being created by another request. If no run is active "
+        "and the API is not in AWS, set the provisioning status to Pending. If it is "
+        "in AWS, set the status to match how far it got."
+    )
+
+    def _claim_for_creation(self) -> None:
+        """Take the right to create the API in AWS, so two requests cannot both create one.
+
+        One conditional ``UPDATE`` decides the winner, in the database and before AWS is
+        called. The request that changes no row is refused.
+
+        :raises ValueError: If another request already holds the claim.
+        """
+        Status = self.ProvisioningStatus
+        claimed = (
+            type(self)
+            .objects.filter(
+                pk=self.pk, provisioning_status=Status.PENDING, api_created=False
+            )
+            .update(
+                provisioning_status=Status.CREATING,
+                last_error="",
+                updated_on=timezone.now(),
+            )
+        )
+        if not claimed:
+            raise ValueError(self._CREATING_MESSAGE)
+        self.provisioning_status = Status.CREATING
+        self.last_error = ""
+
+    def _release_claim(self) -> None:
+        """Give the claim back after a failure that left no API in AWS.
+
+        Once ``create_api`` has returned, an API may exist that the database does not
+        record. The claim then stays, so a second run cannot create a duplicate, and a
+        person checks AWS. Never raises, so it cannot hide the original error.
+        """
+        Status = self.ProvisioningStatus
+        if self.provisioning_status != Status.CREATING or self.api_id:
+            return
+        try:
+            type(self).objects.filter(
+                pk=self.pk, provisioning_status=Status.CREATING
+            ).update(provisioning_status=Status.PENDING, updated_on=timezone.now())
+            self.provisioning_status = Status.PENDING
+        except Exception:
+            logger.exception("Could not release the provisioning claim")
 
     def create_custom_domain(self):
         """Uses boto3 to create the custom domain and associate it with the production stage of the loaded API
@@ -751,6 +992,10 @@ class ApiGatewayAdditionalRoute(models.Model):
         instance._aws_snapshot = instance._synced_values()
         return instance
 
+    def clean(self):
+        """Refuse an integration URL at a host that is not in ``allowed_integration_hosts``"""
+        validate_integration_host(self.integration_url, "integration_url")
+
     def _synced_values(self) -> dict:
         return {
             name: self.__dict__[name]
@@ -761,17 +1006,25 @@ class ApiGatewayAdditionalRoute(models.Model):
     def save(self, *args, push_to_aws: bool | None = None, **kwargs):
         """Save the record, then create or update the route in AWS if the parent is deployed.
 
-        A new route is always created in AWS, as it was before syncing existed. A deployed route
-        whose ``route_key`` or ``integration_url`` changed is updated, unless
-        ``WEBSOCKETS["push_changes_to_aws"]`` is off. The record is saved first, so if AWS fails
-        the local change is kept and ``ApiGatewaySyncError`` is raised: run the ``Sync to AWS``
-        admin action on the API gateway to try again. With the setting off, creating a route
-        raises the original AWS error.
+        The record is validated first, unless ``update_fields`` is given, so a route cannot be
+        saved with an integration URL that is invalid or at a host that is not allowed.
+
+        A new route is always created in AWS, as it was before syncing existed, and at once,
+        because the caller needs its AWS IDs. A deployed route whose ``route_key`` or
+        ``integration_url`` changed is updated, unless ``WEBSOCKETS["push_changes_to_aws"]`` is
+        off. Inside a transaction the update runs when it commits (see
+        ``run_aws_after_commit``). The record is saved first, so if AWS fails the local change
+        is kept and ``ApiGatewaySyncError`` is raised: run the ``Sync to AWS`` admin action on
+        the API gateway to try again. With the setting off, creating a route raises the
+        original AWS error.
 
         :param push_to_aws: ``False`` saves without calling AWS at all and ``True`` always
             updates AWS, whatever the setting says. ``None`` follows the setting.
+        :raises ValidationError: If the record is not valid.
         :raises ApiGatewaySyncError: If AWS rejects the change.
         """
+        if kwargs.get("update_fields") is None:
+            self.full_clean()
         previous = getattr(self, "_aws_snapshot", {})
         super().save(*args, **kwargs)
         current = self._synced_values()
@@ -789,9 +1042,13 @@ class ApiGatewayAdditionalRoute(models.Model):
             previous.get(name, value) != value for name, value in current.items()
         ):
             old_key = previous.get("route_key", self.route_key)
-            self.api_gateway._sync(
-                lambda client: self.update_route(client, previous_route_key=old_key),
-                None,
+            run_aws_after_commit(
+                lambda: self.api_gateway._sync(
+                    lambda client: self.update_route(
+                        client, previous_route_key=old_key
+                    ),
+                    None,
+                )
             )
 
     api_gateway = models.ForeignKey(
@@ -867,21 +1124,30 @@ class ApiGatewayAdditionalRoute(models.Model):
             self._deploy(client)
 
     _aws_deleted = False
+    _aws_delete_queued = False
 
     def delete(self, *args, push_to_aws: bool | None = None, **kwargs):
         """Delete the record, and the route in AWS if the API gateway is deployed.
 
-        AWS is changed first, so a failure leaves the record in place. With
+        Outside a transaction AWS is changed first, so a failure leaves the record in place.
+        Inside one, the record is deleted and AWS is changed when the transaction commits, so
+        a failure leaves the route in AWS and ``ApiGatewaySyncError`` is raised then. With
         ``WEBSOCKETS["push_changes_to_aws"]`` off, only the record is deleted.
 
         :param push_to_aws: ``False`` deletes the record without calling AWS and ``True`` always
             deletes the route in AWS, whatever the setting says. ``None`` follows the setting.
         :raises ApiGatewaySyncError: If AWS rejects the change.
         """
-        if _push_enabled(push_to_aws):
-            self._delete_from_aws()
-        else:
+        if not _push_enabled(push_to_aws):
             self._aws_deleted = True
+        elif transaction.get_connection(
+            router.db_for_write(type(self))
+        ).in_atomic_block:
+            # Inside a transaction the route is removed from AWS once the delete commits
+            self._aws_delete_queued = True
+            run_aws_after_commit(self._delete_from_aws)
+        else:
+            self._delete_from_aws()
         return super().delete(*args, **kwargs)
 
     def _delete_from_aws(self) -> None:
@@ -941,19 +1207,50 @@ class ApiGatewayAdditionalRoute(models.Model):
             type(self).objects.filter(pk=self.pk).update(**values)
 
 
+@receiver(pre_delete, sender=ApiGateway)
+def disconnect_sessions_of_deleted_gateway(sender, instance, **kwargs):
+    """Mark the sessions of an API Gateway disconnected before it is deleted.
+
+    Deleting the gateway sets their ``api_gateway`` to ``NULL``, and a session with no
+    gateway cannot be sent to. Left marked connected, it would look live and never receive
+    anything.
+    """
+    WebSocketSession.objects.filter(api_gateway=instance, connected=True).update(
+        connected=False, updated_on=timezone.now()
+    )
+
+
+@receiver(user_logged_out)
+def close_sessions_on_logout(sender, request=None, **kwargs):
+    """Close the WebSocket sessions that were opened under the login that just ended."""
+    session_key = getattr(getattr(request, "session", None), "session_key", None)
+    if not session_key:
+        return
+    WebSocketSession.objects.filter(
+        session_key_hash=hash_session_key(session_key), connected=True
+    ).update(connected=False, updated_on=timezone.now())
+
+
 @receiver(post_delete, sender=ApiGatewayAdditionalRoute)
 def delete_route_from_aws(sender, instance, origin=None, **kwargs):
     """Remove a route deleted by a queryset delete from AWS, if the API gateway is deployed.
 
-    ``ApiGatewayAdditionalRoute.delete()`` has already done this for a single route. Deleting
-    the whole API gateway record does not change AWS, so its routes are left alone. If AWS
-    fails, ``ApiGatewaySyncError`` is raised and the deletion is rolled back.
+    ``ApiGatewayAdditionalRoute.delete()`` has already done this for a single route. Only a
+    deletion that starts from a route reaches AWS. Deleting the API gateway record, by
+    instance, queryset, admin bulk action or a cascade from another model, does not change
+    AWS, so its routes are left alone. The queryset delete runs in a transaction, so the AWS
+    call runs when it commits. If AWS fails, ``ApiGatewaySyncError`` is raised then, or
+    collected by ``collect_deferred_sync_errors()``, and the local delete stays.
     """
-    if isinstance(origin, ApiGateway) or instance._aws_deleted:
+    started_from_a_route = isinstance(origin, ApiGatewayAdditionalRoute) or (
+        isinstance(origin, models.QuerySet)
+        and origin.model is ApiGatewayAdditionalRoute
+    )
+    if not started_from_a_route or instance._aws_deleted or instance._aws_delete_queued:
         return
     if not get_boolean_setting("push_changes_to_aws"):
         return
-    instance._delete_from_aws()
+    run_aws_after_commit(instance._delete_from_aws)
 
 
 class WebSocketSessionQuerySet(models.QuerySet):
@@ -996,12 +1293,27 @@ class WebSocketSessionQuerySet(models.QuerySet):
         # Group by gateway so each session is posted through its own endpoint,
         # with one client per gateway.
         recipients: dict[tuple[str, str], list[tuple[int, str]]] = {}
-        for pk, connection_id, api_id, stage_name in self.filter(
+        without_gateway = 0
+        for pk, connection_id, gateway_id, api_id, stage_name in self.filter(
             connected=True
         ).values_list(
-            "pk", "connection_id", "api_gateway__api_id", "api_gateway__stage_name"
+            "pk",
+            "connection_id",
+            "api_gateway_id",
+            "api_gateway__api_id",
+            "api_gateway__stage_name",
         ):
+            if gateway_id is None:
+                without_gateway += 1
+                continue
             recipients.setdefault((api_id, stage_name), []).append((pk, connection_id))
+
+        if without_gateway:
+            logger.warning(
+                "Skipped %d sessions with no API Gateway, so there is no endpoint to "
+                "send to. They are still marked connected.",
+                without_gateway,
+            )
 
         res = []
         gone_pks = []
@@ -1053,16 +1365,33 @@ class WebSocketSession(models.Model):
         return self.connection_id
 
     def send_message(self, data: dict):
-        """Sends a message containing the given data to connection"""
+        """Sends a message containing the given data to connection
+
+        :raises ValueError: If the session has no API Gateway, so there is no endpoint to
+            post to, or the message exceeds the AWS size limit.
+        """
+        if self.api_gateway_id is None:
+            raise ValueError(
+                f"Session {self.connection_id} has no API Gateway to send the message through"
+            )
         region = get_region_name()
         # Security: Validate message size before sending
         message_data = serialise_message(data)
 
+        if type(self).api_gateway.is_cached(self):
+            gateway = self.api_gateway
+        else:
+            # Two columns, not the whole row, and not left on the session. Use
+            # select_related("api_gateway") when sending to many sessions in a loop.
+            gateway = ApiGateway.objects.only("api_id", "stage_name").get(
+                pk=self.api_gateway_id
+            )
+
         client = get_boto3_client(
             "apigatewaymanagementapi",
             endpoint_url=(
-                f"https://{self.api_gateway.api_id}.execute-api."
-                f"{region}.amazonaws.com/{self.api_gateway.stage_name}"
+                f"https://{gateway.api_id}.execute-api."
+                f"{region}.amazonaws.com/{gateway.stage_name}"
             ),
         )
         try:
@@ -1110,6 +1439,15 @@ class WebSocketSession(models.Model):
         related_name="sessions",
     )
     request_count = models.PositiveBigIntegerField(default=1)
+    # A keyed hash of the Django session key (see hash_session_key), never the key itself.
+    # Logging out closes the sessions that carry its hash. Empty when the connection
+    # arrived without a Django session.
+    session_key_hash = models.CharField(
+        max_length=64, blank=True, default="", db_index=True
+    )
+    # A keyed hash of the user's authentication hash (see hash_user_auth). A password
+    # change makes it stop matching, which ends the session. Empty for older rows.
+    auth_hash = models.CharField(max_length=64, blank=True, default="")
     created_on = models.DateTimeField(auto_now_add=True)
     updated_on = models.DateTimeField(auto_now=True)
 
@@ -1206,40 +1544,66 @@ class ConnectionRateLimit(models.Model):
     def check_rate_limit(cls, ip_address, user=None, max_attempts=20, window_minutes=5):
         """
         Check if IP or user has exceeded connection rate limit
+
+        One query counts the attempts from the IP address and, for an authenticated user,
+        the attempts by the user, within the window.
+
         Returns: (is_allowed: bool, attempts_count: int)
         """
         cutoff_time = timezone.now() - timedelta(minutes=window_minutes)
 
-        # Check IP-based rate limit
-        ip_attempts = cls.objects.filter(
-            ip_address=ip_address, attempt_time__gte=cutoff_time
-        ).count()
+        counted_user = user if user and user.is_authenticated else None
+        by_ip = Q(ip_address=ip_address)
+        counts = {"ip": Count("pk", filter=by_ip)}
+        matching = by_ip
+        if counted_user:
+            by_user = Q(user=counted_user)
+            counts["user"] = Count("pk", filter=by_user)
+            matching = by_ip | by_user
 
+        totals = cls.objects.filter(matching, attempt_time__gte=cutoff_time).aggregate(
+            **counts
+        )
+
+        ip_attempts = totals["ip"]
         if ip_attempts >= max_attempts:
             return False, ip_attempts
 
-        # Check user-based rate limit if user provided
-        if user and user.is_authenticated:
-            user_attempts = cls.objects.filter(
-                user=user, attempt_time__gte=cutoff_time
-            ).count()
-
-            if user_attempts >= max_attempts:
-                return False, user_attempts
+        if counted_user and totals["user"] >= max_attempts:
+            return False, totals["user"]
 
         return True, ip_attempts
 
     @classmethod
     def record_attempt(cls, ip_address, user=None, successful=False):
-        """Record a connection attempt"""
-        return cls.objects.create(
+        """Record a connection attempt, and now and then delete the expired ones"""
+        attempt = cls.objects.create(
             ip_address=ip_address,
             user=user if user and user.is_authenticated else None,
             successful=successful,
         )
+        if secrets.randbelow(RATE_LIMIT_PURGE_ONE_IN) == 0:
+            try:
+                cls._purge_expired()
+            except Exception:
+                logger.exception("Could not delete expired connection attempts")
+        return attempt
 
     @classmethod
-    def cleanup_old_records(cls, days=7):
+    def _purge_expired(cls) -> int:
+        """Delete up to one batch of attempts older than the retention period"""
+        cutoff_time = timezone.now() - timedelta(days=RATE_LIMIT_RETENTION_DAYS)
+        expired = list(
+            cls.objects.filter(attempt_time__lt=cutoff_time).values_list(
+                "pk", flat=True
+            )[:RATE_LIMIT_PURGE_BATCH]
+        )
+        if not expired:
+            return 0
+        return cls.objects.filter(pk__in=expired).delete()[0]
+
+    @classmethod
+    def cleanup_old_records(cls, days=RATE_LIMIT_RETENTION_DAYS):
         """Delete old rate limit records (call via cron/celery)"""
         cutoff_time = timezone.now() - timedelta(days=days)
         return cls.objects.filter(attempt_time__lt=cutoff_time).delete()

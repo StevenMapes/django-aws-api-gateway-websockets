@@ -1,10 +1,11 @@
-"""System checks for the optional gateway secret.
+"""System checks for the gateway secret, channel access and the ``WEBSOCKETS`` setting.
 
-Run ``python manage.py check --deploy`` to see the warning.
+Run ``python manage.py check --deploy`` to see the deployment warnings.
 """
 
 from django.conf import settings
 from django.core import checks
+from django.urls import URLPattern, URLResolver, get_resolver
 
 from django_aws_api_gateway_websockets.conf import (
     BOOLEAN_DEFAULTS,
@@ -65,6 +66,87 @@ def check_gateway_secret_is_set(app_configs, **kwargs):
     ]
 
 
+def _url_patterns() -> list:
+    """The project's URL patterns, nested includes and all"""
+    found = []
+    pending = list(get_resolver().url_patterns)
+    while pending:
+        pattern = pending.pop(0)
+        if isinstance(pattern, URLResolver):
+            pending.extend(pattern.url_patterns)
+        elif isinstance(pattern, URLPattern):
+            found.append(pattern)
+    return found
+
+
+def _routed_view_classes() -> list:
+    """The ``WebSocketView`` subclasses that the project routes, each once"""
+    from django_aws_api_gateway_websockets.views import WebSocketView
+
+    views = []
+    for pattern in _url_patterns():
+        view_class = getattr(pattern.callback, "view_class", None)
+        if (
+            isinstance(view_class, type)
+            and issubclass(view_class, WebSocketView)
+            and view_class not in views
+        ):
+            views.append(view_class)
+    return views
+
+
+def _routed_views_allowing_unlisted_channels() -> list:
+    """Routed ``WebSocketView`` subclasses that let anyone join an unlisted channel"""
+    return [view for view in _routed_view_classes() if view.ALLOW_UNLISTED_CHANNELS]
+
+
+@checks.register(checks.Tags.security, deploy=True)
+def check_handlers_are_listed(app_configs, **kwargs):
+    """Warn for each routed view that builds its handler list from its own public methods.
+
+    Every method such a view defines can be called by name from any connected client, so a
+    helper added later becomes reachable without anyone deciding that it should be.
+    """
+    messages = []
+    for view in _routed_view_classes():
+        exposed = sorted(set(view._automatic_handlers()) - view.BASE_HANDLERS)
+        if view.ALLOWED_HANDLERS or not exposed:
+            continue
+        messages.append(
+            checks.Warning(
+                f"{view.__module__}.{view.__qualname__} has no ALLOWED_HANDLERS, so clients "
+                f"can call {', '.join(exposed)}.",
+                hint=(
+                    "Set ALLOWED_HANDLERS to the names clients may call, such as "
+                    '{"default", "chat"}. Without it, every public method you add to the '
+                    "view becomes callable from the WebSocket."
+                ),
+                id="django_aws_api_gateway_websockets.W005",
+            )
+        )
+    return messages
+
+
+@checks.register(checks.Tags.security, deploy=True)
+def check_unlisted_channels_are_refused(app_configs, **kwargs):
+    """Warn for each routed view that lets anyone join a channel that has no rule."""
+    return [
+        checks.Warning(
+            f"{view.__module__}.{view.__qualname__} allows channels that have no "
+            "ChannelPermission row.",
+            hint=(
+                "Anyone who can connect can join a channel with no rule, and a "
+                "mistyped or forgotten channel name is open. Set "
+                "ALLOW_UNLISTED_CHANNELS = False on the view, and add an Allow all "
+                "row for each public channel. The default is planned to change in a "
+                "future major version. See the Channel permissions documentation."
+            ),
+            id="django_aws_api_gateway_websockets.W004",
+        )
+        for view in _routed_views_allowing_unlisted_channels()
+    ]
+
+
 @checks.register(checks.Tags.compatibility)
 def check_websockets_setting(app_configs, **kwargs):
     """Report a ``WEBSOCKETS`` dictionary that is the wrong type, has a bad value, or has a typo.
@@ -106,6 +188,25 @@ def check_websockets_setting(app_configs, **kwargs):
                     id="django_aws_api_gateway_websockets.E002",
                 )
             )
+    hosts = configured.get("allowed_integration_hosts")
+    if hosts is not None and not (
+        (isinstance(hosts, str) and hosts.strip())
+        or (
+            isinstance(hosts, (list, tuple))
+            and all(isinstance(host, str) and host.strip() for host in hosts)
+        )
+    ):
+        messages.append(
+            checks.Error(
+                'WEBSOCKETS["allowed_integration_hosts"] must be a host name or a list '
+                "of host names.",
+                hint=(
+                    "Any host is allowed until it is fixed. Use names such as "
+                    '"www.example.com" or "*.example.com".'
+                ),
+                id="django_aws_api_gateway_websockets.E002",
+            )
+        )
     for name in sorted(set(configured) - KNOWN_KEYS, key=str):
         messages.append(
             checks.Warning(

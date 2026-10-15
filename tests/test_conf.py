@@ -80,3 +80,35 @@ class BooleanSettingSimpleTestCase(SimpleTestCase):
     def test_the_numeric_defaults_are_unchanged_by_the_new_key(self):
         self.assertNotIn("push_changes_to_aws", conf.DEFAULTS)
         self.assertIn("push_changes_to_aws", conf.KNOWN_KEYS)
+
+
+class AllowedIntegrationHostsSettingSimpleTestCase(SimpleTestCase):
+    def test_unset_means_no_restriction(self):
+        for value in (None, {}, {"allowed_integration_hosts": []}):
+            with self.subTest(value=value):
+                with override_settings(WEBSOCKETS=value):
+                    self.assertEqual([], conf.get_allowed_integration_hosts())
+
+    def test_a_string_or_a_list_is_read_in_lower_case(self):
+        with override_settings(
+            WEBSOCKETS={"allowed_integration_hosts": " WWW.Example.com "}
+        ):
+            self.assertEqual(["www.example.com"], conf.get_allowed_integration_hosts())
+        with override_settings(
+            WEBSOCKETS={
+                "allowed_integration_hosts": ["a.example.com", "*.B.example.com"]
+            }
+        ):
+            self.assertEqual(
+                ["a.example.com", "*.b.example.com"],
+                conf.get_allowed_integration_hosts(),
+            )
+
+    def test_values_that_are_not_text_are_ignored(self):
+        with override_settings(
+            WEBSOCKETS={"allowed_integration_hosts": ["ok.example.com", 5, "", None]}
+        ):
+            self.assertEqual(["ok.example.com"], conf.get_allowed_integration_hosts())
+
+    def test_it_is_a_known_key(self):
+        self.assertIn("allowed_integration_hosts", conf.KNOWN_KEYS)

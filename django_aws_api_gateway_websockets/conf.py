@@ -25,7 +25,7 @@ BOOLEAN_DEFAULTS = {
 }
 
 # Keys that are read from the dictionary but have no default
-OPTIONAL_KEYS = frozenset({"gateway_secret"})
+OPTIONAL_KEYS = frozenset({"gateway_secret", "allowed_integration_hosts"})
 
 KNOWN_KEYS = frozenset(DEFAULTS) | frozenset(BOOLEAN_DEFAULTS) | OPTIONAL_KEYS
 
@@ -62,3 +62,23 @@ def get_boolean_setting(name: str) -> bool:
     default = BOOLEAN_DEFAULTS[name]
     value = get_websockets_config().get(name, default)
     return value if isinstance(value, bool) else default
+
+
+def get_allowed_integration_hosts() -> list[str]:
+    """Return the hosts an API Gateway integration may point at, in lower case.
+
+    ``WEBSOCKETS["allowed_integration_hosts"]`` is a host name or a list of them. An entry
+    that starts with ``*.`` matches the sub-domains of the rest, and not the domain itself.
+    An empty list, which is the default, means any host. Entries that are not text are ignored.
+    The system check ``django_aws_api_gateway_websockets.E002`` reports them at start-up.
+    """
+    configured = get_websockets_config().get("allowed_integration_hosts")
+    if isinstance(configured, str):
+        configured = [configured]
+    if not isinstance(configured, (list, tuple)):
+        return []
+    hosts = []
+    for host in configured:
+        if isinstance(host, str) and host.strip():
+            hosts.append(host.strip().lower())
+    return hosts

@@ -133,11 +133,18 @@ If you leave ``ALLOWED_HANDLERS`` empty, it is built for you from:
 
 * ``default``;
 * every name in ``ADDITIONAL_ALLOWED_HANDLERS``;
-* every method defined on your own subclass.
+* every plain method defined on your own subclass, except the ones that ``WebSocketView`` itself defines.
+
+.. versionchanged:: 4.1
+   Before, every public callable on your subclass was in the list, including the hooks you override, such as ``can_join_channel``, ``get_channel_permission``, ``has_any_permission`` and ``connect``, and class attributes such as a model. A client could name any of them. Now only functions are included, and a name that ``WebSocketView`` defines is left out. ``default`` and ``change_channel`` are the exceptions: defining one on your subclass still lets clients call it.
 
 .. important::
 
    A method that your subclass only inherits is not in that list. This includes ``change_channel``. To let clients call it, name it in ``ADDITIONAL_ALLOWED_HANDLERS``, or define it on your subclass, even if it only calls ``super()``.
+
+.. warning::
+
+   Every public method you add to a view without ``ALLOWED_HANDLERS`` becomes callable by every connected client. Set ``ALLOWED_HANDLERS``. ``python manage.py check --deploy`` reports each routed view that does not (``django_aws_api_gateway_websockets.W005``).
 
 If you set ``ALLOWED_HANDLERS`` yourself, it is used exactly as you give it.
 
@@ -253,6 +260,9 @@ Set these on your subclass. The settings page describes each in more detail: :do
    * - ``SEND_EXCEPTION_MAIL``
      - ``True``
      - Email the administrators when a handler raises an exception.
+   * - ``EXCEPTION_MAIL_INTERVAL``
+     - ``60``
+     - At most one exception email for each view and exception type in this many seconds, for each process. ``0`` sends one every time.
    * - ``debug``
      - ``False``
      - Collect the reason for each failure in ``debug_log``.

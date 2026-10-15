@@ -13,6 +13,7 @@ from .models import (
     ConnectionRateLimit,
     WebSocketSession,
     WebSocketToken,
+    collect_deferred_sync_errors,
 )
 from .sync import ApiGatewaySyncError
 
@@ -151,6 +152,35 @@ class SyncErrorMessageMixin:
             % {"error": error},
         )
 
+    def _reporting_deferred_errors(self, request, view, *args):
+        """Run an admin view, then report the AWS failures from the calls it made at commit.
+
+        The admin wraps these views in a transaction, so the AWS calls for the records they
+        save or delete run as the transaction commits, after the records are saved and no
+        database locks are held. The failures are shown as messages, like the ones raised
+        from ``save_model``.
+        """
+        with collect_deferred_sync_errors() as errors:
+            response = view(request, *args)
+        for error in errors:
+            self._report(request, error)
+        return response
+
+    def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
+        return self._reporting_deferred_errors(
+            request, super().changeform_view, object_id, form_url, extra_context
+        )
+
+    def delete_view(self, request, object_id, extra_context=None):
+        return self._reporting_deferred_errors(
+            request, super().delete_view, object_id, extra_context
+        )
+
+    def changelist_view(self, request, extra_context=None):
+        return self._reporting_deferred_errors(
+            request, super().changelist_view, extra_context
+        )
+
     def save_model(self, request, obj, form, change):
         try:
             super().save_model(request, obj, form, change)
@@ -160,6 +190,12 @@ class SyncErrorMessageMixin:
     def delete_model(self, request, obj):
         try:
             super().delete_model(request, obj)
+        except ApiGatewaySyncError as error:
+            self._report(request, error)
+
+    def delete_queryset(self, request, queryset):
+        try:
+            super().delete_queryset(request, queryset)
         except ApiGatewaySyncError as error:
             self._report(request, error)
 
@@ -190,6 +226,8 @@ class WebSocketSessionAdmin(ModelAdmin):
     ]
     list_filter = ["connected", "channel_name"]
     date_hierarchy = "created_on"
+    # Hashes that tie a session to a login. They are not for display.
+    exclude = ["session_key_hash", "auth_hash"]
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related("user", "api_gateway")
