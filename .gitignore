@@ -150,5 +150,3 @@ deploy/envs/*
 
 .audit
 .audit/*
-
-uv.lock
