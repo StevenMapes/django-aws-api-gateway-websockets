@@ -10,8 +10,30 @@ Changelog
    warning in version 2.0.0. Please update your integration.
 - This change has not happened yet so treat it as a warning
 
-4.1.0 - Unreleased - Security updated
--------------------------------------
+4.1.0 - 17th October 2026 - Security updated
+--------------------------------------------
+This is a major security update that introduces system checks, additional tables, improved validation of requests,
+support to edit and delete AWS API Gateway entries including routes and the entire set-up.
+
+When you install this version please ensure to run Django Migrations - ``python manage.py migrate``
+
+New settings
+~~~~~~~~~~~~
+
+Nothing in this release needs a new setting. Every new key is optional, and each default keeps your project working after the upgrade. The four ``WEBSOCKETS`` keys from 4.0.0 are unchanged. See :doc:`settings`.
+
+Keys in the ``WEBSOCKETS`` dictionary in ``settings.py``:
+
+-  Added the ``push_changes_to_aws`` key. It is ``True`` by default, which updates a deployed API Gateway in AWS when you save or delete it, or one of its additional routes. Set it to ``False`` to change only the local records.
+-  Added the ``gateway_secret`` key. It is not set by default. Set it to a string, or a list of strings to rotate it, and API Gateway sends it in a header that ``WebSocketView`` checks on every request. See :doc:`gateway_secret`.
+-  Added the ``allowed_integration_hosts`` key. It is not set by default, which allows any host. Set it to a host name or a list of them, and an API gateway or additional route can only point at those hosts.
+
+Attributes on your ``WebSocketView`` subclass, which are not set in ``settings.py``:
+
+-  Added ``ALLOW_UNLISTED_CHANNELS``. It is ``True`` by default, so a channel with no rule stays open. Set it to ``False`` to refuse a channel that has no ``ChannelPermission``.
+-  Added ``CHECK_PERMISSIONS_ON_CONNECT``. It is ``False`` by default. Set it to ``True`` to apply ``permissions_required`` and ``all_permissions_required`` to the connect route.
+-  Added ``CHECK_CONNECT_USERAGENT``. It is ``False`` by default. Set it to ``True`` to require the API Gateway User-Agent on ``$connect``.
+-  Added ``EXCEPTION_MAIL_INTERVAL``. It is ``60`` seconds by default, and limits the exception emails for each view and exception type. Set it to ``0`` to email every time.
 
 Added
 ~~~~~
