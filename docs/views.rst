@@ -92,7 +92,7 @@ How a request is handled
 
 On ``connect``:
 
-#. The ``User-Agent`` must be the one API Gateway sends, the prefix in ``expected_useragent_prefix`` followed by the API ID.
+#. If ``CHECK_CONNECT_USERAGENT`` is ``True``, the ``User-Agent`` must be the one API Gateway sends, the prefix in ``expected_useragent_prefix`` followed by the API ID. It is ``False`` by default. See :ref:`useragent-check`.
 #. The connection rate limit is checked, if ``RATE_LIMIT_ENABLED`` is ``True``.
 #. The headers in ``required_connection_headers`` must be present, and the ``Connectionid`` must be valid.
 #. The host must be in ``ALLOWED_HOSTS`` and in the ``Origin`` header.
@@ -163,7 +163,7 @@ Responses
      - A required header is missing, or the gateway is not registered.
    * - 400
      - ``invalid_useragent``
-     - The ``$connect`` request does not carry the API Gateway ``User-Agent``.
+     - ``CHECK_CONNECT_USERAGENT`` is ``True`` and the ``$connect`` request does not carry the API Gateway ``User-Agent``.
    * - 400
      - ``handler_selection_key_missing``
      - A message has no ``handler`` or ``action`` key.
@@ -245,9 +245,12 @@ Set these on your subclass. The settings page describes each in more detail: :do
    * - ``aws_api_gateway_id``
      - ``None``
      - Accept requests from this API Gateway only.
+   * - ``CHECK_CONNECT_USERAGENT``
+     - ``False``
+     - Require the API Gateway ``User-Agent`` on ``$connect``. See :ref:`useragent-check`.
    * - ``expected_useragent_prefix``
      - ``"AmazonAPIGateway_"``
-     - The start of the ``$connect`` ``User-Agent``.
+     - The start of the ``$connect`` ``User-Agent``, when ``CHECK_CONNECT_USERAGENT`` is ``True``.
    * - ``required_headers``
      - see the code
      - Headers every request must have.

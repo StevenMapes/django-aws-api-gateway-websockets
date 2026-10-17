@@ -118,7 +118,7 @@ Common causes include:
 * missing expected headers;
 * request did not come through API Gateway;
 * invalid host or origin;
-* the ``$connect`` request does not carry the API Gateway User-Agent (``AmazonAPIGateway_`` followed by the API ID), which can happen when a proxy rewrites it;
+* ``CHECK_CONNECT_USERAGENT`` is ``True`` and the ``$connect`` request does not carry the API Gateway User-Agent (``AmazonAPIGateway_`` followed by the API ID). Some APIs forward the browser's own User-Agent on ``$connect``. Set it back to ``False``, or see :ref:`useragent-check`;
 * invalid connection ID;
 * invalid channel name;
 * missing token;

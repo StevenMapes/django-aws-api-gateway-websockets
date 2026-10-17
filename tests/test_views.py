@@ -641,12 +641,33 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
             **extra,
         )
 
-    def _ua_view(self, route, pinned_id=None, registered_id="ABC123AB"):
+    def _ua_view(self, route, pinned_id=None, registered_id="ABC123AB", check=True):
         view = views.WebSocketView()
         view.kwargs = {"route": route}
         view.aws_api_gateway_id = pinned_id
         view.api_gateway = MagicMock(api_id=registered_id) if registered_id else None
+        view.CHECK_CONNECT_USERAGENT = check
         return view
+
+    def test_the_connect_useragent_is_not_checked_by_default(self):
+        """API Gateway forwards the client's own User-Agent on $connect for some APIs"""
+        self.assertFalse(views.WebSocketView.CHECK_CONNECT_USERAGENT)
+
+    def test__expected_useragent_connect_accepts_any_useragent_when_not_checked(self):
+        for pinned_id in (None, "ABC123AB"):
+            for user_agent in (
+                "Mozilla/5.0 (Macintosh) Chrome/155.0.0.0",
+                "AmazonAPIGateway_ABC123AB",
+                "AmazonAPIGateway_OTHERID",
+                "curl/8.0",
+                "",
+                None,
+            ):
+                with self.subTest(pinned_id=pinned_id, user_agent=user_agent):
+                    view = self._ua_view("connect", pinned_id=pinned_id, check=False)
+                    self.assertTrue(
+                        view._expected_useragent(self._ua_request(user_agent))
+                    )
 
     def test__expected_useragent_connect_accepts_the_gateways_own_useragent(self):
         view = self._ua_view("connect")
@@ -753,6 +774,7 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
 
     def test__expected_useragent_reads_the_route_from_the_arguments_too(self):
         view = views.WebSocketView()
+        view.CHECK_CONNECT_USERAGENT = True
         view.api_gateway = MagicMock(api_id="ABC123AB")
 
         self.assertFalse(
@@ -4059,11 +4081,12 @@ class WebSocketViewUserAgentDispatchTestCase(TestCase):
         request.session = MagicMock(session_key="session-key")
         return request
 
-    def _dispatch(self, request, route, view_class=None):
+    def _dispatch(self, request, route, view_class=None, check_useragent=False):
         class ChatView(views.WebSocketView):
             ALLOWED_HANDLERS = {"chat"}
             USE_WS_TOKEN = False
             RATE_LIMIT_ENABLED = False
+            CHECK_CONNECT_USERAGENT = check_useragent
 
             def chat(self, request, *args, **kwargs):
                 return JsonResponse({"ok": True})
@@ -4073,8 +4096,12 @@ class WebSocketViewUserAgentDispatchTestCase(TestCase):
         return view.dispatch(request, route=route)
 
     @override_settings(ALLOWED_HOSTS=["www.example.com"])
-    def test_connect_with_the_gateway_useragent_creates_the_session(self):
-        request = self._request("AmazonAPIGateway_APIGateway-1")
+    def test_connect_with_a_browsers_useragent_creates_the_session_by_default(self):
+        """API Gateway forwarded the browser's own User-Agent, and was refused before"""
+        request = self._request(
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+        )
 
         response = self._dispatch(request, "connect")
 
@@ -4084,12 +4111,24 @@ class WebSocketViewUserAgentDispatchTestCase(TestCase):
         )
 
     @override_settings(ALLOWED_HOSTS=["www.example.com"])
-    def test_connect_with_a_real_useragent_is_refused_and_creates_nothing(self):
+    def test_connect_with_the_gateway_useragent_creates_the_session(self):
+        request = self._request("AmazonAPIGateway_APIGateway-1")
+
+        response = self._dispatch(request, "connect", check_useragent=True)
+
+        self.assertEqual(200, response.status_code)
+        self.assertTrue(
+            WebSocketSession.objects.filter(connection_id="CONNECTION-NEW").exists()
+        )
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    def test_connect_with_a_real_useragent_is_refused_when_the_check_is_on(self):
         request = self._request("Mozilla/5.0")
 
-        response = self._dispatch(request, "connect")
+        response = self._dispatch(request, "connect", check_useragent=True)
 
         self.assertEqual(400, response.status_code)
+        self.assertEqual(b"Unexpected Useragent", response.content)
         self.assertFalse(
             WebSocketSession.objects.filter(connection_id="CONNECTION-NEW").exists()
         )

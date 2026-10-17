@@ -141,6 +141,10 @@ class WebSocketView(View):
         "Sec-Websocket-Version",
     ]
     expected_useragent_prefix = "AmazonAPIGateway_"
+    # Check the User-Agent of the connect route against expected_useragent_prefix. Off, because
+    # API Gateway forwards the client's own User-Agent on $connect for some APIs, and the check
+    # then refuses every browser. Turn it on only if your API sends the prefix.
+    CHECK_CONNECT_USERAGENT = False
 
     permissions_required = (
         []
@@ -372,15 +376,17 @@ class WebSocketView(View):
     def _expected_useragent(self, request, *args, **kwargs) -> bool:
         """Check the User-Agent for the route being called.
 
-        API Gateway calls Django with its own User-Agent, ``AmazonAPIGateway_<api id>``, on the
-        connect route. Messages and disconnects carry the client's real User-Agent, which can be
-        anything, so they always pass. The connect route must match the gateway's exactly.
+        Only the connect route is checked, and only when ``CHECK_CONNECT_USERAGENT`` is
+        ``True``. The check expects API Gateway's own User-Agent, ``AmazonAPIGateway_<api id>``.
+        Some APIs forward the client's User-Agent on ``$connect`` instead, so it is off by
+        default. Messages and disconnects carry the client's real User-Agent, which can be
+        anything, so they always pass.
 
         This is a sanity check, not authentication, because a client can send any User-Agent.
         See the gateway secret for authentication.
         """
         route = kwargs.get("route") or getattr(self, "kwargs", {}).get("route")
-        if route != "connect":
+        if route != "connect" or not self.CHECK_CONNECT_USERAGENT:
             return True
 
         expected = self._expected_gateway_useragent(request)

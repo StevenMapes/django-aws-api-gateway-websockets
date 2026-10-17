@@ -769,7 +769,7 @@ Optional API Gateway ID restriction.
 
 If set, the view only accepts requests from that specific API Gateway ID. The
 ``$connect`` request must also carry the User-Agent that API Gateway sends for
-that ID. See ``expected_useragent_prefix``.
+that ID, if ``CHECK_CONNECT_USERAGENT`` is ``True``. See ``expected_useragent_prefix``.
 
 Example:
 
@@ -805,31 +805,53 @@ Headers expected during WebSocket connection.
 
 These are checked during the connect route.
 
-expected_useragent_prefix
-~~~~~~~~~~~~~~~~~~~~~~~~~
+.. _useragent-check:
 
-Expected API Gateway user-agent prefix.
+CHECK_CONNECT_USERAGENT
+~~~~~~~~~~~~~~~~~~~~~~~
 
-Default: ``"AmazonAPIGateway_"``
+Controls whether the ``$connect`` route requires the User-Agent that API Gateway
+sends. When it is ``True``, the view requires the User-Agent to be
+``expected_useragent_prefix`` followed by the API ID, and answers anything else
+with a 400 response (``Unexpected Useragent``).
 
-API Gateway calls Django with its own User-Agent, the prefix followed by the API
-ID, for example ``AmazonAPIGateway_abc123``, on the ``$connect`` route. The view
-requires an exact match on that route and answers anything else with a 400
-response.
+Default: ``False``
 
-Messages and ``$disconnect`` carry the client's own User-Agent, so the view does
-not check it on those routes.
+.. code-block:: python
 
-.. versionchanged:: 4.1
-   The User-Agent is now checked on ``$connect``, and no longer checked on
-   messages and ``$disconnect``. Before, the checks were the wrong way round, and
-   a view with ``aws_api_gateway_id`` set refused the genuine gateway User-Agent.
+   class ChatWebSocketView(WebSocketView):
+       CHECK_CONNECT_USERAGENT = True
+
+.. versionadded:: 4.1
+
+.. warning::
+
+   Leave this off unless you have checked what your API sends. Some APIs forward
+   the client's own User-Agent on ``$connect``, such as ``Mozilla/5.0 ... Chrome``,
+   and not ``AmazonAPIGateway_<api id>``. With the check on, every browser
+   connection is then refused with ``Unexpected Useragent``. To see what your API
+   sends, look at the ``$connect`` request in your tunnel's inspector, or log
+   ``request.headers["User-Agent"]`` in ``invalid_useragent``.
 
 .. note::
 
    This is a sanity check, not authentication, because a client can send any
    User-Agent. Use the gateway secret to authenticate API Gateway. See
    :doc:`gateway_secret`.
+
+expected_useragent_prefix
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Expected API Gateway user-agent prefix. It is used only when
+``CHECK_CONNECT_USERAGENT`` is ``True``.
+
+Default: ``"AmazonAPIGateway_"``
+
+The view compares the ``$connect`` User-Agent with the prefix followed by the API
+ID, for example ``AmazonAPIGateway_abc123``, and requires an exact match.
+
+Messages and ``$disconnect`` carry the client's own User-Agent, so the view does
+not check it on those routes.
 
 Most users should not change this.
 

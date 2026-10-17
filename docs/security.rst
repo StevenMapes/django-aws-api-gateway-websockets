@@ -314,9 +314,11 @@ Header validation
 The package checks for expected headers that are normally sent by API Gateway.
 
 These checks help confirm that the request has the expected API Gateway shape
-before it is processed. On ``$connect``, the User-Agent must be the one API
-Gateway sends, ``AmazonAPIGateway_`` followed by the API ID. Messages and
-``$disconnect`` carry the client's own User-Agent, so it is not checked there.
+before it is processed. Messages and ``$disconnect`` carry the client's own
+User-Agent, so it is not checked there. On ``$connect`` the User-Agent is checked
+only if you set ``CHECK_CONNECT_USERAGENT`` to ``True``: some APIs forward the
+client's own User-Agent on ``$connect``, and the check then refuses every browser.
+See :ref:`useragent-check`.
 They are sanity checks, not authentication: a client can
 send the same headers. Use the gateway secret to authenticate the gateway. See
 :doc:`gateway_secret`.
