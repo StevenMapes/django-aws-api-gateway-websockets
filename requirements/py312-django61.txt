@@ -18,6 +18,10 @@ botocore==1.43.73 \
     # via
     #   boto3
     #   s3transfer
+certifi==2026.10.23 \
+    --hash=sha256:a9895e6e2758b371e0545e321a3a8fd1fcfd9829ada8824a936dfb16aaaf36cd \
+    --hash=sha256:e9b54de76e530bb6cf0ccd036787103acb58fd42ba930ea8bf948ddbaa2f61d1
+    # via -r requirements.in
 cfgv==3.5.0 \
     --hash=sha256:a8dc6b26ad22ff227d2634a65cb388215ce6cc96bbcc5cfde7641ae87e8dacc0 \
     --hash=sha256:d5b1034354820651caa73ede66a6294d6e95c1b00acc5e9b098e917404669132

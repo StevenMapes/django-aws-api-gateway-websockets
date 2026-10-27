@@ -1,4 +1,5 @@
 boto3>=1.35.96
+certifi>=2026.10.18
 coverage
 django>=5.2.18
 filelock>=3.20.3
