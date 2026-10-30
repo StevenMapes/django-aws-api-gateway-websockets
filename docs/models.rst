@@ -302,6 +302,9 @@ These are also in ``django_aws_api_gateway_websockets.models``.
 ``serialise_message(data)``
    Returns ``data`` as a JSON string, and raises ``ValueError`` if it is over 128 KB, which is the AWS limit.
 
+   .. versionchanged:: 4.1.1
+      Uses :class:`~django.core.serializers.json.DjangoJSONEncoder`, so lazy translation strings, dates, times, ``Decimal`` and ``UUID`` values serialise as text.
+
 ``hash_session_key(session_key)``
    Returns the keyed hash that ``WebSocketToken`` stores. If you create a token row yourself, store this and not the key.
 

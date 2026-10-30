@@ -10,6 +10,14 @@ Changelog
    warning in version 2.0.0. Please update your integration.
 - This change has not happened yet so treat it as a warning
 
+4.1.1 - 30th October 2026 - Lazy translation strings in messages
+-----------------------------------------------------------------
+
+Fixed
+~~~~~
+
+-  Fixed ``send_message`` raising ``TypeError: Object of type __proxy__ is not JSON serializable`` when a message held a ``gettext_lazy`` string, such as a model choice label. Messages now serialise with Django's ``DjangoJSONEncoder``, so lazy strings, dates, times, ``Decimal`` and ``UUID`` values are sent as text.
+
 4.1.0 - 17th October 2026 - Security updated
 --------------------------------------------
 This is a major security update that introduces system checks, additional tables, improved validation of requests,

@@ -1,5 +1,8 @@
+import datetime
 import json
 import threading
+import uuid
+from decimal import Decimal
 from unittest.mock import ANY, MagicMock, call, patch
 
 from botocore.config import Config
@@ -17,6 +20,7 @@ from django.test import (
 )
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
+from django.utils.translation import gettext_lazy
 
 from django_aws_api_gateway_websockets.models import (
     BROADCAST_CONNECT_TIMEOUT,
@@ -2284,6 +2288,33 @@ class SerialiseMessageSimpleTestCase(SimpleTestCase):
     def test_raises_value_error_when_over_limit(self):
         with self.assertRaisesMessage(ValueError, "Message exceeds AWS limit"):
             serialise_message({"message": "x" * (1024 * 128)})
+
+    def test_serialises_lazy_translation_strings(self):
+        """A ``gettext_lazy`` string, such as a model choice label, is sent as plain text."""
+        data = {"options": [("nose", gettext_lazy("Nose"))]}
+
+        self.assertEqual('{"options": [["nose", "Nose"]]}', serialise_message(data))
+
+    def test_serialises_types_the_standard_encoder_rejects(self):
+        """Dates, decimals and UUIDs serialise through Django's encoder."""
+        data = {
+            "when": datetime.date(2026, 10, 30),
+            "price": Decimal("1.50"),
+            "id": uuid.UUID("12345678-1234-5678-1234-567812345678"),
+        }
+
+        self.assertEqual(
+            json.loads(serialise_message(data)),
+            {
+                "when": "2026-10-30",
+                "price": "1.50",
+                "id": "12345678-1234-5678-1234-567812345678",
+            },
+        )
+
+    def test_still_raises_type_error_for_unserialisable_objects(self):
+        with self.assertRaises(TypeError):
+            serialise_message({"value": object()})
 
 
 class GetRegionNameSimpleTestCase(SimpleTestCase):

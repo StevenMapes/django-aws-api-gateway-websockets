@@ -18,6 +18,7 @@ from django.conf import settings
 from django.contrib.auth.models import Permission
 from django.contrib.auth.signals import user_logged_out
 from django.core.exceptions import ValidationError
+from django.core.serializers.json import DjangoJSONEncoder
 from django.core.validators import RegexValidator
 from django.db import models, router, transaction
 from django.db.models import Count, Prefetch, Q, prefetch_related_objects
@@ -108,8 +109,12 @@ def integration_request_parameters() -> dict:
 
 
 def serialise_message(data: dict) -> str:
-    """Serialise ``data`` to JSON, raising ``ValueError`` if it exceeds the AWS limit."""
-    message_data = json.dumps(data)
+    """Serialise ``data`` to JSON, raising ``ValueError`` if it exceeds the AWS limit.
+
+    Uses :class:`~django.core.serializers.json.DjangoJSONEncoder`, so lazy translation
+    strings, dates, times, ``Decimal`` and ``UUID`` values serialise as well as plain data.
+    """
+    message_data = json.dumps(data, cls=DjangoJSONEncoder)
     message_size = len(message_data.encode("utf-8"))
     if message_size > MAX_MESSAGE_SIZE:
         raise ValueError(
