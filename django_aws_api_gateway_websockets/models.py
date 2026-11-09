@@ -5,7 +5,7 @@ import re
 import secrets
 import threading
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import contextmanager
+from contextlib import AbstractContextManager, contextmanager, nullcontext
 from contextvars import ContextVar
 from datetime import timedelta
 from functools import partial
@@ -24,7 +24,7 @@ from django.db import models, router, transaction
 from django.db.models import Count, Prefetch, Q, prefetch_related_objects
 from django.db.models.signals import post_delete, pre_delete
 from django.dispatch import receiver
-from django.utils import timezone
+from django.utils import timezone, translation
 from django.utils.crypto import salted_hmac
 from django.utils.translation import gettext_lazy as _
 
@@ -37,6 +37,9 @@ from django_aws_api_gateway_websockets.conf import (
 from django_aws_api_gateway_websockets.sync import ApiGatewaySyncError
 
 MAX_MESSAGE_SIZE = 1024 * 128  # 128KB (AWS limit is 128KB)
+
+# Length of WebSocketSession.language: the minimum RFC 5646 asks language tags to be stored in
+SESSION_LANGUAGE_MAX_LENGTH = 35
 
 # Defaults for queryset broadcasts (see WebSocketSessionQuerySet.send_message).
 BROADCAST_MAX_WORKERS = 10
@@ -121,6 +124,27 @@ def serialise_message(data: dict) -> str:
             f"Message exceeds AWS limit: {message_size} bytes (max: {MAX_MESSAGE_SIZE} bytes)"
         )
     return message_data
+
+
+def session_language(language: str) -> AbstractContextManager:
+    """Activate ``language`` for translation, or leave the active language alone when blank.
+
+    Used when sending to a session, so lazy translation strings in a message are
+    serialised in the language the client asked for when it connected.
+
+    A language the site no longer lists in ``settings.LANGUAGES`` is left alone too,
+    rather than activating a language with no translations.
+
+    :param language: A language code stored on a :class:`WebSocketSession`, or ``""``.
+    """
+    if not language:
+        return nullcontext()
+    try:
+        # Cached by Django, so this costs nothing after the first send
+        language = translation.get_supported_language_variant(language)
+    except LookupError:
+        return nullcontext()
+    return translation.override(language)
 
 
 def _post_to_connection(client, message: str, connection_id: str):
@@ -1271,6 +1295,12 @@ class WebSocketSessionQuerySet(models.QuerySet):
         This blocks until every post has finished. Call it from a background task
         rather than a request handler when the channel may be large.
 
+        The message is serialised once for each language among the recipients, with
+        that language active, so lazy translation strings reach each client in the
+        language it connected with. Sessions with no stored language get the language
+        active when this is called. Every version is checked against the size limit
+        before anything is sent.
+
         Example::
 
             WebSocketSession.objects.filter(
@@ -1293,13 +1323,16 @@ class WebSocketSessionQuerySet(models.QuerySet):
             raise ValueError("max_workers must be at least 1")
 
         region = get_region_name()
-        msg = serialise_message(data)
+        # Serialised before the query, so a message that is too large costs no query.
+        # Keyed by language; "" is the language active now.
+        messages = {"": serialise_message(data)}
+        active_language = translation.get_language()
 
         # Group by gateway so each session is posted through its own endpoint,
         # with one client per gateway.
-        recipients: dict[tuple[str, str], list[tuple[int, str]]] = {}
+        recipients: dict[tuple[str, str], list[tuple[int, str, str]]] = {}
         without_gateway = 0
-        for pk, connection_id, gateway_id, api_id, stage_name in self.filter(
+        for pk, connection_id, gateway_id, api_id, stage_name, language in self.filter(
             connected=True
         ).values_list(
             "pk",
@@ -1307,11 +1340,20 @@ class WebSocketSessionQuerySet(models.QuerySet):
             "api_gateway_id",
             "api_gateway__api_id",
             "api_gateway__stage_name",
+            "language",
         ):
             if gateway_id is None:
                 without_gateway += 1
                 continue
-            recipients.setdefault((api_id, stage_name), []).append((pk, connection_id))
+            if language == active_language:
+                language = ""
+            if language not in messages:
+                # Every version is serialised, and size checked, before any post
+                with session_language(language):
+                    messages[language] = serialise_message(data)
+            recipients.setdefault((api_id, stage_name), []).append(
+                (pk, connection_id, language)
+            )
 
         if without_gateway:
             logger.warning(
@@ -1342,11 +1384,12 @@ class WebSocketSessionQuerySet(models.QuerySet):
             with ThreadPoolExecutor(max_workers=workers) as pool:
                 outcomes = list(
                     pool.map(
-                        partial(_post_to_connection, client, msg),
-                        [connection_id for _pk, connection_id in sessions],
+                        partial(_post_to_connection, client),
+                        [messages[language] for _pk, _id, language in sessions],
+                        [connection_id for _pk, connection_id, _lang in sessions],
                     )
                 )
-            for (pk, _connection_id), (status, response) in zip(sessions, outcomes):
+            for (pk, _id, _lang), (status, response) in zip(sessions, outcomes):
                 if status == "sent":
                     res.append(response)
                 elif status == "gone":
@@ -1372,6 +1415,10 @@ class WebSocketSession(models.Model):
     def send_message(self, data: dict):
         """Sends a message containing the given data to connection
 
+        The message is serialised with the session's ``language`` active, so lazy
+        translation strings reach the client in the language it connected with. A
+        session with no stored language gets the language active when this is called.
+
         :raises ValueError: If the session has no API Gateway, so there is no endpoint to
             post to, or the message exceeds the AWS size limit.
         """
@@ -1381,7 +1428,8 @@ class WebSocketSession(models.Model):
             )
         region = get_region_name()
         # Security: Validate message size before sending
-        message_data = serialise_message(data)
+        with session_language(self.language):
+            message_data = serialise_message(data)
 
         if type(self).api_gateway.is_cached(self):
             gateway = self.api_gateway
@@ -1453,6 +1501,15 @@ class WebSocketSession(models.Model):
     # A keyed hash of the user's authentication hash (see hash_user_auth). A password
     # change makes it stop matching, which ends the session. Empty for older rows.
     auth_hash = models.CharField(max_length=64, blank=True, default="")
+    language = models.CharField(
+        max_length=SESSION_LANGUAGE_MAX_LENGTH,
+        blank=True,
+        default="",
+        help_text=_(
+            "The language the client asked for when it connected. Messages sent to "
+            "the session are translated into it. Empty means no preference."
+        ),
+    )
     created_on = models.DateTimeField(auto_now_add=True)
     updated_on = models.DateTimeField(auto_now=True)
 

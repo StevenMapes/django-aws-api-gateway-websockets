@@ -285,6 +285,11 @@ Methods you can override
 ``change_channel(request, *args, **kwargs)``
    Moves the session to the channel in ``body["channel"]``. It returns ``None`` when it works and a 400 or 403 response when it does not, so return that response from your override.
 
+``get_session_language(request)``
+   Returns the language stored on the session that ``$connect`` creates. By default it uses :func:`django.utils.translation.get_language_from_request`, which reads the language cookie and then the ``Accept-Language`` header, and always returns a language in ``settings.LANGUAGES``. It returns ``""`` when ``USE_I18N`` is ``False``. Override it to use, for example, a language saved on the user's profile. See :ref:`sending-translated-messages`.
+
+   .. versionadded:: 4.2.0
+
 ``connect(request, *args, **kwargs)`` and ``disconnect(request, *args, **kwargs)``
    The two lifecycle routes. Override them only to add to what they do, and call ``super()``, because they hold the checks above.
 

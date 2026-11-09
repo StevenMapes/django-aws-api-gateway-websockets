@@ -174,6 +174,8 @@ One WebSocket connection. The connect route creates it, and the disconnect route
      - The ``ApiGateway`` that the connection came through. The reverse name is ``sessions``.
    * - ``request_count``
      - The number of messages the connection has sent, plus one.
+   * - ``language``
+     - The language the client asked for when it connected, such as ``fr``. Messages sent to the session are translated into it. Empty means no preference. See :ref:`sending-translated-messages`.
    * - ``created_on`` and ``updated_on``
      - When the record was created and last saved.
 
@@ -208,6 +210,11 @@ To send the same message to many sessions, use the queryset form. Calling ``send
 
    # Fast: one query, and concurrent requests
    WebSocketSession.objects.filter(channel_name="support").send_message(data)
+
+Both forms serialise the message with each session's ``language`` active, so a lazy translation string reaches each client in its own language. The queryset form serialises the message once for each language among the recipients, and checks every version against the 128 KB limit before it sends any. See :ref:`sending-translated-messages`.
+
+.. versionchanged:: 4.2.0
+   Messages are translated into each session's ``language``.
 
 Deleting an ``ApiGateway`` marks its sessions as not connected before it clears their ``api_gateway``, because they could no longer be sent to.
 
@@ -304,6 +311,11 @@ These are also in ``django_aws_api_gateway_websockets.models``.
 
    .. versionchanged:: 4.1.1
       Uses :class:`~django.core.serializers.json.DjangoJSONEncoder`, so lazy translation strings, dates, times, ``Decimal`` and ``UUID`` values serialise as text.
+
+``session_language(language)``
+   Returns a context manager that activates ``language`` for translation, and leaves the active language alone when ``language`` is empty or not in ``settings.LANGUAGES``. Use it to render a message in a session's language yourself, for example ``with session_language(session.language):``.
+
+   .. versionadded:: 4.2.0
 
 ``hash_session_key(session_key)``
    Returns the keyed hash that ``WebSocketToken`` stores. If you create a token row yourself, store this and not the key.

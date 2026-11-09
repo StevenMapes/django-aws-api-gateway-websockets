@@ -141,6 +141,71 @@ Any task queue works. Django 6 includes ``django.tasks`` but ships only backends
 that run immediately or discard the task, so use a package such as
 ``django-tasks`` or Celery to run it in the background.
 
+.. _sending-translated-messages:
+
+Sending messages in the client's language
+-----------------------------------------
+
+Browsers send the ``Accept-Language`` header, and the language cookie, only on
+the ``$connect`` request. API Gateway builds a new request for every later
+message, and that request carries neither. So ``WebSocketView.connect`` stores
+the client's language on the session, in ``WebSocketSession.language``, and
+the package uses it from then on:
+
+- ``send_message``, on a session or a queryset, serialises the message with
+  each session's language active, so a
+  :func:`~django.utils.translation.gettext_lazy` string reaches each client in
+  its own language.
+- ``WebSocketView.dispatch`` activates the session's language while a message
+  handler runs, so :func:`~django.utils.translation.gettext` and templates in a
+  reply use it too.
+
+Use ``gettext_lazy`` for text in a message. The text is translated when the
+message is serialised, after the language for each recipient is active:
+
+.. code-block:: python
+
+   from django.utils.translation import gettext_lazy as _
+
+   WebSocketSession.objects.filter(channel_name="support").send_message(
+       {"type": "notification", "message": _("Your report is ready")}
+   )
+
+A plain ``gettext`` call is translated straight away, in the language active
+where you call it, so every recipient gets the same text. The same is true of
+an f-string or ``format()`` call that holds a lazy string. Use
+:func:`~django.utils.text.format_lazy` to build lazy text from parts.
+
+A session with no stored language gets the language active when you send. A
+stored language that the site has since removed from ``settings.LANGUAGES`` is
+treated the same way.
+
+.. important::
+
+   Build the message inside a background task, not in the code that queues
+   it. A task queue serialises the task's arguments when you queue it, so a
+   lazy string passed as an argument is translated then, in one language, or
+   refused by the queue's serialiser.
+
+The language is fixed when the client connects. If a user changes language,
+the change applies once the client reconnects. To use a language saved on the
+user's profile instead of the browser's, override
+``WebSocketView.get_session_language``:
+
+.. code-block:: python
+
+   class ChatView(WebSocketView):
+       def get_session_language(self, request):
+           profile_language = getattr(request.user, "language", "")
+           return profile_language or super().get_session_language(request)
+
+.. note::
+
+   A language preference tied to a user is personal data under UK GDPR. It is
+   deleted with the session, by the commands in :doc:`cleanup`.
+
+.. versionadded:: 4.2.0
+
 Message shape
 -------------
 

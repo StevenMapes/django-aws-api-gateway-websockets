@@ -10,6 +10,24 @@ Changelog
    warning in version 2.0.0. Please update your integration.
 - This change has not happened yet so treat it as a warning
 
+4.2.0 - 9th November 2026 - Messages in the client's language
+-------------------------------------------------------------
+
+Run ``python manage.py migrate`` after you upgrade. The migration adds one column to ``WebSocketSession``.
+
+Added
+~~~~~
+
+-  Added the ``language`` field to ``WebSocketSession``, which ``WebSocketView.connect`` fills from the language cookie or the ``Accept-Language`` header, because API Gateway sends neither with later messages.
+-  Added ``WebSocketView.get_session_language(request)``, which you can override to choose the language stored on a new session, for example from the user's profile.
+-  Added the ``session_language(language)`` helper, which activates a session's language for translation.
+
+Changed
+~~~~~~~
+
+-  Changed ``send_message``, on a session and on a queryset, to translate lazy strings in a message into each session's language. A queryset send serialises the message once for each language among its recipients, and checks every version against the 128 KB limit before it sends any.
+-  Changed ``WebSocketView.dispatch`` to activate the session's language while a message or disconnect handler runs.
+
 4.1.1 - 30th October 2026 - Lazy translation strings in messages
 -----------------------------------------------------------------
 

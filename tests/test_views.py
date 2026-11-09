@@ -1,11 +1,14 @@
 import json
 from unittest.mock import ANY, MagicMock, patch
 
+from django.conf import settings
 from django.contrib.auth.models import AnonymousUser, Permission, User
 from django.contrib.auth.signals import user_logged_out
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import HttpResponseBadRequest, JsonResponse
 from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
+from django.utils import translation
+from django.utils.translation import gettext
 
 from django_aws_api_gateway_websockets import views
 from django_aws_api_gateway_websockets.models import (
@@ -1322,6 +1325,7 @@ class WebSocketViewSimpleTestCase(SimpleTestCase):
             api_gateway=obj.api_gateway,
             session_key_hash=ANY,
             auth_hash=ANY,
+            language=ANY,
         )
         MockJsonResponse.assert_called_with({})
         self.assertEqual(MockJsonResponse.return_value, res)
@@ -2445,6 +2449,7 @@ class WebSocketViewRemainingBranchTestCase(TestCase):
             api_gateway=self.api_gateway,
             session_key_hash=ANY,
             auth_hash=ANY,
+            language=ANY,
         )
         mocked_record_attempt.assert_called_with(
             "123.123.123.123",
@@ -4395,3 +4400,145 @@ class WebSocketViewConfiguredSettingsTestCase(TestCase):
             RATE_LIMIT_MAX_ATTEMPTS = 2
 
         self.assertEqual(2, StrictView().RATE_LIMIT_MAX_ATTEMPTS)
+
+
+class WebSocketViewSessionLanguageSimpleTestCase(SimpleTestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+
+    def test_uses_the_accept_language_header(self):
+        request = self.factory.get("/", HTTP_ACCEPT_LANGUAGE="fr-FR,fr;q=0.9,en;q=0.8")
+
+        self.assertEqual("fr", views.WebSocketView().get_session_language(request))
+
+    def test_the_language_cookie_wins_over_the_header(self):
+        request = self.factory.get("/", HTTP_ACCEPT_LANGUAGE="fr")
+        request.COOKIES[settings.LANGUAGE_COOKIE_NAME] = "de"
+
+        self.assertEqual("de", views.WebSocketView().get_session_language(request))
+
+    def test_without_a_preference_falls_back_to_language_code(self):
+        request = self.factory.get("/")
+
+        self.assertEqual(
+            translation.get_supported_language_variant(settings.LANGUAGE_CODE),
+            views.WebSocketView().get_session_language(request),
+        )
+
+    @override_settings(LANGUAGES=[("en", "English"), ("fr", "French")])
+    def test_an_unlisted_language_is_not_stored(self):
+        request = self.factory.get("/", HTTP_ACCEPT_LANGUAGE="de")
+
+        self.assertEqual("en", views.WebSocketView().get_session_language(request))
+
+    @override_settings(USE_I18N=False)
+    def test_is_blank_when_translation_is_off(self):
+        request = self.factory.get("/", HTTP_ACCEPT_LANGUAGE="fr")
+
+        self.assertEqual("", views.WebSocketView().get_session_language(request))
+
+    def test_a_code_too_long_to_store_is_not_stored(self):
+        request = self.factory.get("/")
+        with patch(
+            "django_aws_api_gateway_websockets.views.translation.get_language_from_request",
+            return_value="x" * 36,
+        ):
+            self.assertEqual("", views.WebSocketView().get_session_language(request))
+
+
+class WebSocketViewSessionLanguageTestCase(TestCase):
+    """The language a client connects with is stored and used for its messages."""
+
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.api_gateway = ApiGateway.objects.create(
+            api_name="Language Gateway",
+            api_description="A test api gateway",
+            target_base_endpoint="http://www.example1.com/",
+            api_id="APIGateway-1",
+        )
+
+    def _request(self, body=None, **extra):
+        request = self.factory.post(
+            "/",
+            data=json.dumps(body if body is not None else {}),
+            content_type="application/json",
+            QUERY_STRING="channel=room-1",
+            HTTP_HOST="www.example.com",
+            HTTP_X_FORWARDED_FOR="123.123.123.123",
+            HTTP_X_FORWARDED_PROTO="https",
+            HTTP_CONTENT_LENGTH="123",
+            HTTP_CONNECTIONID="CONNECTION-123",
+            HTTP_USER_AGENT="AmazonAPIGateway_APIGateway-1",
+            HTTP_X_AMZN_APIGATEWAY_API_ID="APIGateway-1",
+            HTTP_X_AMZN_TRACE_ID="123456787654",
+            HTTP_X_FORWARDED_PORT="443",
+            HTTP_X_REAL_IP="172.0.0.1",
+            HTTP_COOKIE="some-cookie",
+            HTTP_ORIGIN="https://www.example.com",
+            HTTP_SEC_WEBSOCKET_EXTENSIONS="some-value",
+            HTTP_SEC_WEBSOCKET_KEY="some-key",
+            HTTP_SEC_WEBSOCKET_VERSION="1.2.3",
+            **extra,
+        )
+        request.user = AnonymousUser()
+        request.session = MagicMock(session_key="session-key")
+        return request
+
+    def _view(self, view_class=views.WebSocketView):
+        view = view_class()
+        view.api_gateway = self.api_gateway
+        view.USE_WS_TOKEN = False
+        view.RATE_LIMIT_ENABLED = False
+        return view
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    def test_connect_stores_the_language_from_accept_language(self):
+        response = self._view().connect(
+            self._request(HTTP_ACCEPT_LANGUAGE="fr-FR,fr;q=0.9"), route="connect"
+        )
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual("fr", WebSocketSession.objects.get().language)
+
+    @override_settings(ALLOWED_HOSTS=["www.example.com"])
+    def test_connect_stores_the_language_a_subclass_chooses(self):
+        class ProfileLanguageView(views.WebSocketView):
+            def get_session_language(self, request):
+                return "de"
+
+        self._view(ProfileLanguageView).connect(
+            self._request(HTTP_ACCEPT_LANGUAGE="fr"), route="connect"
+        )
+
+        self.assertEqual("de", WebSocketSession.objects.get().language)
+
+    def _dispatch_greeting(self, language):
+        class GreetingView(views.WebSocketView):
+            def greet(self, request, *args, **kwargs):
+                return JsonResponse({"msg": gettext("Yes")})
+
+        WebSocketSession.objects.create(
+            connection_id="CONNECTION-123",
+            channel_name="room-1",
+            api_gateway=self.api_gateway,
+            language=language,
+        )
+        request = self._request(body={"action": "greet"})
+        view = GreetingView()
+        view.setup(request, route="default")
+        with translation.override("en"):
+            response = view.dispatch(request, route="default")
+            active_after = translation.get_language()
+        return json.loads(response.content), active_after
+
+    def test_dispatch_activates_the_session_language_for_the_handler(self):
+        content, active_after = self._dispatch_greeting("fr")
+
+        self.assertEqual({"msg": "Oui"}, content)
+        self.assertEqual("en", active_after)
+
+    def test_dispatch_with_no_session_language_keeps_the_active_language(self):
+        content, _active_after = self._dispatch_greeting("")
+
+        self.assertEqual({"msg": "Yes"}, content)

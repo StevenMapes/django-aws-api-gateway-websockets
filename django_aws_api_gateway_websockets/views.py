@@ -14,7 +14,7 @@ from django.conf import settings
 from django.core.mail import mail_admins
 from django.db.models import F
 from django.http import HttpResponseBadRequest, HttpResponseForbidden, JsonResponse
-from django.utils import timezone
+from django.utils import timezone, translation
 from django.utils.crypto import constant_time_compare
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
@@ -23,6 +23,7 @@ from django.views.generic import View
 from django_aws_api_gateway_websockets.conf import get_setting
 from django_aws_api_gateway_websockets.models import (
     GATEWAY_SECRET_HEADER,
+    SESSION_LANGUAGE_MAX_LENGTH,
     ApiGateway,
     ChannelPermission,
     ConnectionRateLimit,
@@ -31,6 +32,7 @@ from django_aws_api_gateway_websockets.models import (
     get_gateway_secrets,
     hash_session_key,
     hash_user_auth,
+    session_language,
 )
 
 logger = logging.getLogger(__name__)
@@ -639,8 +641,12 @@ class WebSocketView(View):
         else:
             handler = self.missing_headers
 
+        # Messages and disconnects carry no Accept-Language or language cookie, so the
+        # language the client connected with is activated for the handler instead
+        language = self.websocket_session.language if self.websocket_session else ""
         try:
-            res = handler(request, *args, **kwargs)
+            with session_language(language):
+                res = handler(request, *args, **kwargs)
         except Exception as e:
             logger.exception(e)
             if self.SEND_EXCEPTION_MAIL and self._exception_mail_is_due(e):
@@ -650,6 +656,26 @@ class WebSocketView(View):
             raise e
 
         return res if res else JsonResponse({})
+
+    def get_session_language(self, request) -> str:
+        """The language to store on the session made by the ``$connect`` route.
+
+        Messages sent to the session are translated into it. Uses the language cookie,
+        then the ``Accept-Language`` header, which API Gateway passes on only for
+        ``$connect``. The result is always one of ``settings.LANGUAGES``, falling back
+        to the listed form of ``settings.LANGUAGE_CODE``. Override this to use, for example, a language
+        saved on the user's profile.
+
+        :returns: A language code, or ``""`` when ``USE_I18N`` is off or the code is
+            too long to store.
+        """
+        if not settings.USE_I18N:
+            return ""
+        language = translation.get_language_from_request(request)
+        if len(language) > SESSION_LANGUAGE_MAX_LENGTH:
+            self._debug("Session language is too long to store")
+            return ""
+        return language
 
     def connect(
         self, request, *args, **kwargs
@@ -752,6 +778,7 @@ class WebSocketView(View):
             api_gateway=self.api_gateway,
             session_key_hash=hash_session_key(session_key) if session_key else "",
             auth_hash=hash_user_auth(user_) if user_ else "",
+            language=self.get_session_language(request),
         )
 
         # Record successful connection

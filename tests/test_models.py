@@ -19,13 +19,14 @@ from django.test import (
     override_settings,
 )
 from django.test.utils import CaptureQueriesContext
-from django.utils import timezone
+from django.utils import timezone, translation
 from django.utils.translation import gettext_lazy
 
 from django_aws_api_gateway_websockets.models import (
     BROADCAST_CONNECT_TIMEOUT,
     BROADCAST_READ_TIMEOUT,
     GATEWAY_SECRET_HEADER,
+    MAX_MESSAGE_SIZE,
     ApiGateway,
     ApiGatewayAdditionalRoute,
     ChannelPermission,
@@ -41,6 +42,7 @@ from django_aws_api_gateway_websockets.models import (
     hash_session_key,
     integration_request_parameters,
     serialise_message,
+    session_language,
 )
 from django_aws_api_gateway_websockets.sync import ApiGatewaySyncError
 
@@ -1928,6 +1930,40 @@ class WebSocketSessionIntegrationTestCase(TestCase):
             ),
         )
 
+    @patch("django_aws_api_gateway_websockets.models.get_boto3_client")
+    @override_settings(AWS_GATEWAY_REGION_NAME="eu-west-1")
+    def test_send_message_translates_into_the_session_language(
+        self, mocked_get_boto3_client
+    ):
+        session = WebSocketSession.objects.create(
+            connection_id="LANG-FR", api_gateway=self.api_gateway, language="fr"
+        )
+
+        with translation.override("en"):
+            session.send_message({"msg": gettext_lazy("Yes")})
+            active_after = translation.get_language()
+
+        mocked_get_boto3_client.return_value.post_to_connection.assert_called_once_with(
+            Data='{"msg": "Oui"}', ConnectionId="LANG-FR"
+        )
+        self.assertEqual("en", active_after)
+
+    @patch("django_aws_api_gateway_websockets.models.get_boto3_client")
+    @override_settings(AWS_GATEWAY_REGION_NAME="eu-west-1")
+    def test_send_message_with_no_session_language_uses_the_active_language(
+        self, mocked_get_boto3_client
+    ):
+        session = WebSocketSession.objects.create(
+            connection_id="LANG-NONE", api_gateway=self.api_gateway
+        )
+
+        with translation.override("de"):
+            session.send_message({"msg": gettext_lazy("Yes")})
+
+        mocked_get_boto3_client.return_value.post_to_connection.assert_called_once_with(
+            Data='{"msg": "Ja"}', ConnectionId="LANG-NONE"
+        )
+
 
 class WebSocketSessionQuerySetIntegrationTestCase(TestCase):
     def setUp(self) -> None:
@@ -2280,6 +2316,94 @@ class WebSocketSessionQuerySetIntegrationTestCase(TestCase):
         with self.assertRaises(ValueError):
             WebSocketSession.objects.all().send_message({}, max_workers=0)
 
+    def _language_session(self, connection_id, language):
+        return WebSocketSession.objects.create(
+            connection_id=connection_id,
+            channel_name="Languages",
+            api_gateway=self.api_gateway,
+            language=language,
+        )
+
+    def _sent_by_connection(self, mocked_get_boto3_client):
+        post = mocked_get_boto3_client.return_value.post_to_connection
+        return {c.kwargs["ConnectionId"]: c.kwargs["Data"] for c in post.call_args_list}
+
+    @patch("django_aws_api_gateway_websockets.models.get_boto3_client")
+    @override_settings(AWS_GATEWAY_REGION_NAME="eu-west-1")
+    def test_send_message_translates_for_each_session_language(
+        self, mocked_get_boto3_client
+    ):
+        for connection_id, language in (
+            ("FR-1", "fr"),
+            ("FR-2", "fr"),
+            ("DE-1", "de"),
+            ("EN-1", "en"),
+            ("NONE-1", ""),
+        ):
+            self._language_session(connection_id, language)
+
+        with translation.override("en"):
+            WebSocketSession.objects.filter(channel_name="Languages").send_message(
+                {"msg": gettext_lazy("Yes")}
+            )
+            active_after = translation.get_language()
+
+        self.assertEqual(
+            {
+                "FR-1": '{"msg": "Oui"}',
+                "FR-2": '{"msg": "Oui"}',
+                "DE-1": '{"msg": "Ja"}',
+                "EN-1": '{"msg": "Yes"}',
+                "NONE-1": '{"msg": "Yes"}',
+            },
+            self._sent_by_connection(mocked_get_boto3_client),
+        )
+        self.assertEqual("en", active_after)
+
+    @patch("django_aws_api_gateway_websockets.models.serialise_message")
+    @patch("django_aws_api_gateway_websockets.models.get_boto3_client")
+    @override_settings(AWS_GATEWAY_REGION_NAME="eu-west-1")
+    def test_send_message_serialises_once_per_language_not_per_session(
+        self, mocked_get_boto3_client, mocked_serialise_message
+    ):
+        mocked_serialise_message.side_effect = serialise_message
+        for number in range(3):
+            self._language_session(f"FR-{number}", "fr")
+            self._language_session(f"EN-{number}", "en")
+            self._language_session(f"NONE-{number}", "")
+
+        with translation.override("en"):
+            WebSocketSession.objects.filter(channel_name="Languages").send_message(
+                {"msg": gettext_lazy("Yes")}
+            )
+
+        # Once for the active language (shared by "en" and blank) and once for "fr"
+        self.assertEqual(2, mocked_serialise_message.call_count)
+        self.assertEqual(
+            9, mocked_get_boto3_client.return_value.post_to_connection.call_count
+        )
+
+    @patch("django_aws_api_gateway_websockets.models.get_boto3_client")
+    @override_settings(AWS_GATEWAY_REGION_NAME="eu-west-1")
+    def test_send_message_checks_every_language_is_within_the_limit_before_sending(
+        self, mocked_get_boto3_client
+    ):
+        """A translation that pushes the message over the limit stops the whole send."""
+        self._language_session("EN-1", "")
+        self._language_session("DE-1", "de")
+        # "No" is "Nein" in German, so the German version is two bytes longer
+        overhead = len(json.dumps({"pad": "", "msg": "No"}))
+        data = {"pad": "x" * (MAX_MESSAGE_SIZE - overhead), "msg": gettext_lazy("No")}
+
+        with translation.override("en"):
+            self.assertEqual(MAX_MESSAGE_SIZE, len(serialise_message(data)))
+            with self.assertRaisesMessage(ValueError, "Message exceeds AWS limit"):
+                WebSocketSession.objects.filter(channel_name="Languages").send_message(
+                    data
+                )
+
+        mocked_get_boto3_client.return_value.post_to_connection.assert_not_called()
+
 
 class SerialiseMessageSimpleTestCase(SimpleTestCase):
     def test_returns_json_string_for_small_payload(self):
@@ -2315,6 +2439,33 @@ class SerialiseMessageSimpleTestCase(SimpleTestCase):
     def test_still_raises_type_error_for_unserialisable_objects(self):
         with self.assertRaises(TypeError):
             serialise_message({"value": object()})
+
+
+class SessionLanguageSimpleTestCase(SimpleTestCase):
+    def test_activates_the_language(self):
+        with translation.override("en"):
+            with session_language("fr"):
+                self.assertEqual("fr", translation.get_language())
+            self.assertEqual("en", translation.get_language())
+
+    def test_blank_leaves_the_active_language_alone(self):
+        with translation.override("de"):
+            with session_language(""):
+                self.assertEqual("de", translation.get_language())
+
+    @override_settings(LANGUAGES=[("en", "English"), ("fr", "French")])
+    def test_a_language_the_site_no_longer_lists_leaves_the_active_language_alone(
+        self,
+    ):
+        with translation.override("en"):
+            with session_language("de"):
+                self.assertEqual("en", translation.get_language())
+
+    @override_settings(LANGUAGES=[("en", "English"), ("fr", "French")])
+    def test_a_regional_variant_uses_the_listed_language(self):
+        with translation.override("en"):
+            with session_language("fr-ca"):
+                self.assertEqual("fr", translation.get_language())
 
 
 class GetRegionNameSimpleTestCase(SimpleTestCase):
