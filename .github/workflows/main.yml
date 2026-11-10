@@ -21,10 +21,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: Python 3.10 / Django 5.2
-            python-version: '3.10'
-            tox-env: py310-django52
-
           - name: Python 3.11 / Django 5.2
             python-version: '3.11'
             tox-env: py311-django52

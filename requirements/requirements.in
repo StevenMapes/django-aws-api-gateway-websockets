@@ -2,7 +2,7 @@ boto3>=1.35.96
 certifi>=2026.10.18
 coverage
 django>=5.2.18
-filelock>=3.20.3
+filelock>=4.2.1
 pytest>=8.3.4
 pytest-django>=4.9.0
 pip>=26.1.1   # Breaks cache_clear

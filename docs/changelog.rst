@@ -10,6 +10,17 @@ Changelog
    warning in version 2.0.0. Please update your integration.
 - This change has not happened yet so treat it as a warning
 
+4.3.0 - 10th November 2026 - Dropped support for Python 3.10
+------------------------------------------------------------
+
+Python 3.10 reached end of life in October 2026. See the `Python version status page <https://devguide.python.org/versions/>`_.
+
+Removed
+~~~~~~~
+
+-  Removed support for Python 3.10, so the package now requires Python 3.11 or later.
+-  Removed Python 3.10 from the test matrix and the package classifiers.
+
 4.2.0 - 9th November 2026 - Messages in the client's language
 -------------------------------------------------------------
 

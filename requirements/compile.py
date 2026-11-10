@@ -19,21 +19,6 @@ if __name__ == "__main__":
         "--no-emit-index-url",
     ] + sys.argv[1:]
 
-    if (3, 10, 0) <= py_version < (3, 11, 0):
-        subprocess.run(
-            [
-                "python",
-                *common_args,
-                "-P",
-                "Django>=5.2.12,<6.0",
-                "-P",
-                "urllib3>=2.6.0",
-                "-o",
-                "py310-django52.txt",
-            ],
-            check=True,
-            capture_output=True,
-        )
     if (3, 11, 0) <= py_version < (3, 12, 0):
         subprocess.run(
             [

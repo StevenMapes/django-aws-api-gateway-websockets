@@ -7,18 +7,17 @@ Django-AWS-API-Gateway-WebSockets.
 Supported Python versions
 -------------------------
 
-The project requires Python 3.10 or later.
+The project requires Python 3.11 or later.
 
 The package metadata declares support for:
 
-* Python 3.10;
 * Python 3.11;
 * Python 3.12;
 * Python 3.13;
 * Python 3.14;
 * Python 3.15.
 
-Python versions older than 3.10 are not supported.
+Python versions older than 3.11 are not supported.
 
 Supported Django versions
 -------------------------
@@ -62,13 +61,6 @@ The following table summarises the intended test/support matrix.
      - Django 5.2
      - Django 6.0
      - Django 6.1
-   * - 3.10
-     - Legacy / not recommended
-     - Legacy / not recommended
-     - Legacy / not recommended
-     - Supported
-     - Not applicable
-     - Not applicable
    * - 3.11
      - Legacy / not recommended
      - Legacy / not recommended
@@ -192,10 +184,6 @@ The documentation is built with Sphinx.
 
 The Read the Docs configuration defines the Python version used for the
 published documentation build.
-
-If building locally on Python 3.10, ensure the docs requirements include the
-``tomli`` backport because ``tomllib`` is only included in the Python standard
-library from Python 3.11 onward.
 
 Install documentation dependencies with:
 
