@@ -72,6 +72,13 @@ Attributes on your ``WebSocketView`` subclass, which are not set in ``settings.p
 -  Added ``CHECK_CONNECT_USERAGENT``. It is ``False`` by default. Set it to ``True`` to require the API Gateway User-Agent on ``$connect``.
 -  Added ``EXCEPTION_MAIL_INTERVAL``. It is ``60`` seconds by default, and limits the exception emails for each view and exception type. Set it to ``0`` to email every time.
 
+Breaking change
+---------------
+The method ``_add_user_to_request`` now returns a boolean of whether or not the session is connected. Previously it
+did not so if you have overloaded this method you must update it to return the response from the
+``super()._add_user_to_request(request)``
+
+
 Added
 ~~~~~
 
